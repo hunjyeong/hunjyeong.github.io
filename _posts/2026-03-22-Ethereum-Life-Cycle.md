@@ -36,7 +36,7 @@ tags: [github Pages, githubBlog, blog, velog, github, blockchain]
     - 슬롯 기반으로 블록 제안자(Proposer)와 검증자 위원회(Committee)를 선정한다.
     - 검증자의 투표(Attestation)를 수집하고 포크 선택 규칙(LMD-GHOST)을 수행한다.
     - Execution Client와 상호작용하여 블록의 실행 결과를 검증한다.
-    - Casper FFG 규칙에 따라 체크포인트를 **정당화(Justification)** 및 **완결(Finalization)** 한다.
+    - Casper FFG 규칙에 따라 체크포인트를 정당화(Justification) 및 완결(Finalization)한다.
 
 실제로 트랜잭션이 네트워크에 들어와서 블록에 포함되고 확정되기까지 이더리움 트랜잭션의 라이프 사이클은 다음과 같이 진행된다.
 
