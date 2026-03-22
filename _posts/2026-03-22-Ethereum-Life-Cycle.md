@@ -38,6 +38,8 @@ tags: [github Pages, githubBlog, blog, velog, github, blockchain]
     - Execution Client와 상호작용하여 블록의 실행 결과를 검증한다.
     - Casper FFG 규칙에 따라 체크포인트를 정당화(Justification) 및 완결(Finalization)한다.
 
+&nbsp;
+
 실제로 트랜잭션이 네트워크에 들어와서 블록에 포함되고 확정되기까지 이더리움 트랜잭션의 라이프 사이클은 다음과 같이 진행된다.
 
 ## 1. Transaction Origination and Signing
