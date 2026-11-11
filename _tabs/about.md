@@ -8,4 +8,4 @@ order: 4
 
 {: .prompt-tip }-->
 
-Hello!
+공부한거 기록하려고 만든 블로그

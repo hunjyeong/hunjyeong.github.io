@@ -6,7 +6,7 @@ tags: [github Pages, githubBlog, blog, github, blockchain]
 media_subpath: /assets/img/posts/ethereum-life-cycle/
 ---
 
-> 이 글은 2026년 11월 기준 Ethereum 메인넷(Fusaka 업그레이드 적용 상태)을 기준으로 한다. Fusaka는 Fulu + Osaka의 줄임말로, Ethereum의 업그레이드 이름은 Consensus Layer 업그레이드 이름(Fulu)과 Execution Layer 업그레이드 이름(Osaka)을 합쳐서 만든다. 다음 업그레이드인 Glamsterdam(Gloas + Amsterdam)은 2026년 10월 6일 Sepolia 테스트넷에 활성화되었다. Hoodi 테스트넷 활성화는 10월 26일로 예정되었다가 10월 22일에 연기되었고, 새 Hoodi 일정과 메인넷 활성화 일정은 정해지지 않았다([Ethereum Foundation 공지](https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay)). Glamsterdam이 메인넷에 적용되면 3장의 PBS(Proposer-Builder Separation) 구조, Slot 내 타이밍, Engine API(Application Programming Interface) 메서드 버전이 달라진다. 1.1과 2.1의 가스 수치도 달라진다([EIP-2780](https://eips.ethereum.org/EIPS/eip-2780), [EIP-7976](https://eips.ethereum.org/EIPS/eip-7976), [EIP-7981](https://eips.ethereum.org/EIPS/eip-7981)). 포함될 EIP 목록은 확정 전이므로 바뀔 수 있다. PBS 구조의 변경은 ePBS(enshrined PBS)라고 부르며 [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)에 정의되어 있다. EIP(Ethereum Improvement Proposal)는 Ethereum 프로토콜 변경을 제안하는 문서이다.
+> 이 글은 2026년 11월 기준 Ethereum 메인넷(Fusaka 업그레이드 적용 상태)을 기준으로 한다. Fusaka는 Fulu + Osaka의 줄임말로, Ethereum의 업그레이드 이름은 Consensus Layer 업그레이드 이름(Fulu)과 Execution Layer 업그레이드 이름(Osaka)을 합쳐서 만든다. 다음 업그레이드인 Glamsterdam(Gloas + Amsterdam)은 2026년 10월 6일 Sepolia 테스트넷에 활성화되었다. Hoodi 테스트넷 활성화는 10월 26일로 예정되었다가 10월 22일에 연기되었고, 새 Hoodi 일정과 메인넷 활성화 일정은 정해지지 않았다([Ethereum Foundation 공지](https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay)). Glamsterdam이 메인넷에 적용되면 3장의 PBS(Proposer-Builder Separation) 구조, 4장의 Slot 내 타이밍, 3.2와 4.2의 Engine API(Application Programming Interface) 메서드 버전이 달라진다. 1.1과 2.1의 가스 수치도 달라진다([EIP-2780](https://eips.ethereum.org/EIPS/eip-2780), [EIP-7976](https://eips.ethereum.org/EIPS/eip-7976), [EIP-7981](https://eips.ethereum.org/EIPS/eip-7981)). 포함될 EIP 목록은 확정 전이므로 바뀔 수 있다. PBS 구조의 변경은 ePBS(enshrined PBS)라고 부르며 [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)에 정의되어 있다. EIP(Ethereum Improvement Proposal)는 Ethereum 프로토콜 변경을 제안하는 문서이다.
 
 <br />
 <br />
@@ -30,7 +30,7 @@ Node는 저장하는 데이터의 범위에 따라 세 가지로 나뉜다.
 
 Client는 Ethereum 프로토콜 명세를 구현한 소프트웨어이다. 명세는 하나이지만 여러 팀이 서로 다른 언어로 구현한 Client가 존재한다. PoS(Proof-of-Stake) 전환 이후 하나의 Node는 Execution Client와 Consensus Client를 함께 실행해야 한다. 두 Client는 Engine API라는 로컬 RPC(Remote Procedure Call)로 연결되며, Consensus Client가 Execution Client에 요청을 보내는 방향으로 동작한다.
 
-- **Execution Client** (EL Client, Execution Engine)
+- **Execution Client** (EL Client, Execution Engine. EL은 Execution Layer의 줄임말이다)
     - Execution Layer(실행 계층)를 구현한 프로그램이다.
         - 예: Geth, Nethermind, Besu, Erigon, Reth 등
     - P2P 네트워크에서 트랜잭션을 수신하여 Mempool(블록에 포함되기 전의 트랜잭션을 보관하는 공간)에 저장하고 다른 Node에 전파한다.
@@ -38,10 +38,11 @@ Client는 Ethereum 프로토콜 명세를 구현한 소프트웨어이다. 명�
     - JSON(JavaScript Object Notation)‑RPC API를 제공해서 외부(지갑, DApp(Decentralized Application) 등)에서 상태 조회와 트랜잭션 전송이 가능하게 한다.
     - Consensus Client의 요청(Engine API)에 따라 Execution Payload를 생성하고 검증한다. Execution Payload는 블록에 담기는 트랜잭션 목록과 그 실행 결과이다.
 
-- **Consensus Client** (CL Client, Beacon Node)
+- **Consensus Client** (CL Client, Beacon Node. CL은 Consensus Layer의 줄임말이다)
     - Consensus Layer(합의 계층)와 PoS 합의 알고리즘을 구현한 프로그램이다.
         - 예: Lighthouse, Prysm, Teku, Nimbus, Lodestar, Grandine 등
     - Execution Client와는 별도의 P2P 네트워크에서 Beacon Block과 Attestation(Validator의 투표)을 수신하고 전파한다.
+        - Validator는 ETH(Ethereum의 기본 화폐)를 예치(Stake)하고 블록 제안과 Attestation을 맡는 참여자이다. 이 역할은 Consensus Client에 연결된 별도의 Validator Client 소프트웨어가 수행한다.
     - Beacon State를 관리하며, 이 상태로부터 각 Slot(12초 단위의 시간 구간)의 Proposer(블록 제안자)와 Committee(투표를 맡은 Validator 집합)를 계산한다.
     - 수집한 Attestation으로 Fork Choice Rule(포크 선택 규칙)인 LMD-GHOST(Latest Message Driven Greediest Heaviest Observed SubTree)를 실행하여 체인의 Head(최신 블록)를 결정한다.
     - 블록의 실행 결과를 직접 계산하지 않고, Engine API로 Execution Client에 Execution Payload의 생성과 검증을 요청한다.
@@ -190,7 +191,7 @@ Node는 [`eth_sendRawTransaction`](https://ethereum.org/developers/docs/apis/jso
 1차 검증을 모두 통과한 트랜잭션은 Node의 로컬 Mempool에 다음과 같은 과정을 통해 추가된다. 
 
 1. 트랜잭션 해시 계산
-    - keccak256(0x02 || RLP([..., yParity, r, s])) → 트랜잭션 해시 (0x1234...)
+    - `keccak256(0x02 || RLP([..., yParity, r, s]))` → 트랜잭션 해시 (0x1234...)
 2. Pending / Queued 분류
     - Pending: 계정의 현재 nonce부터 빈 번호 없이 이어지는 트랜잭션. 바로 실행 가능하다.
     - Queued: 앞선 nonce가 비어 있어 아직 실행할 수 없는 트랜잭션. 빈 nonce가 채워지면 Pending으로 승격된다.
@@ -229,15 +230,15 @@ Node는 [`eth_sendRawTransaction`](https://ethereum.org/developers/docs/apis/jso
   Queued:  []
 ```
 
-- **Local TX**: 해당 Node의 RPC로 직접 제출된 트랜잭션이다. 다섯 개 EL Client 모두 Local TX를 다른 Node에서 전파받은 트랜잭션(Remote TX)과 구분하며, 기본 설정에서는 Local TX도 P2P 네트워크에 전파한다. 우대 방식은 Client마다 다르다(2026년 11월 각 저장소 소스 기준).
+- **Local TX**: 해당 Node의 RPC로 직접 제출된 트랜잭션이다. 아래 표의 다섯 개 EL Client 모두 Local TX를 다른 Node에서 전파받은 트랜잭션(Remote TX)과 구분하며, 기본 설정에서는 Local TX도 P2P 네트워크에 전파한다. 우대 방식은 Client마다 다르다(2026년 11월 각 저장소 소스 기준).
 
     | Client | Local TX 처리 |
     | --- | --- |
     | Geth | Mempool에는 Remote TX와 같은 규칙으로 들어간다. 별도의 tracker가 Local TX를 기록해 두었다가 Mempool에서 빠지면 다시 제출하고, journal 파일에 저장해 재시작 후 복원한다. v1.15.0에서 이 구조로 바뀌었다. |
-    | Reth | 기본 설정에서 가격 제한, 축출, 계정당 Slot 제한을 면제한다. `--txpool.no-local-transactions-propagation` 옵션을 켜면 Local TX를 전파하지 않는다(기본값은 전파). |
+    | Reth | 기본 설정에서 가격 제한, 축출, 계정당 트랜잭션 수 제한을 면제한다. `--txpool.no-local-transactions-propagation` 옵션을 켜면 Local TX를 전파하지 않는다(기본값은 전파). |
     | Besu | 기본 설정에서 Local TX에 우선권을 준다. `--tx-pool-no-local-priority` 옵션으로 해제한다. |
     | Nethermind | 수수료 하한 필터를 면제하고, 블록에 포함될 때까지 주기적으로 다시 전파한다. 단, maxFeePerGas가 현재 base fee의 70%(기본값) 미만이면 즉시 전파하지 않고 보관했다가 조건을 만족할 때 전파한다. |
-    | Erigon | 최소 수수료 제한과 계정당 Slot 제한을 면제하고, 주기적으로 다시 전파한다. |
+    | Erigon | 최소 수수료 제한과 계정당 트랜잭션 수 제한을 면제하고, 주기적으로 다시 전파한다. |
 
 - **Private TX**: 공용 Mempool에 전파되지 않고 Builder에게 직접 전달되는 트랜잭션이다(2.3 참고). Local TX와는 다른 개념이다.
 
@@ -406,7 +407,7 @@ Proposer는 Execution Payload를 확보한 이후 CL에서 Beacon Block을 생�
     
     서명이 완료된 `SignedBeaconBlock`은 libp2p 기반 GossipSub 프로토콜을 통해 네트워크에 전파된다. 블록이 참조하는 blob 데이터는 블록과 별도로 전파된다. Fusaka의 [EIP-7594](https://eips.ethereum.org/EIPS/eip-7594)(PeerDAS, Peer Data Availability Sampling) 이후에는 data column sidecar 형태로 전파된다.
     
-    블록을 수신한 다른 Validator들은 다음 과정을 수행한다.
+    블록을 수신한 다른 Node들은 다음 과정을 수행한다.
     
     1. Consensus Layer 규칙 검증
     2. Execution Layer에서 Execution Payload 재실행 및 검증
@@ -468,11 +469,11 @@ slot
 
 ### 4.2 블록 수신 및 검증 (Block Reception and Validation)
 
-네트워크의 Validator Node는 P2P 네트워크를 통해 `SignedBeaconBlock`을 수신하면, 먼저 Consensus Layer(CL)에서 블록의 기본 구조와 Proposer의 서명을 포함한 합의 규칙 검증을 수행한다.
+네트워크의 Node는 P2P 네트워크를 통해 `SignedBeaconBlock`을 수신하면, 먼저 Consensus Layer(CL)에서 블록의 기본 구조와 Proposer의 서명을 포함한 합의 규칙 검증을 수행한다.
 
 CL은 블록의 Slot, parent root, Proposer index, RANDAO reveal, 그리고 포함된 consensus operations(attestations, slashings 등)이 프로토콜 규칙을 만족하는지 검증한다. 이후 CL은 블록에 포함된 `execution_payload`를 Execution Layer(EL) Client에 Engine API의 `engine_newPayloadV4`(Fusaka 기준) 호출을 통해 전달하여 실행 검증을 요청한다.
 
-EL Client는 Payload에 포함된 트랜잭션들을 EVM에서 재실행(Re-execution)하여 상태 전이(State Transition)를 계산하고, 트랜잭션 실행 결과의 유효성, state root 일치 여부, gas 사용량 및 블록 실행 규칙 준수 여부를 검증한다. 실행 검증이 성공하면 EL은 `VALID`를, 실패하면 `INVALID`를 응답한다. EL이 아직 동기화 중이어서 판단할 수 없으면 `SYNCING` 또는 `ACCEPTED`를 응답하며, 이 경우 CL은 블록을 임시로 받아들이되(optimistic sync) 그 블록에 대해 Attestation을 수행하지 않는다.
+EL Client는 Payload에 포함된 트랜잭션들을 EVM에서 재실행(Re-execution)하여 상태 전이(State Transition)를 계산하고, 트랜잭션 실행 결과의 유효성, state root 일치 여부, gas 사용량 및 블록 실행 규칙 준수 여부를 검증한다. 실행 검증이 성공하면 EL은 `VALID`를, 실패하면 `INVALID`를 응답한다. EL에 검증에 필요한 데이터(부모 블록의 상태 등)가 없으면 `SYNCING`을, 정규 체인을 잇지 않는 블록이어서 아직 실행하지 않았으면 `ACCEPTED`를 응답한다. 두 경우 모두 CL은 블록을 임시로 받아들이되(optimistic sync) 그 블록에 대해 Attestation을 수행하지 않는다.
 
 블록이 blob을 참조하는 경우에는 해당 blob 데이터가 네트워크에서 가용한지(data availability)도 확인한다. CL 검증, EL 검증, 데이터 가용성 확인을 모두 통과한 블록만이 유효한 블록(Valid Block)으로 인정되어 Fork Choice Store에 추가되고, 이후 Fork Choice Rule에서 Canonical Chain의 후보로 고려된다.
 
@@ -535,7 +536,7 @@ Validator는 Epoch당 한 번만 Attestation을 수행하지만, 수십만 명 �
 
 ### 4.5 포크 선택 규칙 적용 (Fork Choice — LMD-GHOST)
 
-각 Validator는 자신이 P2P 네트워크를 통해 관측한 블록과 Attestation을 기반으로 LMD-GHOST Fork Choice Rule을 실행하여 현재 Beacon Chain의 Head를 결정한다.
+각 Node는 자신이 P2P 네트워크를 통해 관측한 블록과 Attestation을 기반으로 LMD-GHOST Fork Choice Rule을 실행하여 현재 Beacon Chain의 Head를 결정한다.
 
 LMD-GHOST는 각 Validator의 가장 최근 Attestation(latest message) 만을 고려하여 Stake 가중치를 계산한다. 알고리즘은 가장 최근에 Justified 된 Checkpoint 블록(5.1 참고)부터 시작하여 다음 과정을 반복한다. 현재 블록의 자식 블록들 중 가장 많은 Stake(weighted latest attestations)을 받은 블록을 선택하고, 해당 경로를 따라 내려가며 더 이상 자식이 없을 때의 블록을 Head로 선택한다. 즉, 가장 많은 Validator의 최신 지지를 받고 있는 체인이 Canonical Chain으로 선택된다. 여기에 더해, 해당 Slot의 Attestation 기한 전에 도착한 그 Slot의 블록에는 Proposer boost라는 임시 가중치가 더해진다. 크기는 한 Slot에 배정된 전체 Committee Stake의 40%이며 그 Slot 동안만 적용된다. Genesis가 아니라 Justified Checkpoint에서 시작하는 것이 LMD-GHOST와 Casper FFG가 결합되는 지점이다.
 
@@ -575,7 +576,7 @@ Slot N+1
 
 이 단계에서는 LMD-GHOST Fork Choice Rule을 통해 선택된 체인의 Head(확률적 합의 상태)에 대해, Casper FFG를 사용하여 체인의 일부를 경제적으로 되돌릴 수 없는 상태(Finality)로 확정한다.
 
-LMD-GHOST는 현재 네트워크에서 가장 많은 Validator의 최신 지지를 받는 체인을 선택하는 Fork Choice 규칙이며, Casper-FFG는 Epoch 경계에서 Validator 투표를 집계하여 체인의 특정 지점을 Justification 및 Finalization 하는 역할을 수행한다.
+LMD-GHOST는 현재 네트워크에서 가장 많은 Validator의 최신 지지를 받는 체인을 선택하는 Fork Choice 규칙이며, Casper FFG는 Epoch 경계에서 Validator 투표를 집계하여 체인의 특정 지점을 Justification 및 Finalization 하는 역할을 수행한다.
 
 ### 5.1 체크포인트 정당화 (Checkpoint Justification)
 
