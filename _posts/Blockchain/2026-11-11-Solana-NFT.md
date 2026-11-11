@@ -7,8 +7,7 @@ tags: [Blockchain, NFT]
 
 # Solana NFT 표준 정리: Token Metadata, Core, Compressed NFT
 
-> 작성 기준일: 2026-11-11
-> 기준 자료: Metaplex 공식 문서, Solana 공식 문서 (문서 끝의 참고 자료 참조)
+> 기준 자료: Metaplex 공식 문서와 Solana 공식 문서. 출처는 본문 안에 링크로 적는다.
 > 수치(비용, 수수료, 지원 현황)는 기준일의 공식 문서 값이며, Program 버전과 시점에 따라 달라질 수 있다.
 
 ## 1. 배경: Solana의 NFT는 왜 Account가 여러 개인가
@@ -21,12 +20,18 @@ Account는 저장하는 데이터 크기에 비례하는 SOL을 예치해야 유
 
 ### 1.2 SPL Token의 기본 구조
 
-SPL(Solana Program Library) Token Program은 Solana의 기본 Token Program이다. 이 Program은 Token을 두 종류의 Account로 표현한다.
+SPL(Solana Program Library) Token Program은 Solana의 기본 Token Program이다. [Solana 문서](https://solana.com/docs/tokens)에 따르면 이 Program은 Token을 두 종류의 Account로 표현한다.
 
 - Mint Account: Token 종류 하나를 대표한다. Supply(총 발행량), Decimals(소수점 자릿수), Mint Authority(추가 발행 권한), Freeze Authority(동결 권한)를 저장한다. Mint Account의 주소가 그 Token의 식별자가 된다.
 - Token Account: 특정 Wallet(지갑)이 특정 Mint의 Token을 얼마나 가지고 있는지를 저장한다. 주요 필드는 Mint, Owner(소유자), Amount(수량)이다.
 
-Wallet은 보유하려는 Mint마다 Token Account가 하나씩 필요하다. 이때 주소를 매번 따로 관리하지 않도록 ATA(Associated Token Account)를 사용한다. ATA는 Wallet 주소, Token Program 주소, Mint 주소를 Seed로 하여 Associated Token Program에서 유도한 주소에 만든 Token Account다. 주소 유도 방식만 정해져 있을 뿐, ATA도 일반 Token Account다.
+![Mint Account와 Token Account의 관계 (출처: Solana 문서)](https://solana.com/assets/docs/core/tokens/token-account-relationship-light.svg)
+
+Wallet은 보유하려는 Mint마다 Token Account가 하나씩 필요하다. 이때 주소를 매번 따로 관리하지 않도록 ATA(Associated Token Account)를 사용한다. ATA는 Wallet 주소, Token Program 주소, Mint 주소를 Seed로 하여 Associated Token Program에서 유도한 주소에 만든 Token Account다([Solana 문서의 ATA 설명](https://solana.com/ko/docs/tokens/basics/create-token-account)). 주소 유도 방식만 정해져 있을 뿐, ATA도 일반 Token Account다.
+
+![Associated Token Account의 주소 유도 (출처: Solana 문서)](https://solana.com/assets/docs/core/tokens/associated-token-account-light.svg)
+
+![Wallet, ATA, Mint의 관계 (출처: Solana 문서)](https://solana.com/assets/docs/core/tokens/token-account-relationship-ata-light.svg)
 
 이렇게 정해진 입력으로부터 결정적으로 유도되는 주소를 PDA(Program Derived Address)라고 한다. PDA는 Private Key가 없고, 주소를 유도한 Program만 해당 Account에 대해 서명할 수 있다. 이후에 나오는 Metadata Account, Master Edition Account, TreeConfig Account가 모두 PDA다.
 
@@ -46,13 +51,13 @@ Metaplex는 이 부족한 부분을 채우는 Program들을 제공한다. Solana
 
 세 표준은 "NFT의 상태를 어디에 저장하느냐"가 다르다. Token Metadata는 여러 Account, Core는 하나의 Account, Compressed NFT는 Account가 아닌 Ledger(원장)의 Transaction 기록에 저장한다.
 
-Metaplex 공식 문서는 Token Metadata를 Legacy(레거시) Program으로 분류한다. 계속 지원하지만 신규 프로젝트에는 Core를 권장한다.
+[Metaplex의 Token Metadata 문서](https://www.metaplex.com/docs/smart-contracts/token-metadata)는 Token Metadata를 Legacy(레거시) Program으로 분류한다. 계속 지원하지만 신규 프로젝트에는 Core를 권장한다.
 
 ## 3. Token Metadata
 
 ### 3.1 온체인 Account 구성
 
-일반적인 NFT(Token Standard가 `NonFungible`인 경우) 하나는 다음 4개의 Account로 이루어진다.
+일반적인 NFT(Token Standard가 `NonFungible`인 경우) 하나는 다음 4개의 Account로 이루어진다. Account의 역할과 PDA Seed는 [Token Metadata 개요](https://www.metaplex.com/docs/smart-contracts/token-metadata)와 [Solana의 Metaplex 설명 문서](https://solana.com/docs/tokens/metaplex.md)를 따랐다.
 
 | Account | 소유 Program | 주소 | 저장 내용과 역할 |
 |---|---|---|---|
@@ -64,12 +69,12 @@ Metaplex 공식 문서는 Token Metadata를 Legacy(레거시) Program으로 분�
 Master Edition Account가 필요한 이유는 다음과 같다.
 
 - Token Metadata Program은 Master Edition Account를 만들기 전에 Mint가 NFT의 조건(Decimals 0, Supply 1)을 만족하는지 확인한다.
-- 그 뒤 Mint Authority와 Freeze Authority를 Master Edition PDA로 이전한다. 이후에는 Token Metadata Program을 거치지 않고는 누구도 추가 발행이나 동결을 할 수 없다.
+- 그 뒤 Mint Authority와 Freeze Authority를 Master Edition PDA로 이전한다. 이후에는 Token Metadata Program을 거치지 않고는 누구도 추가 발행이나 동결을 할 수 없다. 권한을 없애지 않고 이전하는 이유는 [Token Metadata FAQ](https://www.metaplex.com/docs/smart-contracts/token-metadata/faq)에서 설명한다.
 - 따라서 Master Edition Account의 존재가 해당 Mint가 Non-Fungible이라는 증명이 된다.
 
 Metaplex 공식 문서는 Token Metadata의 Account 수를 "3개 이상(Mint, Metadata, Token Account)"으로 표현한다. 표준 NFT 기준으로는 Master Edition을 포함해 4개이고, 3.5절의 Programmable NFT는 Token Record가 추가되어 5개다.
 
-참고로 2024년 10월 10일 Program 변경 이후 새로 만들어지는 Account의 크기는 Metadata 607 Byte(이전 679), Master Edition 20 Byte(이전 282), Edition 42 Byte(이전 241)다.
+참고로 2024년 10월 10일 Program 변경 이후 새로 만들어지는 Account의 크기는 Metadata 607 Byte(이전 679), Master Edition 20 Byte(이전 282), Edition 42 Byte(이전 241)다([Account Size Reduction 문서](https://www.metaplex.com/docs/smart-contracts/token-metadata/guides/account-size-reduction)).
 
 ### 3.2 오프체인 구성 요소
 
@@ -97,6 +102,8 @@ URI(Uniform Resource Identifier) 문자열 자체는 Metadata Account에 온체�
                    Freeze Authority ─▶ (동일)
 ```
 
+원본 구조 그림은 [Token Metadata 개요 페이지](https://www.metaplex.com/docs/smart-contracts/token-metadata)의 NFTs 절에 대화형으로 실려 있다. Mint Account와 Metadata PDA의 연결만 보여주는 간단한 그림은 [Solana의 Metaplex 설명 문서](https://solana.com/docs/tokens/metaplex.md)에 있다.
+
 Metadata Account와 Master Edition Account는 Mint 주소에서 유도되므로, Mint 주소만 알면 나머지 주소를 계산할 수 있다. 반대 방향인 "어떤 Wallet이 이 NFT를 가졌는가"는 해당 Mint의 Token Account 중 Amount가 1인 것을 찾아야 알 수 있다.
 
 ### 3.4 전송 구조
@@ -119,24 +126,24 @@ Mint Account, Metadata Account, Master Edition Account는 변하지 않는다. �
 Master Edition을 가진 NFT(Original NFT)에서 복제본(Print NFT)을 발행할 수 있다. Print NFT는 자신만의 Mint Account와 Metadata Account를 가지며, Master Edition Account 대신 Edition Account를 가진다. Edition Account는 Edition 번호와 부모 Master Edition을 기록한다. 두 Account는 같은 Seed를 쓰므로 하나의 NFT는 둘 중 하나만 가진다.
 
 **Collection(컬렉션)**
-Token Metadata에서 Collection은 그 자체가 하나의 NFT(Collection NFT)다. 일반 NFT와 Account 구조가 같고, Metadata의 `CollectionDetails` 필드가 설정되어 있다는 점만 다르다. 개별 NFT는 Metadata의 `Collection` 필드에 Collection NFT의 Mint 주소(`Key`)와 `Verified` 값을 가진다. `Collection` 필드는 누구나 임의로 채울 수 있으므로, Collection의 Authority가 Verify Instruction에 서명해야 `Verified`가 True가 된다. Wallet과 Marketplace(마켓플레이스)는 `Verified`가 True인지 확인해야 한다.
+Token Metadata에서 Collection은 그 자체가 하나의 NFT(Collection NFT)다. 일반 NFT와 Account 구조가 같고, Metadata의 `CollectionDetails` 필드가 설정되어 있다는 점만 다르다. 개별 NFT는 Metadata의 `Collection` 필드에 Collection NFT의 Mint 주소(`Key`)와 `Verified` 값을 가진다. `Collection` 필드는 누구나 임의로 채울 수 있으므로, Collection의 Authority가 Verify Instruction에 서명해야 `Verified`가 True가 된다. Wallet과 Marketplace(마켓플레이스)는 `Verified`가 True인지 확인해야 한다([Token Metadata Collections 문서](https://www.metaplex.com/docs/smart-contracts/token-metadata/collections)).
 
 **Programmable NFT (pNFT)**
-일반 NFT는 SPL Token Program으로 직접 전송할 수 있으므로 Token Metadata Program이 규칙을 강제할 수 없다. Metadata의 Seller Fee Basis Points는 참고용일 뿐이고, Royalty(로열티)를 지급하지 않는 Marketplace를 막을 수 없었다. pNFT는 이를 해결하기 위한 선택형 표준이다.
+일반 NFT는 SPL Token Program으로 직접 전송할 수 있으므로 Token Metadata Program이 규칙을 강제할 수 없다. Metadata의 Seller Fee Basis Points는 참고용일 뿐이고, Royalty(로열티)를 지급하지 않는 Marketplace를 막을 수 없었다. pNFT는 이를 해결하기 위한 선택형 표준이다([pNFT 문서](https://www.metaplex.com/docs/smart-contracts/token-metadata/pnfts)).
 
 - pNFT의 Token Account는 SPL Token Program 수준에서 항상 Frozen(동결) 상태다. 전송, 잠금, 소각은 반드시 Token Metadata Program을 거쳐야 한다. Program은 한 Instruction 안에서 동결 해제, 작업 수행, 재동결을 처리한다.
-- Token Record Account가 추가된다. PDA Seed는 `["metadata", Program ID, Mint 주소, "token_record", Token Account 주소]`다. Token Account가 항상 동결 상태이므로, 실제 잠금 여부와 Delegate(위임) 정보는 Token Record가 기록한다.
+- Token Record Account가 추가된다. PDA Seed는 `["metadata", Program ID, Mint 주소, "token_record", Token Account 주소]`다([Delegates 문서](https://www.metaplex.com/docs/smart-contracts/token-metadata/delegates)). Token Account가 항상 동결 상태이므로, 실제 잠금 여부와 Delegate(위임) 정보는 Token Record가 기록한다.
 - 허용 규칙은 Token Auth Rules Program이 관리하는 Rule Set Account에 정의하고, Metadata Account가 이를 참조한다. 예를 들어 Royalty를 지키는 Program만 전송을 수행하도록 허용 목록을 둘 수 있다.
 
 ## 4. Core
 
 ### 4.1 배경과 구조
 
-Token Metadata는 NFT 하나에 4개 이상의 Account가 필요하고, 규칙을 강제하려면 pNFT처럼 구조가 더 복잡해진다. Core는 SPL Token에 의존하지 않고 NFT 전용으로 다시 설계한 표준이다. NFT 하나를 Asset Account 하나로 표현한다.
+Token Metadata는 NFT 하나에 4개 이상의 Account가 필요하고, 규칙을 강제하려면 pNFT처럼 구조가 더 복잡해진다. Core는 SPL Token에 의존하지 않고 NFT 전용으로 다시 설계한 표준이다. NFT 하나를 Asset Account 하나로 표현한다([Core Asset 문서](https://www.metaplex.com/docs/smart-contracts/core/what-is-an-asset)).
 
 ### 4.2 Core Asset Account
 
-Asset Account의 주소가 NFT의 식별자다. 저장하는 필드는 다음과 같다.
+Asset Account의 주소가 NFT의 식별자다. 저장하는 필드와 크기는 [QuickNode의 Core 가이드](https://www.quicknode.com/guides/solana-development/nfts/metaplex-core)가 Program 소스에서 정리한 표를 따랐다.
 
 | 필드 | 크기(Byte) | 내용 |
 |---|---|---|
@@ -157,7 +164,7 @@ Token Metadata와 달리 소유자 주소가 Asset Account 안에 직접 들어 
 
 ### 4.3 Plugin(플러그인)
 
-Plugin은 Asset 또는 Collection에 동작이나 데이터를 추가하는 확장 모듈이다. Plugin 데이터는 별도 Account가 아니라 같은 Asset Account 안에서 기본 필드 뒤에 붙는다. 저장 순서는 기본 데이터, Plugin Header, 각 Plugin, Plugin Registry다. Plugin을 추가하면 Account 크기와 Rent가 늘어난다.
+Plugin은 Asset 또는 Collection에 동작이나 데이터를 추가하는 확장 모듈이다([Plugins Overview](https://developers.metaplex.com/core/plugins)). Plugin 데이터는 별도 Account가 아니라 같은 Asset Account 안에서 기본 필드 뒤에 붙는다. 저장 순서는 기본 데이터, Plugin Header, 각 Plugin, Plugin Registry다. Plugin을 추가하면 Account 크기와 Rent가 늘어난다.
 
 Plugin은 Create, Transfer, Burn, Update 같은 Lifecycle Event(생명 주기 이벤트)에 개입하여 동작을 승인하거나 거부할 수 있다. 관리 주체에 따라 세 종류로 나뉜다.
 
@@ -167,9 +174,9 @@ Plugin은 Create, Transfer, Burn, Update 같은 Lifecycle Event(생명 주기 �
 | Authority Managed | Update Authority가 언제든 추가 가능 | Royalties, Update Delegate, Attributes |
 | Permanent | 생성 시점에만 추가 가능. 이후 제거 불가 | Permanent Freeze Delegate, Permanent Transfer Delegate, Permanent Burn Delegate |
 
-이외에 외부 Account의 상태에 따라 Lifecycle Event를 거부할 수 있는 Oracle, 임의 데이터를 저장하는 AppData 같은 External Plugin이 있다.
+이외에 외부 Account의 상태에 따라 Lifecycle Event를 거부할 수 있는 Oracle, 임의 데이터를 저장하는 AppData 같은 [External Plugin](https://www.metaplex.com/docs/smart-contracts/core/external-plugins/overview)이 있다.
 
-Token Metadata의 기능이 Core에서 대응되는 방식은 다음과 같다.
+Token Metadata의 기능이 Core에서 대응되는 방식은 [Core와 Token Metadata의 차이 문서](https://www.metaplex.com/docs/smart-contracts/core/tm-differences)에 정리되어 있다.
 
 | Token Metadata | Core |
 |---|---|
@@ -198,9 +205,11 @@ Alice가 Bob에게 Core Asset을 보내면 Asset Account의 `owner` 필드가 Al
   (Plugin 데이터)            Image ──▶ [미디어 파일]
 ```
 
+원본 구조 그림("On Chain Asset Account Structure")은 [Core Asset 문서](https://www.metaplex.com/docs/smart-contracts/core/what-is-an-asset)에 대화형으로 실려 있다.
+
 ### 4.6 Core Collection
 
-Core의 Collection은 Asset과 구분되는 별도의 Account 종류다. Token Metadata에서는 Collection도 일반 NFT와 같은 구조여서 둘을 구분하기 어려웠다. Collection Account에는 `owner` 필드가 없다.
+Core의 Collection은 Asset과 구분되는 별도의 Account 종류다([Core Collections 문서](https://www.metaplex.com/docs/smart-contracts/core/collections)). Token Metadata에서는 Collection도 일반 NFT와 같은 구조여서 둘을 구분하기 어려웠다. Collection Account에는 `owner` 필드가 없다.
 
 | 필드 | 내용 |
 |---|---|
@@ -222,7 +231,7 @@ Collection에 붙인 Plugin은 소속된 모든 Asset에 기본으로 적용된�
 
 ### 5.1 배경
 
-Token Metadata와 Core는 NFT마다 Account를 만들기 때문에 발행 수에 비례해 Rent가 든다. 수백만 개를 발행하는 용도에는 부담이 크다. cNFT(Compressed NFT)는 NFT마다 Account를 만들지 않는다. NFT 데이터의 Hash만 Merkle Tree에 넣고, 원본 데이터는 Transaction 기록에만 남긴다. 이를 담당하는 Metaplex Program이 Bubblegum이다.
+Token Metadata와 Core는 NFT마다 Account를 만들기 때문에 발행 수에 비례해 Rent가 든다. 수백만 개를 발행하는 용도에는 부담이 크다. cNFT(Compressed NFT)는 NFT마다 Account를 만들지 않는다. NFT 데이터의 Hash만 Merkle Tree에 넣고, 원본 데이터는 Transaction 기록에만 남긴다. 이를 담당하는 Metaplex Program이 [Bubblegum](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)이다.
 
 ### 5.2 Merkle Tree 기본 개념
 
@@ -232,11 +241,21 @@ Merkle Tree는 부모 Node가 두 자식 Node의 Hash인 이진 Tree다.
 - Root(루트): 맨 위의 Hash 하나. Tree 전체의 무결성을 대표한다.
 - Proof(증명): 특정 Leaf에서 Root까지 다시 계산하는 데 필요한 형제 Node들의 Hash 목록이다.
 
-검증은 Leaf Hash에 Proof의 Hash들을 차례로 결합해 올라간 결과가 온체인의 Root와 같은지 비교하는 방식이다. Leaf가 바뀌면(전송 등) Root도 새로 계산되어 온체인에 기록된다.
+```
+                 [Root]
+               /        \
+          [H01]          [H23]
+         /     \        /     \
+     [H0]     [H1]  [H2]     [H3]      H0 = Hash(Leaf Schema 0)
+      │        │     │        │
+   cNFT 0   cNFT 1  cNFT 2  cNFT 3     cNFT 0의 Proof = [H1, H23]
+```
+
+검증은 Leaf Hash에 Proof의 Hash들을 차례로 결합해 올라간 결과가 온체인의 Root와 같은지 비교하는 방식이다. Leaf가 바뀌면(전송 등) Root도 새로 계산되어 온체인에 기록된다. Leaf Path와 Proof를 그린 원본 그림은 [Concurrent Merkle Trees 문서](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/concurrent-merkle-trees)에 있다.
 
 ### 5.3 온체인 Account 구성
 
-cNFT 자체의 Account는 없다. 대신 Tree 하나당 다음 2개의 Account가 있다. Metaplex는 이 둘을 묶어 Bubblegum Tree라고 부른다.
+cNFT 자체의 Account는 없다. 대신 Tree 하나당 다음 2개의 Account가 있다. Metaplex는 이 둘을 묶어 Bubblegum Tree라고 부른다([Tree 생성 문서](https://www.metaplex.com/docs/ko/smart-contracts/bubblegum-v2/create-trees)).
 
 **Merkle Tree Account**
 Account Compression Program이 소유한다. Bubblegum V1은 SPL Account Compression Program을, V2는 이를 Fork한 MPL Account Compression Program을 사용한다. 저장 내용은 다음과 같다.
@@ -249,7 +268,7 @@ Root만 저장하는 것이 아니라는 점에 주의한다. 각 요소의 역�
 
 - ChangeLog Buffer: 최근의 Root와 변경된 경로를 보관한다. 같은 Block에서 여러 변경이 일어나면 먼저 처리된 변경이 다른 Proof를 무효로 만든다. Program은 ChangeLog를 이용해 오래된 Proof를 최신 상태로 보정(Fast-Forward)한다. 보관 개수는 Max Buffer Size로 정해지고, 이를 넘는 동시 변경은 실패하여 재시도해야 한다. 이런 구조를 Concurrent Merkle Tree라고 한다.
 - Rightmost Proof: 가장 오른쪽 Leaf의 Proof다. Mint는 항상 가장 오른쪽에 Leaf를 추가하므로, 이 값이 온체인에 있으면 Mint 시 Proof를 보낼 필요가 없다.
-- Canopy: Tree의 상위 n개 Level을 온체인에 Cache한다. 깊이 d인 Tree에서 Transaction에 실어야 하는 Proof가 d개에서 d - n개로 줄어든다.
+- Canopy: Tree의 상위 n개 Level을 온체인에 Cache한다. 깊이 d인 Tree에서 Transaction에 실어야 하는 Proof가 d개에서 d - n개로 줄어든다([Canopy 문서](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/merkle-tree-canopy)).
 
 **TreeConfig Account**
 Bubblegum Program이 소유하는 PDA이며 Merkle Tree Account의 주소에서 유도된다. cNFT 전용 설정을 저장한다.
@@ -264,7 +283,7 @@ Bubblegum Program이 소유하는 PDA이며 Merkle Tree Account의 주소에서 
 
 ### 5.4 Leaf의 구성
 
-Leaf는 Leaf Schema를 Keccak-256으로 Hash한 32 Byte 값이다.
+Leaf는 Leaf Schema를 Keccak-256으로 Hash한 32 Byte 값이다([Hashed NFT Data 문서](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/hashed-nft-data)).
 
 | 필드 | 내용 | 버전 |
 |---|---|---|
@@ -282,7 +301,7 @@ Asset ID는 PDA 형식의 주소지만 그 주소에 실제 Account가 존재하
 
 ### 5.5 원본 데이터가 저장되는 곳
 
-Leaf에는 Hash만 있으므로, Hash의 원본인 Metadata와 소유자 정보는 다른 곳에서 얻어야 한다.
+Leaf에는 Hash만 있으므로, Hash의 원본인 Metadata와 소유자 정보는 다른 곳에서 얻어야 한다. 저장과 Indexing 구조는 [Stored NFT Data 문서](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/stored-nft-data)를 따랐다.
 
 **Transaction (Ledger)**
 cNFT의 전체 데이터는 Mint Transaction에 들어 있다. 이후의 변경도 Transaction에 기록된다. Bubblegum과 Account Compression Program은 Event를 일반 Program Log로 남기지 않고, Noop(No Operation) Program을 CPI(Cross-Program Invocation, Program 간 호출)로 호출하면서 그 Instruction Data에 Event를 싣는다. Program Log는 길이 제한으로 잘릴 수 있는데, Instruction Data는 잘리지 않고 Ledger에 남기 때문이다. 흔히 "Transaction Log에 저장된다"고 표현하지만 정확히는 Noop Instruction의 Data다. (Metaplex 문서는 이 Program을 spl-noop으로 표기한다.)
@@ -314,6 +333,8 @@ TreeConfig Account (PDA)                                                    ▼
                                                                       JSON 파일 ──▶ 미디어 파일
 ```
 
+원본 그림은 [Bubblegum V2 개요](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)의 Metaplex DAS API 절에 대화형으로 실려 있다.
+
 ### 5.7 Mint와 전송의 동작
 
 **Mint**
@@ -326,7 +347,7 @@ TreeConfig Account (PDA)                                                    ▼
 
 **전송 (Alice에서 Bob으로)**
 
-1. Client가 DAS API의 `getAsset`, `getAssetProof`로 현재 Leaf 정보(Root, Data Hash, Creator Hash, Nonce, Index)와 Proof를 받는다.
+1. Client가 DAS API의 `getAsset`, `getAssetProof`로 현재 Leaf 정보(Root, Data Hash, Creator Hash, Nonce, Index)와 Proof를 받는다([Bubblegum V2 FAQ](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/faq)).
 2. Transfer Instruction에 이 값과 Proof를 넣어 보낸다. Alice가 서명한다.
 3. Program이 전달받은 값으로 기존 Leaf Hash를 다시 계산하고, Proof와 결합해 온체인 Root와 일치하는지 검증한다. Proof가 조금 오래되었으면 ChangeLog Buffer로 보정한다.
 4. `owner`를 Bob으로 바꾼 새 Leaf로 교체하고 Root를 갱신한다.
@@ -343,9 +364,9 @@ Tree를 만들 때 세 값을 정한다. 세 값 모두 생성 후에는 바꿀 
 
 Max Depth와 Max Buffer Size는 임의의 조합이 아니라 미리 정의된 조합 중에서 골라야 한다.
 
-Solana Transaction의 데이터 크기는 1,232 Byte로 제한된다. Proof Node 하나가 32 Byte이므로 Proof가 길면 Transaction에 다른 Instruction을 함께 넣기 어렵다. 깊이 24를 넘는 Tree는 Canopy가 반드시 필요하다. Canopy가 클수록 Proof가 줄어 다른 Program과 조합하기 쉬워지지만 Tree의 Rent가 커진다.
+Solana Transaction의 데이터 크기는 1,232 Byte로 제한된다. Proof Node 하나가 32 Byte이므로 Proof가 길면 Transaction에 다른 Instruction을 함께 넣기 어렵다. 깊이 24를 넘는 Tree는 Canopy가 반드시 필요하다. Canopy가 클수록 Proof가 줄어 다른 Program과 조합하기 쉬워지지만 Tree의 Rent가 커진다([Canopy 문서](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/merkle-tree-canopy)).
 
-Metaplex 문서의 권장 설정 일부는 다음과 같다. 비용 단위는 SOL이다.
+[Tree 생성 문서](https://www.metaplex.com/docs/ko/smart-contracts/bubblegum-v2/create-trees)의 권장 설정 일부는 다음과 같다. 비용 단위는 SOL이다.
 
 | cNFT 수 | Max Depth | Canopy Depth | Max Buffer Size | Tree 비용 | cNFT당 비용 |
 |---|---|---|---|---|---|
@@ -356,6 +377,8 @@ Metaplex 문서의 권장 설정 일부는 다음과 같다. 비용 단위는 SO
 Tree 비용은 Tree Account를 만들 때 한 번 내는 Rent다. 표의 "cNFT당 비용"은 Tree 비용을 개수로 나눈 값보다 약 0.000005 SOL 크다. 기본 Transaction 수수료가 더해진 값으로 보이지만, 문서에 계산식이 명시되어 있지 않으므로 이 부분은 추정이다.
 
 ### 5.9 Bubblegum V1과 V2
+
+차이는 [Bubblegum V2 FAQ](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/faq)와 [V1 Decompress 문서](https://www.metaplex.com/docs/smart-contracts/bubblegum/decompress-cnfts), [Protocol Fees 문서](https://www.metaplex.com/docs/protocol-fees)를 따랐다.
 
 | 항목 | V1 | V2 |
 |---|---|---|
@@ -383,7 +406,7 @@ V1 Tree와 V2 Tree는 서로 호환되지 않는다. V2의 Leaf는 `createTreeV2
 | Mint 비용 (Metaplex 문서 기준) | 약 0.022 SOL | 약 0.003 SOL | Tree Rent를 나눈 값. 100만 개 Tree 기준 개당 약 0.00001 SOL |
 | Protocol Fee (Create) | 0.01 SOL | 0.0015 SOL | V1 무료, V2 0.00009 SOL |
 
-비용에 관한 참고 사항은 다음과 같다.
+비용에 관한 참고 사항은 다음과 같다. Mint 비용은 [Core와 Token Metadata의 차이 문서](https://www.metaplex.com/docs/smart-contracts/core/tm-differences)와 [Bubblegum V2 개요](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)의 값이고, Protocol Fee는 [Protocol Fees 문서](https://www.metaplex.com/docs/protocol-fees)의 값이다.
 
 - Core의 Mint 비용은 Metaplex 문서 안에서도 위치에 따라 약 0.0029, 약 0.003, 약 0.0037 SOL로 다르게 적혀 있다. 공통적으로 Token Metadata 대비 80% 이상 저렴하다고 설명한다.
 - 문서의 Mint 비용 수치에 Protocol Fee가 포함되는지는 명시되어 있지 않다.
@@ -419,7 +442,7 @@ Alice가 Bob에게 NFT 하나를 보낸다. Bob은 이 NFT를 처음 받는다.
 
 - 장점: Account가 1개라 비용이 낮다. Plugin으로 동결, 위임, Royalty 강제, 속성 저장 등을 필요한 만큼만 붙일 수 있다. Collection이 전용 Account라 Collection 단위 설정이 가능하다.
 - 단점: Token Metadata NFT와 온체인 구조가 다르다. SPL Token이 아니므로 Token Account를 전제로 한 도구는 그대로 쓸 수 없다. 기존 Token Metadata NFT를 Core로 옮기려면 기존 NFT를 Burn하고 Core Asset을 새로 Mint해야 한다.
-- 지원 현황: Metaplex Ecosystem Support 문서(2026-01-31 갱신)는 Marketplace로 Tensor, Magic Eden, Sniper, OKX, Mallow를, Wallet으로 Solflare, Phantom, Backpack을, Explorer로 SolanaFM, Solscan을 Complete로 표기한다.
+- 지원 현황: [Ecosystem Support 문서](https://www.metaplex.com/docs/smart-contracts/core/ecosystem-support)(2026-01-31 갱신)는 Marketplace로 Tensor, Magic Eden, Sniper, OKX, Mallow를, Wallet으로 Solflare, Phantom, Backpack을, Explorer로 SolanaFM, Solscan을 Complete로 표기한다.
 
 **Compressed NFT**
 
@@ -433,34 +456,7 @@ Alice가 Bob에게 NFT 하나를 보낸다. Bob은 이 NFT를 처음 받는다.
 
 ## 9. 확인이 필요한 내용
 
-- Bubblegum V2의 지원 현황: Metaplex의 Bubblegum V2 개요 문서는 Solflare, Phantom, Backpack이 V2 cNFT의 조회와 표시는 지원하지만 전송과 거래는 아직 지원하지 않으며, Magic Eden과 Tensor는 조회와 거래 모두 지원하지 않는다고 적고 있다. 같은 문서는 넓은 지원이 당장 필요하면 Core를 권장한다. 이 내용은 빠르게 바뀔 수 있으므로 사용 시점에 다시 확인해야 한다.
+- Bubblegum V2의 지원 현황: [Bubblegum V2 개요](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)의 Ecosystem Compatibility 절은 Solflare, Phantom, Backpack이 V2 cNFT의 조회와 표시는 지원하지만 전송과 거래는 아직 지원하지 않으며, Magic Eden과 Tensor는 조회와 거래 모두 지원하지 않는다고 적고 있다. 같은 문서는 넓은 지원이 당장 필요하면 Core를 권장한다. 이 내용은 빠르게 바뀔 수 있으므로 사용 시점에 다시 확인해야 한다.
 - Trust Wallet과 MetaMask의 cNFT 지원 여부: 공식 문서에서 확인하지 못했다. Phantom, Solflare, Backpack이 cNFT를 지원한다는 자료는 있으나, Trust Wallet과 MetaMask에 대해서는 지원한다는 근거도 지원하지 않는다는 근거도 찾지 못했다. 미확인 상태로 둔다.
-- 출시 시점: Token Metadata의 2021년, Bubblegum V1의 2023년은 이번 조사에서 공식 문서로 직접 확인한 값이 아니다. Core의 2024년과 Bubblegum V2의 2025년 5월 말은 각각 외부 강의 자료와 Metaplex 월간 보고에서 확인했다.
-- Metaplex 외의 방식: Solana의 Token Extensions Program(Token-2022)은 TokenMetadata Extension으로 Name, Symbol, URI와 사용자 정의 Key-Value를 Mint Account에 직접 저장할 수 있다. 이 경우 별도의 Metadata Account가 필요 없다. 이 글의 범위는 Metaplex 표준이므로 자세히 다루지 않는다.
-
-## 10. 참고 자료
-
-- Metaplex Token Metadata 개요: https://www.metaplex.com/docs/smart-contracts/token-metadata
-- Metaplex Token Metadata Collections: https://www.metaplex.com/docs/smart-contracts/token-metadata/collections
-- Metaplex Token Metadata Programmable NFT: https://www.metaplex.com/docs/smart-contracts/token-metadata/pnfts
-- Metaplex Token Metadata Account Size Reduction: https://www.metaplex.com/docs/smart-contracts/token-metadata/guides/account-size-reduction
-- Metaplex Core Asset: https://www.metaplex.com/docs/smart-contracts/core/what-is-an-asset
-- Metaplex Core Collections: https://www.metaplex.com/docs/smart-contracts/core/collections
-- Metaplex Core Plugins: https://developers.metaplex.com/core/plugins
-- Metaplex Core와 Token Metadata의 차이: https://www.metaplex.com/docs/smart-contracts/core/tm-differences
-- Metaplex Core Ecosystem Support: https://www.metaplex.com/docs/smart-contracts/core/ecosystem-support
-- Metaplex Bubblegum V2 개요: https://www.metaplex.com/docs/smart-contracts/bubblegum-v2
-- Metaplex Bubblegum V2 Tree 생성: https://www.metaplex.com/docs/ko/smart-contracts/bubblegum-v2/create-trees
-- Metaplex Bubblegum V2 Concurrent Merkle Trees: https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/concurrent-merkle-trees
-- Metaplex Bubblegum V2 Merkle Tree Canopy: https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/merkle-tree-canopy
-- Metaplex Bubblegum V2 Hashed NFT Data: https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/hashed-nft-data
-- Metaplex Bubblegum V2 Stored NFT Data: https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/stored-nft-data
-- Metaplex Bubblegum V2 FAQ: https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/faq
-- Metaplex Bubblegum V1 Decompress: https://www.metaplex.com/docs/smart-contracts/bubblegum/decompress-cnfts
-- Metaplex Bubblegum Program README: https://github.com/metaplex-foundation/mpl-bubblegum/blob/main/programs/bubblegum
-- Metaplex Protocol Fees: https://www.metaplex.com/docs/protocol-fees
-- Metaplex June Round-Up 2025 (Bubblegum V2 출시 시점): https://metaplex-website.vercel.app/blog/articles/metaplex-june-round-up-2025
-- Solana Tokens 문서: https://solana.com/docs/tokens
-- Solana Token Account 생성 문서: https://solana.com/ko/docs/tokens/basics/create-token-account
-- Solana Token Extensions Metadata 문서: https://solana.com/docs/tokens/extensions/metadata.md
-- QuickNode Metaplex Core 가이드 (Asset Account 필드 크기): https://www.quicknode.com/guides/solana-development/nfts/metaplex-core
+- 출시 시점: Token Metadata의 2021년, Bubblegum V1의 2023년은 이번 조사에서 공식 문서로 직접 확인한 값이 아니다. Core의 2024년은 외부 강의 자료에서, Bubblegum V2의 2025년 5월 말은 [Metaplex 2025년 6월 월간 보고](https://metaplex-website.vercel.app/blog/articles/metaplex-june-round-up-2025)에서 확인했다.
+- Metaplex 외의 방식: Solana의 Token Extensions Program(Token-2022)은 TokenMetadata Extension으로 Name, Symbol, URI와 사용자 정의 Key-Value를 Mint Account에 직접 저장할 수 있다([Solana Token Extensions Metadata 문서](https://solana.com/docs/tokens/extensions/metadata.md)). 이 경우 별도의 Metadata Account가 필요 없다. 이 글의 범위는 Metaplex 표준이므로 자세히 다루지 않는다.
