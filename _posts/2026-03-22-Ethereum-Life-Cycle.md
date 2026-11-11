@@ -1,7 +1,7 @@
 ---
 title: "Ethereum Lifecycle"
 date: 2026-03-22 12:24:00 +0900
-categories: [Blockchain, Ethereum]
+categories: [Blockchain]
 tags: [github Pages, githubBlog, blog, github, blockchain]
 media_subpath: /assets/img/posts/ethereum-life-cycle/
 ---

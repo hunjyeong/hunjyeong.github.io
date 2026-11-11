@@ -1,7 +1,7 @@
 ---
 title: "EVM/zkEVM/zkVM"
 date: 2026-11-11 12:00:00 +0900
-categories: [Blockchain, Ethereum]
+categories: [Blockchain]
 tags: [blockchain, zkevm]
 math: true
 media_subpath: /assets/img/posts/zkevm/
