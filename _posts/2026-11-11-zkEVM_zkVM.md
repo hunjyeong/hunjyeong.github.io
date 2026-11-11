@@ -2,7 +2,7 @@
 title: "EVM/zkEVM/zkVM"
 date: 2026-11-11 12:00:00 +0900
 categories: [Blockchain]
-tags: [blockchain, zkevm]
+tags: [Blockchain, ZKEVM]
 math: true
 media_subpath: /assets/img/posts/zkevm/
 ---
@@ -139,9 +139,9 @@ Identical State
 
 ## zkEVM
 
-### zkEVM을 통한 트랜잭션 검증 방식
-
 zkEVM(Zero-Knowledge Ethereum Virtual Machine)은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증하는 시스템이다. 대표적인 사용처는 L2 ZK 롤업으로, 롤업은 "Off-chain Execution(오프체인 실행) + L1 On-chain Proof Verification(온체인 증명 검증)" 구조로 L2 트랜잭션을 처리한다. 이더리움 L1에서도 Global Re-execution(네트워크 전역 재실행) 기반 검증을 증명 검증으로 대체하는 방향이 연구되고 있지만, 아직 메인넷에는 도입되지 않았다(아래 '이더리움 L1의 zkEVM 도입 현황' 참고). zkEVM은 이더리움과 동일하게 State Transition을 검증의 기본 단위로 사용한다. 이더리움과 완전히 동일한 규칙을 증명하는 zkEVM(Type 1)은 State Transition Function $$\Pi(S, T) = S'$$ 자체를 변경하지 않는다. 다시 말해, 주어진 초기 상태 $$S$$에 대해 트랜잭션 집합 $$T$$를 적용했을 때 최종 상태 $$S'$$로 전이되는 Execution Semantics(실행 의미론)는 Ethereum의 EVM과 동일하게 유지하되, 그 전이가 올바르게 수행되었는지를 확인하는 검증 메커니즘만 암호학적 증명으로 대체하는 것이다. 다만 구현에 따라 상태 트리, 해시 함수, Gas 규칙 등을 바꾼 zkEVM도 있다(Type 2~4). 이 구조에서 zkEVM은 "주어진 초기 상태 $$S$$에서 트랜잭션 집합 $$T$$를 적용하여 최종 상태 $$S'$$로의 전이가 EVM 규칙을 정확히 따랐다"는 사실만을 간결한 증명으로 요약해 제출하며, Verifier(검증자)는 중간 실행 과정을 다시 계산하지 않고도 State Transition의 정당성을 검증할 수 있다. 여기서 활용되는 핵심 성질은 정보를 숨기는 영지식성보다, 증명이 짧고 빠르게 검증된다는 Succinctness(간결성)이다. 롤업은 Data Availability(데이터 가용성)를 위해 트랜잭션 데이터를 L1에 별도로 게시한다.
+
+### zkEVM을 통한 트랜잭션 검증 방식
 
 zkEVM에서는 소수의 Prover(증명자)가 블록 또는 트랜잭션 배치를 Off-chain에서 실행하고, EVM 바이트코드를 Opcode 단위로 순차적으로 실행하는 과정에서 발생하는 상태 변화를 추적하여 Execution Trace를 생성한다. 이 Execution Trace에는 각 스텝별 Stack 값, Memory 접근, Storage 읽기와 쓰기, 호출과 반환(Call/Return) 등의 세부적인 중간 상태가 포함되며, 이러한 세부 정보는 On-chain에 공개되지 않는다. EVM의 실행 규칙은 미리 수학적 제약으로 변환(Arithmetization, 산술화)되어 Polynomial Constraints(다항식 제약)로 표현되고, Execution Trace는 이 제약을 만족해야 하는 Witness(증인) 데이터가 된다. 즉, "ADD Opcode면 Stack 두 값을 더해야 한다" 같은 규칙을 방정식으로 미리 만들어 두고, Prover는 자신이 만든 Trace가 이 제약 조건들을 모두 만족한다는 증명 $$\pi$$를 생성한다.
 
@@ -256,11 +256,11 @@ _출처: [https://zkevm.ethereum.foundation/blog/zkevm-security-overview](https:
 
 ## zkVM
 
-### zkVM을 통한 트랜잭션 검증 방식
-
 zkVM(Zero-Knowledge Virtual Machine)은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, RISC-V와 같은 ISA(Instruction Set Architecture, 명령어 집합) 자체를 증명 가능한 가상 머신으로 구현한 범용 플랫폼이다.
 
 zkEVM이 "무엇을 증명하는가(EVM 실행)"를 가리키는 말이라면, zkVM은 "어떤 방식으로 증명하는가(범용 ISA의 실행 증명)"를 가리키는 말이다. zkVM은 Rust, C/C++ 등 고수준 언어로 작성되어 해당 ISA로 컴파일된 프로그램의 실행 무결성을 증명하는 '범용 컴퓨터'의 역할을 수행한다(지원 언어는 zkVM의 툴체인마다 다르다). 쉽게 말해 zkEVM은 "EVM이라는 특정 상태 머신이 올바르게 실행되었는가?"를 증명하고, zkVM은 "일반적인 프로그램이 정의된 ISA 규칙에 따라 올바르게 실행되었는가?"를 증명한다. 두 개념은 배타적이지 않다. zkVM 위에서 EVM 실행 프로그램(예: 이더리움 블록 실행 로직)을 돌리면 그 자체로 zkEVM이 된다. 이때 증명은 프로그램이 올바르게 실행되었음을 보장하며, 프로그램이 이더리움 규칙을 정확히 구현했는지는 별도로 검증해야 한다.
+
+### zkVM을 통한 트랜잭션 검증 방식
 
 개발자는 복잡한 영지식 Circuit 설계 지식 없이도 일반적인 프로그램 로직을 통해 트랜잭션 검증 기능을 구현할 수 있다. 예를 들어, Rust로 작성된 검증 로직을 zkVM 환경에서 구동하면, VM 내부의 각 명령어(Instruction) 실행 단계가 미리 제약으로 변환해 둔 ISA 규칙을 만족한다는 암호학적 증명이 만들어진다. 이를 통해 특정 입력값에 대해 프로그램이 정해진 규칙대로 올바른 결과값을 산출했음을 보장할 수 있다. Prover가 zkVM 내에서 검증 프로그램을 실행하여 실행 결과와 그 정합성을 요약한 하나의 증명을 생성하면, Verifier는 해당 증명만을 검증(Verification)함으로써 실행 결과를 신뢰할 수 있게 된다.
 
@@ -283,6 +283,8 @@ zkVM은 범용적인 검증 환경을 제공한다는 점에서 높은 유연성
     Verifier(Off-chain 프로그램 또는 스마트 컨트랙트)는 원본 프로그램을 다시 실행하지 않고, 제출된 증명의 타당성만을 수학적으로 확인한다. RISC Zero를 예로 들면 Verifier는 [Image ID(실행한 프로그램을 식별하는 값), Journal(프로그램이 공개한 출력), Seal(증명)]의 세 가지 요소가 서로 일치하는지 확인한다. 입력은 기본적으로 비공개이며, 공개하려는 입력은 프로그램이 Journal에 기록해야 한다. 증명 검증이 성공하면, 해당 프로그램이 주어진 입력에 대해 수정되거나 왜곡되지 않은 채 원래 설계된 로직대로 실행되어 결과값을 산출했음이 암호학적으로 보장된다.
 
 <br />
+
+### zkEVM과 zkVM 비교
 
 | **구분** | **zkEVM** | **zkVM** |
 | --- | --- | --- |
@@ -471,6 +473,14 @@ Guest 프로그램 내부에는 서명 확인, 잔고 체크, Nonce 검증 등 �
 - 단순 송금이나 1:1 토큰 스왑처럼 연산량이 매우 적은 경우에는 Segment 최소 크기, Recursion, Wrapping 같은 고정 비용 때문에 해당 연산에만 특화된 작은 Circuit보다 비용이 더 들 수 있다.
 - 블록 타임이 매우 짧은 고성능 체인(예: 1초 미만)에서는 블록 타임 안에 증명을 생성하기 어렵다.
 
+
+<br />
+<br />
+
+## Circuit 기반 SNARK 도구
+ 
+zkVM이 범용 ISA의 실행을 증명하는 것과 달리, 아래 도구들은 증명할 로직을 개발자가 직접 산술 제약(Circuit)으로 작성한다.
+
 ### gnark
 
 https://github.com/Consensys/gnark
@@ -621,7 +631,7 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 - EVM 전체 상태 전환(Account Balance, Storage, Merkle Root)도 Circuit으로 표현할 수 있지만(Linea 사례), Circuit을 직접 설계해야 하므로 개발과 감사 부담이 크다.
 - 증명이 가장 작고 검증이 빠른 Groth16을 사용하려면 각 Circuit마다 고유한 Trusted Setup이 필요하다. 로직이 조금만 바뀌어도 키를 다시 생성하고 관리해야 하므로 운영상의 부담이 크다. (PLONK를 사용하면 공통 SRS를 재사용하므로 이 문제는 완화된다.)
 
-**RISC Zero / gnark 무엇을 증명하나?**
+### RISC Zero와 gnark 비교
  
 ⇒ 둘 다 "어떤 상태에서 어떤 트랜잭션 집합을 적용했더니, 새로운 상태가 나왔다"는 **State Transition의 정당성**을 증명하는 데 쓸 수 있다. 단, 그렇게 증명하도록 Guest 프로그램이나 Circuit을 설계해야 한다.
  
@@ -653,6 +663,16 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 | **변경 내성** | 코드 변경 → ImageID 갱신 (On-chain 허용 목록 포함) | Circuit 변경 → 키 재생성 (Groth16은 Circuit별 Trusted Setup도 다시) |
 | **성능 튜닝** | RISC-V Instruction 수, Memory 접근, 가속 Circuit | 제약 수 최소화, 곡선/백엔드 선택 |
 
+
+### ZoKrates
+ 
+ZoKrates는 이더리움 환경을 겨냥한 zk-SNARK 툴체인으로, 자체 DSL을 통해 복잡한 산술 Circuit 설계를 추상화함으로써 개발자 접근성을 높인다. 개발자가 ZoKrates 언어(중괄호 블록을 쓰는 문법, 예: `def main(private field a) -> field { return a * a; }`)로 계산 로직을 기술하면, 툴체인은 이를 AST(추상 구문 트리)로 변환한 뒤 if, for Loop 및 중첩 수식을 기본 연산 단위로 분해하는 Flattening 과정을 수행한다. 분해된 연산들은 최종적으로 $$A \times B = C$$ 형식의 R1CS(Rank-1 Constraint System) 제약 조건으로 변환되며, 이 과정에서 코드상의 변수들은 행렬의 인덱스로 매핑된다.
+ 
+컴파일 이후의 Setup(설정) 단계에서는 R1CS Circuit을 입력받아 Proving Key(증명 키)와 Verifying Key를 생성한다. 이때 Groth16(G16) 백엔드를 사용할 경우 'Toxic Waste'라 불리는 비밀 난수가 생성되며, 증명의 무결성을 위해 이는 생성 직후 반드시 파괴되어야 한다. ZoKrates는 G16 외에도 GM17, Marlin 증명 체계를 지원하며(백엔드는 bellman, ark), PLONK는 지원하지 않는다. 이를 통해 개발자는 필요에 따라 상수 크기의 증명을 제공하는 G16을 선택하거나, 공통 설정(`universal-setup`)을 재사용할 수 있는 범용 설정 방식인 Marlin을 선택할 수 있다. Marlin도 Circuit별 Setup 단계는 거친다.
+ 
+실제 증명 생성 단계에서는 개발자가 제공한 입력값을 바탕으로 Circuit의 모든 중간 계산값을 산출하는 Witness 생성 과정이 선행된다. 이후 Proving Key와 Witness 데이터를 Prover 알고리즘에 입력하면, 대규모 연산인 MSM(Multi-scalar Multiplication)과 FFT(Fast Fourier Transform)를 거쳐 최종적으로 수백 바이트 크기의 증명이 생성된다. 특히 ZoKrates는 Verifying Key를 기반으로 이더리움에서 즉시 실행 가능한 Solidity 검증 컨트랙트를 자동으로 생성함으로써, 암호학적 세부 구현 없이도 On-chain 검증 워크플로를 구축할 수 있게 한다.
+ 
+이러한 CLI 기반의 자동화는 개발 편의성을 크게 향상시키지만, 제약 수는 연산 종류에 따라 크게 달라진다. 해시나 비트 연산은 코드 한 줄이 많은 R1CS 제약으로 확장되고, 덧셈은 추가 제약이 거의 없다. 증명 생성 과정의 CPU와 Memory 부담은 Prover가 지며, Verifier는 작은 증명만 확인한다. 따라서 ZoKrates의 한계는 검증 노드의 실시간 처리 성능이 아니라 증명 생성 비용과 Circuit을 직접 설계하는 방식에 있다.
 
 
 <br />
@@ -790,16 +810,3 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 다만 작성 시점(2026-11-11) 이더리움 메인넷은 Multiproofs를 채택하지 않았고, 블록은 여전히 Re-execution으로 검증된다. 첫 단계로 제안된 EIP-8025(Optional Execution Proofs)는 Draft 상태이며, 참여를 원하는 Validator만 증명을 만들고 검증하는 선택적 방식이다. 합의 유효성 규칙을 바꾸지 않고, 증명을 검증하는 노드도 Re-execution을 계속하며 증명은 추가 신호로만 쓰인다. EIP-8025는 Glamsterdam 다음 하드포크인 Hegotá의 포함 대상으로 제안되었지만, 2026년 10월 15일 ACDC #189에서 Hegotá에 포함하지 않기로(DFI, Declined for Inclusion) 결정되었다.
 
 이러한 방식의 비용은 역할별로 나눠 봐야 한다. 증명 생성은 Prover가 담당하며 GPU 클러스터 수준의 장비가 필요하다. zkVM 방식은 모든 실행 과정을 Polynomial Constraints로 증명하므로 네이티브 실행보다 훨씬 많은 연산이 든다. 반면 증명 검증은 블록의 계산량과 거의 무관하게 작아서, 여러 증명을 검증해도 검증 노드의 부담은 크지 않다. 실제 위험은 증명 생성이 소수의 고성능 운영자에게 집중되는 것과, 증명이 늦게 도착할 때 Attestation이나 Finality가 지연될 수 있다는 점이다. 결과적으로 STARK 기반 zkVM 접근법은 검증 비용을 낮추는 대신 증명을 만드는 단계에 큰 비용을 전가하며, 이 부담은 Validator 노드가 아니라 Prover에게 있다.
-
-<br />
-<br />
-
-## ZoKrates
-
-ZoKrates는 이더리움 환경을 겨냥한 zk-SNARK 툴체인으로, 자체 DSL을 통해 복잡한 산술 Circuit 설계를 추상화함으로써 개발자 접근성을 높인다. 개발자가 ZoKrates 언어(중괄호 블록을 쓰는 문법, 예: `def main(private field a) -> field { return a * a; }`)로 계산 로직을 기술하면, 툴체인은 이를 AST(추상 구문 트리)로 변환한 뒤 if, for Loop 및 중첩 수식을 기본 연산 단위로 분해하는 Flattening 과정을 수행한다. 분해된 연산들은 최종적으로 $$A \times B = C$$ 형식의 R1CS(Rank-1 Constraint System) 제약 조건으로 변환되며, 이 과정에서 코드상의 변수들은 행렬의 인덱스로 매핑된다.
-
-컴파일 이후의 Setup(설정) 단계에서는 R1CS Circuit을 입력받아 Proving Key(증명 키)와 Verifying Key를 생성한다. 이때 Groth16(G16) 백엔드를 사용할 경우 'Toxic Waste'라 불리는 비밀 난수가 생성되며, 증명의 무결성을 위해 이는 생성 직후 반드시 파괴되어야 한다. ZoKrates는 G16 외에도 GM17, Marlin 증명 체계를 지원하며(백엔드는 bellman, ark), PLONK는 지원하지 않는다. 이를 통해 개발자는 필요에 따라 상수 크기의 증명을 제공하는 G16을 선택하거나, 공통 설정(`universal-setup`)을 재사용할 수 있는 범용 설정 방식인 Marlin을 선택할 수 있다. Marlin도 Circuit별 Setup 단계는 거친다.
-
-실제 증명 생성 단계에서는 개발자가 제공한 입력값을 바탕으로 Circuit의 모든 중간 계산값을 산출하는 Witness 생성 과정이 선행된다. 이후 Proving Key와 Witness 데이터를 Prover 알고리즘에 입력하면, 대규모 연산인 MSM(Multi-scalar Multiplication)과 FFT(Fast Fourier Transform)를 거쳐 최종적으로 수백 바이트 크기의 증명이 생성된다. 특히 ZoKrates는 Verifying Key를 기반으로 이더리움에서 즉시 실행 가능한 Solidity 검증 컨트랙트를 자동으로 생성함으로써, 암호학적 세부 구현 없이도 On-chain 검증 워크플로를 구축할 수 있게 한다.
-
-이러한 CLI 기반의 자동화는 개발 편의성을 크게 향상시키지만, 제약 수는 연산 종류에 따라 크게 달라진다. 해시나 비트 연산은 코드 한 줄이 많은 R1CS 제약으로 확장되고, 덧셈은 추가 제약이 거의 없다. 증명 생성 과정의 CPU와 Memory 부담은 Prover가 지며, Verifier는 작은 증명만 확인한다. 따라서 ZoKrates의 한계는 검증 노드의 실시간 처리 성능이 아니라 증명 생성 비용과 Circuit을 직접 설계하는 방식에 있다.
