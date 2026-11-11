@@ -9,8 +9,9 @@ media_subpath: /assets/img/posts/ethereum-life-cycle/
 > 이 글은 2026년 11월 기준 Ethereum 메인넷(Fusaka 업그레이드 적용 상태)을 기준으로 한다. Fusaka는 Fulu + Osaka의 줄임말로, Ethereum의 업그레이드 이름은 Consensus Layer 업그레이드 이름(Fulu)과 Execution Layer 업그레이드 이름(Osaka)을 합쳐서 만든다. 다음 업그레이드인 Glamsterdam(Gloas + Amsterdam)은 2026년 10월 6일 Sepolia 테스트넷에 활성화되었다. Hoodi 테스트넷 활성화는 10월 26일로 예정되었다가 10월 22일에 연기되었고, 새 Hoodi 일정과 메인넷 활성화 일정은 정해지지 않았다([Ethereum Foundation 공지](https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay)). Glamsterdam이 메인넷에 적용되면 3장의 PBS(Proposer-Builder Separation) 구조, Slot 내 타이밍, Engine API(Application Programming Interface) 메서드 버전이 달라진다. 1.1과 2.1의 가스 수치도 달라진다([EIP-2780](https://eips.ethereum.org/EIPS/eip-2780), [EIP-7976](https://eips.ethereum.org/EIPS/eip-7976), [EIP-7981](https://eips.ethereum.org/EIPS/eip-7981)). 포함될 EIP 목록은 확정 전이므로 바뀔 수 있다. PBS 구조의 변경은 ePBS(enshrined PBS)라고 부르며 [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)에 정의되어 있다. EIP(Ethereum Improvement Proposal)는 Ethereum 프로토콜 변경을 제안하는 문서이다.
 
 <br />
+<br />
 
-Ethereum(이더리움)은 블록과 트랜잭션 데이터를 검증할 수 있는 소프트웨어를 실행하는 컴퓨터들로 구성된 분산 네트워크이다. 컴퓨터가 Node가 되려면 이 소프트웨어(Client)를 실행해야 한다.
+**Ethereum(이더리움)**은 블록과 트랜잭션 데이터를 검증할 수 있는 소프트웨어를 실행하는 컴퓨터들로 구성된 분산 네트워크이다. 컴퓨터가 Node가 되려면 이 소프트웨어(Client)를 실행해야 한다.
 
 ![client](node.webp)
 _출처: [https://ethereum.org/developers/docs/nodes-and-clients](https://ethereum.org/developers/docs/nodes-and-clients/#:~:text=Simplified%20diagram%20of%20a%20coupled%20execution%20and%20consensus%20client)_
