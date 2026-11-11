@@ -1,6 +1,6 @@
 ---
 title: "Verkle Tree"
-date: 2026-11-11 19:00:00 +0900
+date: 2026-11-11
 categories: [Paper Review]
 tags: [Blockchain, ZKP, Verkletree, MPT]
 ---

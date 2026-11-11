@@ -1,8 +1,7 @@
 ---
 title: "title"
-date: 2026-11-11 20:00:00 +0900
+date: 2026-11-11
+published: false
 categories: [Paper Review]
 tags: [Blockchain, Consensus]
 ---
-
-# 틀 문서 

@@ -1,15 +1,15 @@
 ---
 title: "EVM/zkEVM/zkVM"
-date: 2026-11-11 12:00:00 +0900
+date: 2026-11-11
 categories: [Blockchain]
 tags: [Blockchain, ZKEVM]
 math: true
 media_subpath: /assets/img/posts/zkevm/
 ---
 
-참고
+참고 문서
 
-https://decipher-zkvm.gitbook.io/decipher-zkvm-research
+[https://decipher-zkvm.gitbook.io/decipher-zkvm-research](https://decipher-zkvm.gitbook.io/decipher-zkvm-research)
 
 ## Ethereum Virtual Machine (EVM)
 
@@ -34,7 +34,7 @@ EVM은 계산 자원의 남용을 방지하기 위해 Gas 기반 비용 모델�
 
 결과적으로 모든 실행 노드는 동일한 EVM 사양에 따라 동일한 트랜잭션을 동일한 방식으로 실행하며 동일한 State Transition 결과를 계산한다. 따라서 Ethereum에서 블록의 실행 유효성은 모든 노드가 동일한 State Transition Function을 실행하여 동일한 State Root에 도달하는지로 판단된다. 유효한 블록 가운데 어떤 블록을 정식 체인으로 채택하고 확정할지는 Consensus Layer(합의 계층)의 체인 선택 규칙과 Finality(최종성) 규칙이 결정한다. 이 Deterministic Execution 모델 덕분에 Ethereum 네트워크는 중앙 통제 없이 하나의 통일된 Distributed State Machine으로 동작한다.
 
-#### Opcodes
+#### **Opcodes**
 
 - https://www.evm.codes/
 
@@ -60,10 +60,10 @@ EVM에서는 스마트 컨트랙트가 바이트코드로 표현되고, 이 바�
 Execution Layer에서 트랜잭션 실행은 State Transition을 의미한다. 블록 내 트랜잭션 집합이 기존 World State를 새로운 상태(Post-State)로 변환하는 과정은 다음과 같다.
 
 - **State Transition Function:** $$S' = \Pi(S, T)$$
-    - **Pre-State** $$S$$**:** 블록 실행 전 World State (Nonce, Balance, Storage, Code). 이 상태를 커밋한 값이 부모 블록의 State Root다.
-    - **Ordered Transactions** $$T$$**:** 블록에 포함된 순서화된 트랜잭션 집합
-    - **EVM Execution Rules** $$\Pi$$**:** 해당 하드포크의 결정론적 실행 규칙. 블록 번호, Timestamp, Base Fee 같은 블록 실행 환경도 입력으로 사용한다.
-    - **Post-State** $$S'$$**:** 실행 후 도출되는 유일한 결과 상태. 이 상태를 커밋한 값이 블록 헤더의 State Root다.
+    - **Pre-State** ($$S$$)**:** 블록 실행 전 World State (Nonce, Balance, Storage, Code). 이 상태를 커밋한 값이 부모 블록의 State Root다.
+    - **Ordered Transactions** ($$T$$)**:** 블록에 포함된 순서화된 트랜잭션 집합
+    - **EVM Execution Rules** ($$\Pi$$)**:** 해당 하드포크의 결정론적 실행 규칙. 블록 번호, Timestamp, Base Fee 같은 블록 실행 환경도 입력으로 사용한다.
+    - **Post-State** ($$S'$$)**:** 실행 후 도출되는 유일한 결과 상태. 이 상태를 커밋한 값이 블록 헤더의 State Root다.
     
 EVM은 결정론적 실행 환경으로, 동일한 입력과 동일한 실행 규칙이 주어질 경우, 항상 동일한 결과 상태를 생성한다. 즉, 동일한 World State, 동일한 트랜잭션 순서, 동일한 블록 실행 환경, 동일한 하드포크의 실행 규칙이 보장되면 전 세계 어떤 노드에서도 동일한 State Root가 계산된다.
 
