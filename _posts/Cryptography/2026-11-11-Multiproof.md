@@ -2,7 +2,7 @@
 title: "Multiproof"
 date: 2026-11-11
 categories: [Cryptography]
-tags: [Cryptography, PCS, KZG]
+tags: [Cryptography, PCS, KZG, Verkle Tree]
 math: true
 ---
 
@@ -39,7 +39,7 @@ Verifier는 $C_i$, $z_i$, $y_i$를 모두 알고 있다. 목표는 Opening Proof
 
 트리에서 Leaf 하나의 값이 맞는지 확인하려면, Root부터 그 Leaf까지 내려오는 경로의 각 단계에서 "부모를 이 위치에서 열면 이 자식이 나온다"를 확인해야 한다. 깊이가 3이면 Opening이 3개다. 블록 하나는 상태 값을 수천 개 읽으므로, Opening이 수천 개에서 수만 개가 된다. Opening Proof를 하나씩 보내면 그 수만큼 증명 데이터가 커진다.
 
-Multiproof는 이 Opening들을 Opening Proof 하나로 묶는다. 다만 묶이는 것은 증명뿐이다. 경로 위의 Commitment와 읽은 값들은 그대로 보내야 한다. 이 점은 8장에서 다시 본다.
+Multiproof는 이 Opening들을 Opening Proof 하나로 묶는다. 다만 묶이는 것은 증명뿐이다. 경로 위의 Commitment와 읽은 값들은 그대로 보내야 한다. 이 점은 Multiproof in Verkle Tree에서 다시 본다.
 
 ## Key Idea
 
@@ -63,7 +63,7 @@ $$
 \frac{f(X)-10}{X-2}=X+3-\frac{1}{X-2}
 $$
 
-따라서 "$f(z)=y$다"를 증명하는 것은 **"몫 $q(X)=\dfrac{f(X)-y}{X-z}$가 다항식이다"를 증명하는 것**과 같다. 이것이 Opening Proof의 정체다. Prover는 몫 $q(X)$의 Commitment를 보내고, Verifier는 그것이 정말 $f(X)-y$를 $(X-z)$로 나눈 몫인지 확인한다. 확인하는 방법은 PCS마다 다르며, 5.3에서 KZG의 방법을 본다.
+따라서 "$f(z)=y$다"를 증명하는 것은 **"몫 $q(X)=\dfrac{f(X)-y}{X-z}$가 다항식이다"를 증명하는 것**과 같다. 이것이 Opening Proof의 정체다. Prover는 몫 $q(X)$의 Commitment를 보내고, Verifier는 그것이 정말 $f(X)-y$를 $(X-z)$로 나눈 몫인지 확인한다. 확인하는 방법은 PCS마다 다르며, Final Verification with KZG에서 KZG의 방법을 본다.
 
 이제 Opening이 $m$개다. 몫도 $m$개 생긴다.
 
@@ -81,7 +81,7 @@ $$
 
 아래 계산은 소수 $p$에 대한 Finite Field(유한체) $\mathbb{F}_p$에서 한다. 나눗셈은 역원을 곱하는 연산이다. 모든 $f_i(X)$의 차수는 $d$ 미만이라고 가정한다.
 
-### 5.1. Combining Quotients with $r$
+### Combining Quotients with $r$
 
 무작위 가중치가 필요하다. 그런데 Verifier가 가중치를 골라서 보내면 메시지를 주고받아야 한다. 대신 양쪽이 같은 값을 Hash해서 같은 난수를 얻는다. 이 방법을 Fiat-Shamir Transform(피아트-샤미르 변환)이라고 하고, 이렇게 얻은 난수를 Challenge(챌린지)라고 한다. Hash 입력에는 모든 주장이 들어가므로, Prover는 주장을 고정한 뒤에야 난수를 알 수 있다.
 
@@ -103,7 +103,7 @@ $$
 
 여기서 끝나지 않는다. Verifier가 받은 것은 $D$라는 값 하나뿐이다. **이것이 정말 위 $g(X)$의 Commitment인지, 아니면 Prover가 아무 다항식이나 Commit한 것인지 Verifier는 알 수 없다.** 그래서 $D$를 검사하는 단계가 하나 더 필요하다.
 
-### 5.2. Checking $D$ with $t$
+### Checking $D$ with $t$
 
 $D$가 정말 $g$의 Commitment인지 확인하는 방법은 **무작위 점 $t$에서 $g(t)$를 직접 계산해 보고, $D$를 $t$에서 열었을 때 같은 값이 나오는지 보는 것**이다. 두 다항식이 다르면 무작위 점에서 값이 같을 확률은 매우 작다.
 
@@ -151,7 +151,7 @@ $$
 \boxed{h(t)-g(t)=y}
 $$
 
-이다. $h-g$의 Commitment는 $E-D$다. 그러므로 **$m$개의 Opening을 확인하는 문제가 "$E-D$를 $t$에서 열면 $y$가 나온다"는 Opening 하나로 바뀌었다.** 이 Opening은 4장에서 본 것과 같은 방법으로 증명한다. Prover는 몫
+이다. $h-g$의 Commitment는 $E-D$다. 그러므로 **$m$개의 Opening을 확인하는 문제가 "$E-D$를 $t$에서 열면 $y$가 나온다"는 Opening 하나로 바뀌었다.** 이 Opening은 Key Idea에서 본 것과 같은 방법으로 증명한다. Prover는 몫
 
 $$
 w(X)=\frac{h(X)-g(X)-y}{X-t}
@@ -163,7 +163,7 @@ Prover가 보내는 것은 **$D$와 $\pi$, 두 개뿐이다.** $E$와 $y$는 Ver
 
 $t$가 어떤 $z_i$와 같으면 분모가 0이 된다. $t$는 $\mathbb{F}_p$ 전체에서 뽑히고 $z_i$는 $m$개뿐이므로 그럴 확률은 $m/p$ 이하다. Verkle Tree에서는 $z_i$가 0부터 255까지이고 $p$가 253비트 소수이므로 무시할 수 있다.
 
-### 5.3. Final Verification with KZG
+### Final Verification with KZG
 
 마지막 Opening을 실제로 확인하려면 구체적인 PCS가 필요하다. 여기서는 KZG(Kate-Zaverucha-Goldberg) Commitment를 쓴다.
 
@@ -198,7 +198,7 @@ $$
 
 이므로 $h(X)-g(X)-y$는 $(X-t)$로 나누어떨어진다. 정직한 Prover의 $\pi$는 검증을 통과한다. 이 성질을 Completeness(완전성)라고 한다.
 
-**거짓 주장이 섞인 경우.** $i$번째 주장의 오류를 $\delta_i=f_i(z_i)-y_i$라고 하자. 4장에서 본 대로 몫은 다항식 부분과 나머지로 나뉜다.
+**거짓 주장이 섞인 경우.** $i$번째 주장의 오류를 $\delta_i=f_i(z_i)-y_i$라고 하자. Key Idea에서 본 대로 몫은 다항식 부분과 나머지로 나뉜다.
 
 $$
 \frac{f_i(X)-y_i}{X-z_i}=q_i(X)+\frac{\delta_i}{X-z_i}
@@ -206,7 +206,7 @@ $$
 
 $g(X)$에서 같은 점 $z$에 해당하는 나머지들을 모으면 $\dfrac{P_z(r)}{X-z}$, $P_z(r)=\sum_{i:\,z_i=z}\delta_i r^i$가 된다. 거짓 주장이 있으면 $P_z$는 $r$에 대한 0이 아닌 다항식이고 차수는 $m-1$ 이하다. $r$을 뽑은 뒤 $P_z(r)=0$이 될 확률은 최대 $(m-1)/p$다. 서로 다른 점의 나머지는 분모가 다르므로 상쇄되지 않는다. 즉 $r$은 **상쇄를 막는다.**
 
-그래도 Prover는 다항식이 아닌 $g$ 대신 아무 다항식 $\tilde g$를 Commit해 $D$로 보낼 수 있다. 이때 5.2의 검증은 $g(t)=\tilde g(t)$를 확인하는 것과 같다. $g-\tilde g$는 0이 아닌 유리함수이고, 분모를 곱하면 차수 $d+m$ 이하의 0이 아닌 다항식이 된다. 무작위 $t$에서 이것이 0이 될 확률은 최대 $(d+m)/p$다. 0이 아닌 다항식이 무작위 점에서 0이 될 확률은 차수를 $p$로 나눈 값을 넘지 않는다는 사실을 Schwartz-Zippel Lemma(슈바르츠-지펠 보조정리)라고 한다. 즉 $t$는 **$D$가 진짜 $g$의 Commitment인지 검사한다.**
+그래도 Prover는 다항식이 아닌 $g$ 대신 아무 다항식 $\tilde g$를 Commit해 $D$로 보낼 수 있다. 이때 Checking $D$ with $t$의 검증은 $g(t)=\tilde g(t)$를 확인하는 것과 같다. $g-\tilde g$는 0이 아닌 유리함수이고, 분모를 곱하면 차수 $d+m$ 이하의 0이 아닌 다항식이 된다. 무작위 $t$에서 이것이 0이 될 확률은 최대 $(d+m)/p$다. 0이 아닌 다항식이 무작위 점에서 0이 될 확률은 차수를 $p$로 나눈 값을 넘지 않는다는 사실을 Schwartz-Zippel Lemma(슈바르츠-지펠 보조정리)라고 한다. 즉 $t$는 **$D$가 진짜 $g$의 Commitment인지 검사한다.**
 
 이 확률 논리에 더해, 실제 Soundness(건전성)는 PCS의 Binding, 마지막 Opening Proof의 안전성, Fiat-Shamir Transform의 안전한 구현을 전제로 한다.
 
@@ -285,7 +285,7 @@ Prover 쪽 조건도 하나 있다. $g(X)$를 만들려면 각 $f_i(X)$ 전체�
 
 ## Beyond KZG
 
-5장에서 KZG에 의존한 부분은 5.3의 마지막 검증뿐이다. $D$, $E$, $y$를 만드는 과정은 Additive Homomorphism만 있으면 성립한다. 그래서 같은 방식을 Pedersen Commitment(페더슨 커밋먼트)와 IPA(Inner Product Argument, 내적 증명)에도 쓸 수 있다.
+Protocol에서 KZG에 의존한 부분은 Final Verification with KZG의 마지막 검증뿐이다. $D$, $E$, $y$를 만드는 과정은 Additive Homomorphism만 있으면 성립한다. 그래서 같은 방식을 Pedersen Commitment(페더슨 커밋먼트)와 IPA(Inner Product Argument, 내적 증명)에도 쓸 수 있다.
 
 이더리움의 Verkle Tree 제안은 KZG가 아니라 Bandersnatch 곡선 위의 Pedersen Commitment와 IPA를 쓴다. Trusted Setup과 Pairing이 필요 없는 대신, 마지막 Opening Proof가 군 원소 하나가 아니라 $2\log_2 d$개이고 검증 비용이 $d$에 비례한다. Opening을 하나로 묶어 한 번만 검증하므로 이 비용을 모든 Opening이 나누어 부담한다. 이더리움 구현 go-ipa의 Multiproof는 $D$와 IPA Proof 하나로 이루어진다.
 

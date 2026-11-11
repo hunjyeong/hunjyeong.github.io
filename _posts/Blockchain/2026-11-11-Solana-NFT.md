@@ -7,7 +7,7 @@ tags: [Blockchain, NFT]
 
 # Solana NFT 표준 정리: Token Metadata, Core, Compressed NFT
 
-> 기준 자료: Metaplex 공식 문서와 Solana 공식 문서. 출처는 본문 안에 링크로 적는다.
+> 기준 자료: Metaplex 공식 문서와 Solana 공식 문서, Metaplex 월간 보고, 각 Wallet의 공식 자료. 출처는 본문 안에 링크로 적는다.
 > 수치(비용, 수수료, 지원 현황)는 기준일의 공식 문서 값이며, Program 버전과 시점에 따라 달라질 수 있다.
 
 ## 1. 배경: Solana의 NFT는 왜 Account가 여러 개인가
@@ -45,9 +45,11 @@ Metaplex는 이 부족한 부분을 채우는 Program들을 제공한다. Solana
 
 | 표준 | 출시 | 담당 Program | 핵심 구조 |
 |---|---|---|---|
-| Token Metadata | 2021년 | Token Metadata Program | SPL Token의 Mint Account에 Metadata Account 등을 PDA로 덧붙인다 |
-| Core | 2024년 | MPL Core Program | NFT 하나를 Asset Account 하나로 표현한다. SPL Token을 쓰지 않는다 |
-| Compressed NFT | 2023년(Bubblegum V1), 2025년 5월 말(Bubblegum V2) | Bubblegum Program | NFT 데이터의 Hash만 Merkle Tree(머클 트리)에 넣고, 원본 데이터는 Transaction(트랜잭션)에 남긴다 |
+| Token Metadata | 2021년 8월 | Token Metadata Program | SPL Token의 Mint Account에 Metadata Account 등을 PDA로 덧붙인다 |
+| Core | 2024년 3월 발표, 4월 Mainnet | MPL Core Program | NFT 하나를 Asset Account 하나로 표현한다. SPL Token을 쓰지 않는다 |
+| Compressed NFT | Bubblegum V1: 2022년 11월 발표, 2023년 4월 Mainnet 가동 공표. Bubblegum V2: 2025년 5월 말 | Bubblegum Program | NFT 데이터의 Hash만 Merkle Tree(머클 트리)에 넣고, 원본 데이터는 Transaction(트랜잭션)에 남긴다 |
+
+출시 시점의 근거는 다음과 같다. Token Metadata는 [Metaplex Whitepaper](https://whitepaper.metaplex.foundation/whitepaper.pdf)의 "2021년 8월 출시 이후" 문구를 따랐다. Core는 [Metaplex 2024년 3월 월간 보고](https://www.metaplex.com/posts/metaplex-march-round-up)에서 소개되었고, [2024년 4월 월간 보고](https://metaplex.com/posts/metaplex-april-round-up)가 4월에 Mainnet에 올라갔다고 적고 있다. Bubblegum V1은 Metaplex가 [2022년 11월 6일 발표문](https://metaplex.com/posts/expanding-digital-assets-with-compression-for-nfts)으로 공개했고, Solana 재단은 [2023년 4월 글](https://solana.com/ko/news/how-to-use-compressed-nfts-on-solana)에서 cNFT가 Mainnet-beta에서 가동 중이라고 밝혔다. Bubblegum V2는 [Metaplex 2025년 6월 월간 보고](https://metaplex-website.vercel.app/blog/articles/metaplex-june-round-up-2025)가 5월 말 출시로 적고 있다.
 
 세 표준은 "NFT의 상태를 어디에 저장하느냐"가 다르다. Token Metadata는 여러 Account, Core는 하나의 Account, Compressed NFT는 Account가 아닌 Ledger(원장)의 Transaction 기록에 저장한다.
 
@@ -408,8 +410,9 @@ V1 Tree와 V2 Tree는 서로 호환되지 않는다. V2의 Leaf는 `createTreeV2
 
 비용에 관한 참고 사항은 다음과 같다. Mint 비용은 [Core와 Token Metadata의 차이 문서](https://www.metaplex.com/docs/smart-contracts/core/tm-differences)와 [Bubblegum V2 개요](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)의 값이고, Protocol Fee는 [Protocol Fees 문서](https://www.metaplex.com/docs/protocol-fees)의 값이다.
 
-- Core의 Mint 비용은 Metaplex 문서 안에서도 위치에 따라 약 0.0029, 약 0.003, 약 0.0037 SOL로 다르게 적혀 있다. 공통적으로 Token Metadata 대비 80% 이상 저렴하다고 설명한다.
-- 문서의 Mint 비용 수치에 Protocol Fee가 포함되는지는 명시되어 있지 않다.
+- Core의 Mint 비용 약 0.003 SOL의 구성은 [Core Asset 생성 문서](https://www.metaplex.com/docs/smart-contracts/core/create-asset)에 나온다. Asset Account Rent 약 0.0015 SOL, Create Protocol Fee 0.0015 SOL, Transaction 수수료 약 0.000005 SOL의 합이다. Rent는 Name, URI 길이와 Plugin 수에 따라 달라진다. 즉 이 수치는 Protocol Fee를 포함한 값이다.
+- Metaplex 문서의 다른 위치에는 약 0.0029 SOL(비교표), 약 0.0037 SOL(2024년 출시 당시 보도 수치)로도 적혀 있다. 이 두 수치는 구성 요소가 명시되어 있지 않다. 공통적으로 Token Metadata 대비 80% 이상 저렴하다고 설명한다.
+- Token Metadata의 약 0.022 SOL에 Protocol Fee 0.01 SOL이 포함되는지는 문서에 명시되어 있지 않다.
 - cNFT의 개당 비용에는 V2의 Protocol Fee(Create 0.00009 SOL)가 포함되어 있지 않다. V2에서는 Protocol Fee가 Tree Rent의 개당 몫보다 크다.
 
 ## 7. 예시: 같은 전송을 세 표준으로 비교
@@ -454,9 +457,26 @@ Alice가 Bob에게 NFT 하나를 보낸다. Bob은 이 NFT를 처음 받는다.
   - 동시성 한계: 한 Block 안의 변경이 Max Buffer Size를 넘으면 일부 Transaction이 실패한다.
   - 지원 범위: 일반 NFT보다 좁다. 아래 9절 참조.
 
-## 9. 확인이 필요한 내용
+## 9. 지원 현황과 확인이 필요한 내용
 
-- Bubblegum V2의 지원 현황: [Bubblegum V2 개요](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)의 Ecosystem Compatibility 절은 Solflare, Phantom, Backpack이 V2 cNFT의 조회와 표시는 지원하지만 전송과 거래는 아직 지원하지 않으며, Magic Eden과 Tensor는 조회와 거래 모두 지원하지 않는다고 적고 있다. 같은 문서는 넓은 지원이 당장 필요하면 Core를 권장한다. 이 내용은 빠르게 바뀔 수 있으므로 사용 시점에 다시 확인해야 한다.
-- Trust Wallet과 MetaMask의 cNFT 지원 여부: 공식 문서에서 확인하지 못했다. Phantom, Solflare, Backpack이 cNFT를 지원한다는 자료는 있으나, Trust Wallet과 MetaMask에 대해서는 지원한다는 근거도 지원하지 않는다는 근거도 찾지 못했다. 미확인 상태로 둔다.
-- 출시 시점: Token Metadata의 2021년, Bubblegum V1의 2023년은 이번 조사에서 공식 문서로 직접 확인한 값이 아니다. Core의 2024년은 외부 강의 자료에서, Bubblegum V2의 2025년 5월 말은 [Metaplex 2025년 6월 월간 보고](https://metaplex-website.vercel.app/blog/articles/metaplex-june-round-up-2025)에서 확인했다.
+**Bubblegum V1 cNFT의 Wallet과 Marketplace 지원**
+
+| 대상 | 표시 | 전송 | 근거 |
+|---|---|---|---|
+| Solflare | 지원 | 지원 | [Solflare 용어집](https://www.solflare.com/glossary/compressed-nft/)이 cNFT를 "일반 NFT처럼 판매와 전송이 가능하다"고 설명 |
+| Phantom | 지원 | 미확인 | [Phantom 2023년 연간 보고](https://phantom.com/learn/blog/phantom-2023-year-in-review)가 cNFT를 "First class support"로 표기. 전송 기능은 명시하지 않음 |
+| Backpack | 지원 | 미확인 | [Backpack 도움말](https://support.backpack.exchange/wallet/troubleshoot/hide-spam-nfts)이 cNFT를 다루고 있음. 전송 기능은 명시하지 않음 |
+| Trust Wallet | 미확인 | 미확인 | Solana NFT 지원은 확인되나 cNFT를 명시한 공식 자료를 찾지 못함 |
+| MetaMask | 미확인 | 미확인 | [2025년 7월 Solana 지원 발표](https://metamask.com/news/solana-on-metamask-sol-wallet)는 SOL과 SPL Token만 언급. cNFT 언급 없음 |
+| Magic Eden, Sniper | 거래 지원 | | [Metaplex 2023년 9월 월간 보고](https://www.metaplex.com/posts/metaplex-september-round-up)가 두 Marketplace의 cNFT 거래 지원을 기록 |
+
+"미확인"은 지원하지 않는다는 뜻이 아니라 공식 자료로 확인하지 못했다는 뜻이다.
+
+**Bubblegum V2 cNFT의 지원**
+
+[Bubblegum V2 개요](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)의 Ecosystem Compatibility 절(2026-06-19 기준)은 Solflare, Phantom, Backpack이 V2 cNFT의 조회와 표시는 지원하지만 전송과 거래는 아직 지원하지 않으며, Magic Eden과 Tensor는 조회와 거래 모두 지원하지 않는다고 적고 있다. 같은 문서는 넓은 지원이 당장 필요하면 Core를 권장한다. 이 내용은 빠르게 바뀔 수 있으므로 사용 시점에 다시 확인해야 한다.
+
+**확인이 필요한 내용**
+
+- Bubblegum V2의 정확한 Mainnet 배포일: 월간 보고의 "5월 말"만 확인했고 일 단위 날짜는 찾지 못했다.
 - Metaplex 외의 방식: Solana의 Token Extensions Program(Token-2022)은 TokenMetadata Extension으로 Name, Symbol, URI와 사용자 정의 Key-Value를 Mint Account에 직접 저장할 수 있다([Solana Token Extensions Metadata 문서](https://solana.com/docs/tokens/extensions/metadata.md)). 이 경우 별도의 Metadata Account가 필요 없다. 이 글의 범위는 Metaplex 표준이므로 자세히 다루지 않는다.
