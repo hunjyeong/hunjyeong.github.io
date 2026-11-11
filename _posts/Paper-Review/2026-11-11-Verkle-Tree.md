@@ -2,11 +2,10 @@
 title: "Verkle Tree"
 date: 2026-11-11
 categories: [Paper Review]
-tags: [Blockchain, ZKP, Verkletree, MPT]
+tags: [Blockchain, ZKP]
 ---
 
 # Verkle Tree
-
 
 Verkle Tree는 상태 트리의 부모 노드를 hash 대신 Vector Commitment로 만들어, 형제 노드 없이 값을 증명하는 트리다. 목적은 Stateless Client가 쓸 수 있을 만큼 Witness를 줄이는 것이다. 2026년 11월 기준 이더리움 메인넷은 Verkle Tree를 채택하지 않았고, 로드맵의 무게는 hash 기반 Binary Tree로 옮겨 갔다. 자세한 내용은 9장에 있다.
 
