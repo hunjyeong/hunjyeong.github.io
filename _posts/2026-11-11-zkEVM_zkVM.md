@@ -3,6 +3,7 @@ title: "EVM/zkEVM/zkVM"
 date: 2026-11-11 12:00:00 +0900
 categories: [Blockchain, Ethereum]
 tags: [blockchain, zkevm]
+math: true
 media_subpath: /assets/img/posts/zkevm/
 ---
 
@@ -16,7 +17,7 @@ EVM은 Ethereum 노드의 Execution Client(실행 클라이언트)가 공통으�
 
 EVM의 핵심 역할은 상태를 직접 저장하는 것이 아니라, 트랜잭션 실행을 통해 State Transition(상태 전이) 규칙을 적용하고 Ethereum 네트워크의 Global State(전역 상태)에 대한 새로운 상태를 계산하는 것이다. Ethereum의 상태는 모든 계정 정보를 포함하는 거대한 데이터 구조로, Externally Owned Account(EOA, 외부 소유 계정)와 Contract Account(CA, 컨트랙트 계정)로 구성된다. 각 계정은 Nonce, Balance, Storage Root(`storageRoot`), Code Hash(`codeHash`)를 가지며, 스마트 컨트랙트 코드와 컨트랙트 Storage는 각각 이 해시와 루트로 연결된다. 이 Global State는 Modified Merkle Patricia Trie(MPT) 구조로 저장되며, 해당 Trie의 루트 해시는 블록 헤더의 State Root(상태 루트)로 기록된다. State Root와 Merkle Proof를 이용하면 전체 상태 데이터를 보유하지 않은 노드도 특정 계정이나 Storage 값이 그 상태에 포함되어 있는지 효율적으로 검증할 수 있다. 다만 State Root만으로 State Transition이 올바르게 실행되었는지까지 검증할 수는 없다.
 
-Ethereum은 단순한 거래 원장이 아니라 트랜잭션 기반의 Distributed State Machine(분산 상태 머신)으로 동작한다. 네트워크는 Genesis State(초기 상태)에서 시작하여, 각 블록에 포함된 트랜잭션을 순차적으로 실행하면서 상태를 지속적으로 갱신한다. 이러한 과정은 State Transition Function(상태 전이 함수)으로 표현된다. Ethereum Yellow Paper는 트랜잭션 하나를 적용하는 State Transition을 σ' = Υ(σ, T)로, 블록 전체를 적용하는 State Transition을 σ' = Π(σ, B)로 구분해 정의한다. 이 글에서는 이전 상태 S와 블록의 순서화된 트랜잭션 목록 T에 대한 블록 단위 State Transition을 편의상 S' = Π(S, T)로 쓴다. 블록 단위 전이에는 트랜잭션 실행 외에 Withdrawal(인출) 처리 같은 블록 단위 처리도 포함된다. 따라서 트랜잭션 실행은 곧 상태 변화를 의미하며, 블록체인은 이러한 State Transition의 연속적인 결과를 기록한 구조라고 볼 수 있다.
+Ethereum은 단순한 거래 원장이 아니라 트랜잭션 기반의 Distributed State Machine(분산 상태 머신)으로 동작한다. 네트워크는 Genesis State(초기 상태)에서 시작하여, 각 블록에 포함된 트랜잭션을 순차적으로 실행하면서 상태를 지속적으로 갱신한다. 이러한 과정은 State Transition Function(상태 전이 함수)으로 표현된다. Ethereum Yellow Paper는 트랜잭션 하나를 적용하는 State Transition을 $$\sigma' = \Upsilon(\sigma, T)$$로, 블록 전체를 적용하는 State Transition을 $$\sigma' = \Pi(\sigma, B)$$로 구분해 정의한다. 이 글에서는 이전 상태 $$S$$와 블록의 순서화된 트랜잭션 목록 $$T$$에 대한 블록 단위 State Transition을 편의상 $$S' = \Pi(S, T)$$로 쓴다. 블록 단위 전이에는 트랜잭션 실행 외에 Withdrawal(인출) 처리 같은 블록 단위 처리도 포함된다. 따라서 트랜잭션 실행은 곧 상태 변화를 의미하며, 블록체인은 이러한 State Transition의 연속적인 결과를 기록한 구조라고 볼 수 있다.
 
 스마트 컨트랙트는 Solidity나 Vyper와 같은 고급 언어로 작성되며 컴파일 과정을 통해 EVM 바이트코드로 변환된다. EVM 사양은 바이트코드를 Opcode 단위로 순차 실행하는 의미론으로 정의되며, 클라이언트는 이를 인터프리터 등으로 구현한다. 내부적으로 EVM은 Program Counter, Stack, Memory, Storage(영구 저장소), 그리고 컨트랙트 계정에 저장된 Code Segment(바이트코드 영역)로 구성된 실행 모델을 가진다. 대부분의 Opcode는 Stack에서 피연산자를 꺼내 연산을 수행한 뒤 결과를 다시 Stack에 넣으며, 필요에 따라 Memory와 Storage를 갱신한다. `STOP`, `JUMPDEST`처럼 Stack을 사용하지 않는 Opcode도 있다.
 
@@ -58,11 +59,11 @@ EVM에서는 스마트 컨트랙트가 바이트코드로 표현되고, 이 바�
 
 Execution Layer에서 트랜잭션 실행은 State Transition을 의미한다. 블록 내 트랜잭션 집합이 기존 World State를 새로운 상태(Post-State)로 변환하는 과정은 다음과 같다.
 
-- **State Transition Function: S' = Π(S, T)**
-    - **S (Pre-State):** 블록 실행 전 World State (Nonce, Balance, Storage, Code). 이 상태를 커밋한 값이 부모 블록의 State Root다.
-    - **T (Ordered Transactions):** 블록에 포함된 순서화된 트랜잭션 집합
-    - **Π (EVM Execution Rules):** 해당 하드포크의 결정론적 실행 규칙. 블록 번호, Timestamp, Base Fee 같은 블록 실행 환경도 입력으로 사용한다.
-    - **S' (Post-State):** 실행 후 도출되는 유일한 결과 상태. 이 상태를 커밋한 값이 블록 헤더의 State Root다.
+- **State Transition Function:** $$S' = \Pi(S, T)$$
+    - **Pre-State** $$S$$**:** 블록 실행 전 World State (Nonce, Balance, Storage, Code). 이 상태를 커밋한 값이 부모 블록의 State Root다.
+    - **Ordered Transactions** $$T$$**:** 블록에 포함된 순서화된 트랜잭션 집합
+    - **EVM Execution Rules** $$\Pi$$**:** 해당 하드포크의 결정론적 실행 규칙. 블록 번호, Timestamp, Base Fee 같은 블록 실행 환경도 입력으로 사용한다.
+    - **Post-State** $$S'$$**:** 실행 후 도출되는 유일한 결과 상태. 이 상태를 커밋한 값이 블록 헤더의 State Root다.
     
 EVM은 결정론적 실행 환경으로, 동일한 입력과 동일한 실행 규칙이 주어질 경우, 항상 동일한 결과 상태를 생성한다. 즉, 동일한 World State, 동일한 트랜잭션 순서, 동일한 블록 실행 환경, 동일한 하드포크의 실행 규칙이 보장되면 전 세계 어떤 노드에서도 동일한 State Root가 계산된다.
 
@@ -127,11 +128,11 @@ Identical State
     
     검증 노드는 제안된 블록을 수신하면:
     
-    1. 동일 초기 상태 S에서
-    2. 동일 트랜잭션 순서 T와 동일한 블록 실행 환경으로
+    1. 동일 초기 상태 $$S$$에서
+    2. 동일 트랜잭션 순서 $$T$$와 동일한 블록 실행 환경으로
     3. EVM을 다시 실행하여
     
-    My_stateRoot = Root(Π(S, T))를 계산한다. 이후 내가 계산한 `My_StateRoot`와 블록 헤더의 `Block_StateRoot`가 맞는지 확인한다(Receipts Root, gasUsed 등도 함께 확인한다). 일치하면 Execution Layer는 블록을 유효하다고 판단하고, Validator는 이 블록이 포함된 체인에 Attestation(투표)을 보낸다. Finality는 Casper FFG에 따라 블록 하나가 아니라 Checkpoint(각 Epoch의 첫 블록) 단위로 결정된다. 전체 Stake의 2/3 이상이 투표한 Checkpoint가 Justified(정당화) 상태가 되고, 바로 다음 Epoch의 Checkpoint가 이어서 Justified 상태가 되면 앞의 Checkpoint가 Finalized(최종 확정) 상태가 된다. 정상적인 경우 블록이 Finalized 상태가 되기까지 약 두 Epoch(약 12.8분)이 걸린다.
+    $$\mathrm{My\_StateRoot} = \mathrm{Root}(\Pi(S, T))$$를 계산한다. 이후 내가 계산한 `My_StateRoot`와 블록 헤더의 `Block_StateRoot`가 맞는지 확인한다(Receipts Root, gasUsed 등도 함께 확인한다). 일치하면 Execution Layer는 블록을 유효하다고 판단하고, Validator는 이 블록이 포함된 체인에 Attestation(투표)을 보낸다. Finality는 Casper FFG에 따라 블록 하나가 아니라 Checkpoint(각 Epoch의 첫 블록) 단위로 결정된다. 전체 Stake의 2/3 이상이 투표한 Checkpoint가 Justified(정당화) 상태가 되고, 바로 다음 Epoch의 Checkpoint가 이어서 Justified 상태가 되면 앞의 Checkpoint가 Finalized(최종 확정) 상태가 된다. 정상적인 경우 블록이 Finalized 상태가 되기까지 약 두 Epoch(약 12.8분)이 걸린다.
 
 <br />
 <br />
@@ -140,11 +141,11 @@ Identical State
 
 ### zkEVM을 통한 트랜잭션 검증 방식
 
-zkEVM(Zero-Knowledge Ethereum Virtual Machine)은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증하는 시스템이다. 대표적인 사용처는 L2 ZK 롤업으로, 롤업은 "Off-chain Execution(오프체인 실행) + L1 On-chain Proof Verification(온체인 증명 검증)" 구조로 L2 트랜잭션을 처리한다. 이더리움 L1에서도 Global Re-execution(네트워크 전역 재실행) 기반 검증을 증명 검증으로 대체하는 방향이 연구되고 있지만, 아직 메인넷에는 도입되지 않았다(Loop 절 뒤의 L1 실행 증명 단락 참고). zkEVM은 이더리움과 동일하게 State Transition을 검증의 기본 단위로 사용한다. 이더리움과 완전히 동일한 규칙을 증명하는 zkEVM(Type 1)은 State Transition Function Π(S, T) = S' 자체를 변경하지 않는다. 다시 말해, 주어진 초기 상태 S에 대해 트랜잭션 집합 T를 적용했을 때 최종 상태 S′로 전이되는 Execution Semantics(실행 의미론)는 Ethereum의 EVM과 동일하게 유지하되, 그 전이가 올바르게 수행되었는지를 확인하는 검증 메커니즘만 암호학적 증명으로 대체하는 것이다. 다만 구현에 따라 상태 트리, 해시 함수, Gas 규칙 등을 바꾼 zkEVM도 있다(Type 2~4). 이 구조에서 zkEVM은 "주어진 초기 상태 S에서 트랜잭션 집합 T를 적용하여 최종 상태 S′로의 전이가 EVM 규칙을 정확히 따랐다"는 사실만을 간결한 증명으로 요약해 제출하며, Verifier(검증자)는 중간 실행 과정을 다시 계산하지 않고도 State Transition의 정당성을 검증할 수 있다. 여기서 활용되는 핵심 성질은 정보를 숨기는 영지식성보다, 증명이 짧고 빠르게 검증된다는 Succinctness(간결성)이다. 롤업은 Data Availability(데이터 가용성)를 위해 트랜잭션 데이터를 L1에 별도로 게시한다.
+zkEVM(Zero-Knowledge Ethereum Virtual Machine)은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증하는 시스템이다. 대표적인 사용처는 L2 ZK 롤업으로, 롤업은 "Off-chain Execution(오프체인 실행) + L1 On-chain Proof Verification(온체인 증명 검증)" 구조로 L2 트랜잭션을 처리한다. 이더리움 L1에서도 Global Re-execution(네트워크 전역 재실행) 기반 검증을 증명 검증으로 대체하는 방향이 연구되고 있지만, 아직 메인넷에는 도입되지 않았다(Loop 절 뒤의 L1 실행 증명 단락 참고). zkEVM은 이더리움과 동일하게 State Transition을 검증의 기본 단위로 사용한다. 이더리움과 완전히 동일한 규칙을 증명하는 zkEVM(Type 1)은 State Transition Function $$\Pi(S, T) = S'$$ 자체를 변경하지 않는다. 다시 말해, 주어진 초기 상태 $$S$$에 대해 트랜잭션 집합 $$T$$를 적용했을 때 최종 상태 $$S'$$로 전이되는 Execution Semantics(실행 의미론)는 Ethereum의 EVM과 동일하게 유지하되, 그 전이가 올바르게 수행되었는지를 확인하는 검증 메커니즘만 암호학적 증명으로 대체하는 것이다. 다만 구현에 따라 상태 트리, 해시 함수, Gas 규칙 등을 바꾼 zkEVM도 있다(Type 2~4). 이 구조에서 zkEVM은 "주어진 초기 상태 $$S$$에서 트랜잭션 집합 $$T$$를 적용하여 최종 상태 $$S'$$로의 전이가 EVM 규칙을 정확히 따랐다"는 사실만을 간결한 증명으로 요약해 제출하며, Verifier(검증자)는 중간 실행 과정을 다시 계산하지 않고도 State Transition의 정당성을 검증할 수 있다. 여기서 활용되는 핵심 성질은 정보를 숨기는 영지식성보다, 증명이 짧고 빠르게 검증된다는 Succinctness(간결성)이다. 롤업은 Data Availability(데이터 가용성)를 위해 트랜잭션 데이터를 L1에 별도로 게시한다.
 
-zkEVM에서는 소수의 Prover(증명자)가 블록 또는 트랜잭션 배치를 Off-chain에서 실행하고, EVM 바이트코드를 Opcode 단위로 순차적으로 실행하는 과정에서 발생하는 상태 변화를 추적하여 Execution Trace를 생성한다. 이 Execution Trace에는 각 스텝별 Stack 값, Memory 접근, Storage 읽기와 쓰기, 호출과 반환(Call/Return) 등의 세부적인 중간 상태가 포함되며, 이러한 세부 정보는 On-chain에 공개되지 않는다. EVM의 실행 규칙은 미리 수학적 제약으로 변환(Arithmetization, 산술화)되어 Polynomial Constraints(다항식 제약)로 표현되고, Execution Trace는 이 제약을 만족해야 하는 Witness(증인) 데이터가 된다. 즉, "ADD Opcode면 Stack 두 값을 더해야 한다" 같은 규칙을 방정식으로 미리 만들어 두고, Prover는 자신이 만든 Trace가 이 제약 조건들을 모두 만족한다는 증명 π를 생성한다.
+zkEVM에서는 소수의 Prover(증명자)가 블록 또는 트랜잭션 배치를 Off-chain에서 실행하고, EVM 바이트코드를 Opcode 단위로 순차적으로 실행하는 과정에서 발생하는 상태 변화를 추적하여 Execution Trace를 생성한다. 이 Execution Trace에는 각 스텝별 Stack 값, Memory 접근, Storage 읽기와 쓰기, 호출과 반환(Call/Return) 등의 세부적인 중간 상태가 포함되며, 이러한 세부 정보는 On-chain에 공개되지 않는다. EVM의 실행 규칙은 미리 수학적 제약으로 변환(Arithmetization, 산술화)되어 Polynomial Constraints(다항식 제약)로 표현되고, Execution Trace는 이 제약을 만족해야 하는 Witness(증인) 데이터가 된다. 즉, "ADD Opcode면 Stack 두 값을 더해야 한다" 같은 규칙을 방정식으로 미리 만들어 두고, Prover는 자신이 만든 Trace가 이 제약 조건들을 모두 만족한다는 증명 $$\pi$$를 생성한다.
 
-Verifier(L2 롤업에서는 L1의 검증 스마트 컨트랙트)는 블록 내 트랜잭션을 다시 실행할 필요 없이, Public Input(공개 입력: 이전 State Root S_root, 트랜잭션 배치 Commitment, 이후 State Root S'_root)과 제출된 증명 π만 수학적으로 검증함으로써 실행의 정합성(Correctness)을 확인한다. 증명이 유효한 경우, T를 적용한 State Transition S → S′가 EVM 규칙을 정확히 준수했음이 암호학적으로 보장되며, 이 검증 과정의 비용은 동일한 트랜잭션 집합을 모든 노드가 전부 다시 실행하는 비용에 비해 매우 작도록 설계된다. 그 결과, 기존 이더리움의 "Execution × N 노드" 구조와 비교했을 때, zkEVM 기반 구조에서는 "Execution × Prover(소수) + Verification × N 노드" 형태로 바뀌어 네트워크 전반에서 발생하던 계산 중복을 크게 줄이면서도 State Transition의 안전성과 무결성을 유지할 수 있다.
+Verifier(L2 롤업에서는 L1의 검증 스마트 컨트랙트)는 블록 내 트랜잭션을 다시 실행할 필요 없이, Public Input(공개 입력: 이전 State Root $$S_{\text{root}}$$, 트랜잭션 배치 Commitment, 이후 State Root $$S'_{\text{root}}$$)과 제출된 증명 $$\pi$$만 수학적으로 검증함으로써 실행의 정합성(Correctness)을 확인한다. 증명이 유효한 경우, $$T$$를 적용한 State Transition $$S \to S'$$가 EVM 규칙을 정확히 준수했음이 암호학적으로 보장되며, 이 검증 과정의 비용은 동일한 트랜잭션 집합을 모든 노드가 전부 다시 실행하는 비용에 비해 매우 작도록 설계된다. 그 결과, 기존 이더리움의 "Execution × N 노드" 구조와 비교했을 때, zkEVM 기반 구조에서는 "Execution × Prover(소수) + Verification × N 노드" 형태로 바뀌어 네트워크 전반에서 발생하던 계산 중복을 크게 줄이면서도 State Transition의 안전성과 무결성을 유지할 수 있다.
 
 zkEVM은 강력한 보안과 확장성을 제공하지만, 현실적인 제약도 존재한다. 먼저, 증명 생성 비용이 높다. EVM의 복잡한 로직을 Circuit(회로, 수학적 제약의 집합)으로 표현하면 Execution Trace가 비대해지며, 이를 증명하는 데 많은 연산 자원과 시간이 소모된다. 제약식의 종류는 EVM 규칙으로 고정되어 있고, 실행 스텝이 늘어나면 Trace의 행 수가 실행 스텝 수에 비례해 늘어난다. 같은 연산이라도 Re-execution보다 증명 생성이 훨씬 느리고 비싸며, 그 배수는 증명 시스템, 하드웨어, 작업량에 따라 크게 달라진다. 이더리움 재단(EF)은 2025년 말 L1 블록을 슬롯 시간 안에 증명하는 Real-Time Proving(실시간 증명)에 도달했다고 발표했지만, 이를 위해서는 GPU 클러스터 수준의 장비가 필요하다. 특히 Keccak-256 해시와 ECDSA 서명 검증(`ecrecover`) 같은 무거운 연산이 많은 트랜잭션은 "Gas는 저렴하지만 증명은 매우 비싼 Prover Killer"가 된다. 또한, 증명 방식 사이에는 개발 편의성과 성능 사이의 Trade-off가 있다. RISC Zero와 같은 zkVM 계열은 일반 프로그램을 그대로 증명할 수 있어 범용성이 높지만, CPU 명령어 단위로 증명하므로 네이티브 실행 대비 증명 생성 오버헤드가 크다(자주 쓰는 암호 연산은 전용 가속 Circuit으로 보완한다). 반대로 gnark나 ZoKrates 같은 Circuit 기반 SNARK 도구는 특정 계산에 맞춘 Circuit으로 증명 생성 효율을 높일 수 있지만, Circuit을 직접 설계해야 하고 로직이 바뀔 때마다 Circuit을 다시 만들어야 하며, Groth16을 쓰면 Circuit마다 Trusted Setup(신뢰 설정)도 다시 해야 한다. 더해서 단일 Prover(또는 소수) 구조는 Liveness 위험을 가진다. 즉, Sequencer나 Prover를 운영하는 주체에 문제가 생기면 상태 확정이 지연된다. 예를 들어 Polygon zkEVM은 2024년 3월 L1 Reorg를 Synchronizer가 제대로 처리하지 못해 증명할 수 없는 배치가 생기면서 약 10시간 동안 블록 생성이 멈춘 바 있다. 이 장애의 원인은 증명 생성 속도가 아니라 운영 소프트웨어의 오류였다.
 
@@ -216,9 +217,9 @@ _출처: [https://zkevm.ethereum.foundation/blog/zkevm-security-overview](https:
     
     일반화하면 모든 인접한 실행 단계는 다음 조건을 만족해야 한다.
     
-    ```text
-    P_i(trace[t], trace[t+1]) = 0
-    ```
+    $$
+    P_i\big(\mathrm{trace}[t],\ \mathrm{trace}[t+1]\big) = 0 \quad \text{for all } i \text{ and } t \in [0, N-1]
+    $$
     
     Memory와 Storage 접근의 일관성, 값의 범위처럼 인접한 두 행만으로 표현하기 어려운 조건은 Lookup이나 Permutation 논증으로 따로 확인한다.
     
@@ -226,18 +227,18 @@ _출처: [https://zkevm.ethereum.foundation/blog/zkevm-security-overview](https:
     
     Prover는 Execution Trace(Witness)와 제약식을 바탕으로 증명을 생성한다. 대규모 Execution Trace를 처리하기 위해 STARK 계열 증명을 쓰는 구현이 많지만, 증명 시스템은 구현마다 다르다. STARK는 Trusted Setup이 필요 없고 대형 Trace 처리에 유리하지만, 증명 크기가 크다는 단점이 있다. 이를 보완하기 위해 증명을 검증하는 계산을 다시 증명하는 Recursion(재귀 증명)이나 Aggregation으로 여러 증명을 하나로 합치고, 최종적으로는 L1에서 저비용으로 검증 가능하도록 작은 크기의 SNARK(예: Groth16)로 감싸는(Wrapping) 구성이 흔하다.
     
-    증명이 보장하는 내용은 ∀ t ∈ [0, N−1]: trace[t] → trace[t+1] 전이가 EVM 규칙을 준수하고, trace[0]에서 시작하는 상태가 S_root와, trace[N]까지 실행한 결과 상태가 S'_root와 일치한다는 것이다. 즉, 전체 실행이 올바른 State Transition이었음이 하나의 증명으로 요약된다.
+    증명이 보장하는 내용은 모든 $$t \in [0, N-1]$$에 대해 $$\mathrm{trace}[t] \to \mathrm{trace}[t+1]$$ 전이가 EVM 규칙을 준수하고, $$\mathrm{trace}[0]$$에서 시작하는 상태가 $$S_{\text{root}}$$와, $$\mathrm{trace}[N]$$까지 실행한 결과 상태가 $$S'_{\text{root}}$$와 일치한다는 것이다. 즉, 전체 실행이 올바른 State Transition이었음이 하나의 증명으로 요약된다.
     
 4. **Verification**
     
     마지막으로 생성된 증명과 핵심 상태 정보가 L1의 Verifier 스마트 컨트랙트에 제출되며, 일반적으로 제출되는 데이터는 다음과 같다.
     
-    - Pre-State Root (S_{root})
-    - Post-State Root (S'_{root})
+    - Pre-State Root ($$S_{\text{root}}$$)
+    - Post-State Root ($$S'_{\text{root}}$$)
     - Transaction Batch 데이터 또는 DA 커밋
-    - ZK Proof π
+    - ZK Proof ($$\pi$$)
     
-    검증 컨트랙트는 Pre-State Root가 현재 승인된 루트와 같은지 확인하고, 트랜잭션을 다시 실행하지 않고 제출된 증명 π의 수학적 타당성만을 검증한다. 검증이 성공하면 해당 배치의 State Transition은 EVM 규칙을 만족한 것으로 간주되며, 새로운 State Root가 On-chain에 기록된다. 이 상태가 되돌릴 수 없게 확정되는 시점은 검증 트랜잭션이 포함된 L1 블록이 Finalized 상태가 되는 시점이다.
+    검증 컨트랙트는 Pre-State Root가 현재 승인된 루트와 같은지 확인하고, 트랜잭션을 다시 실행하지 않고 제출된 증명 $$\pi$$의 수학적 타당성만을 검증한다. 검증이 성공하면 해당 배치의 State Transition은 EVM 규칙을 만족한 것으로 간주되며, 새로운 State Root가 On-chain에 기록된다. 이 상태가 되돌릴 수 없게 확정되는 시점은 검증 트랜잭션이 포함된 L1 블록이 Finalized 상태가 되는 시점이다.
     
     ```text
     Sequencer / Prover:
@@ -383,7 +384,7 @@ RISC Zero zkVM은 '증명될 대상(Guest)'과 '증명을 관리하는 실행자
         - 실행 중인 명령어의 Memory 주소인 Program Counter(PC), 읽는 레지스터 값(정수 레지스터는 x0~x31의 32개이며 x0은 항상 0), 읽는 Memory 값 등
     - **Opcode 실행:** RISC-V RV32IM 명령어(RV32I 40개 + M 확장 8개, 총 48개: ADD, LW(Load), SW(Store), JAL(Jump) 등) 중 하나
     - **Post-execution:** 명령 실행 후 발생한 변화
-        - 연산 결과가 쓰인 레지스터($\Delta Register$), Memory에 쓴 주소와 값($\Delta Memory$), 다음 PC 등
+        - 연산 결과가 쓰인 레지스터($$\Delta\,\text{Register}$$), Memory에 쓴 주소와 값($$\Delta\,\text{Memory}$$), 다음 PC 등
     
     이렇게 시간 순서대로 나열된 사이클별 데이터는 Execution Trace라 불리는 거대한 행렬 구조의 테이블이 된다. 이 테이블에서 각 행(Row)은 개별 실행 사이클을 의미하며, 각 열(Column)은 PC, Opcode, 레지스터 값, Memory 접근 정보 등을 나타낸다. 이 테이블의 모든 데이터는 이후 Arithmetization 단계를 거쳐 Polynomial Constraints 조건을 만족하는지 검증받게 된다.
 
@@ -407,10 +408,10 @@ RISC Zero zkVM은 '증명될 대상(Guest)'과 '증명을 관리하는 실행자
     생성된 Execution Trace는 STARK Prover에 의해 수학적 증명으로 변환되는 Arithmetization 과정을 거친다. Trace 테이블의 각 열에 기록된 값들을 다항식의 평가값(Evaluation)으로 간주하고, 보간(실제 구현은 NTT 사용)을 통해 해당 값들을 지나는 다항식을 복원한다. "연산 결과의 정확성", "명령어 주소의 논리적 연속성" 등의 검증 규칙은 Trace의 인접 행 사이 제약(전이 제약)과 첫 행, 마지막 행 제약(경계 제약)으로 표현하며, 이러한 표현 방식을 AIR(Algebraic Intermediate Representation)라고 한다. Guest 프로그램이 정상 실행되었다면 모든 제약 조건 다항식이 Trace의 정의역에서 0이 된다.
 
     - **AIR Constraints** (정상 실행이면 모두 0):
-        - PC Constraint: 분기나 점프가 아니면 PC_{n+1} = PC_n + 4, 분기나 점프가 실행되면 PC_{n+1} = 목적지
+        - PC Constraint: 분기나 점프가 아니면 $$PC_{n+1} = PC_n + 4$$, 분기나 점프가 실행되면 $$PC_{n+1} = \text{target}_n$$(목적지)
             - RV32IM 명령어는 4바이트이므로 순차 실행 시 PC는 4씩 증가하고, 분기와 점프에서는 목적지로 이동해야 한다.
-        - Register Constraint: RegD_{n+1} = ALU(RegS1_n, RegS2_n, imm) mod 2^32, rd = x0이면 값 변화 없음
-            - ADD 명령이 실행되었다면, 결과 레지스터 값은 두 원본 레지스터 값의 합(mod 2^32)과 같아야 한다.
+        - Register Constraint: $$\text{rd}_{n+1} = \mathrm{ALU}(\text{rs1}_n, \text{rs2}_n, \text{imm}) \bmod 2^{32}$$, $$\text{rd} = x_0$$이면 값 변화 없음
+            - ADD 명령이 실행되었다면, 결과 레지스터 값은 두 원본 레지스터 값의 합($$\bmod 2^{32}$$)과 같아야 한다.
         - Memory Constraint: 어떤 주소에서 읽은 값 = 그 주소에 마지막으로 쓴 값
             - Memory 접근 기록을 주소와 시간 순으로 정렬한 Permutation 논증 등으로 확인한다.
         - Decoding / Range Constraint: 명령 워드가 유효한 RV32IM 명령으로 디코딩되고, 레지스터와 Memory 값이 32비트 범위 안에 있음
@@ -418,9 +419,9 @@ RISC Zero zkVM은 '증명될 대상(Guest)'과 '증명을 관리하는 실행자
 
 5. **STARK Prover (FRI)**
 
-    Prover는 Trace 다항식들에 커밋한 뒤, FRI(Fast Reed-Solomon Interactive Oracle Proof of Proximity) 프로토콜로 커밋한 값들이 낮은 차수의 다항식에 가깝다는 것(저차 근접성)을 증명한다. FRI는 데이터를 압축하는 기술이 아니라 검사 프로토콜이다. 수백만에서 수십억 행에 달하는 Trace 다항식을 직접 검증하는 것은 불가능하기 때문에, FRI는 다항식을 반복적으로 '접는(Folding)' 방식을 취한다. 일반적인 설명에서는 짝수 항과 홀수 항을 분리하고 Verifier의 랜덤값을 혼합하여 차수를 절반씩 줄이며, RISC Zero는 한 번에 16배씩 접는다. Verifier는 무작위 위치를 정해진 횟수만큼 조회해(RISC Zero는 50회) 전체 실행 Trace가 제약을 만족하는 저차 다항식에서 나왔음을 높은 확률로 확인한다. RISC Zero Datasheet 기준 Segment 하나의 STARK 증명(Seal) 크기는 200 kB 남짓이다(2^15 사이클에서 201.3 kB, 2^16 사이클에서 213 kB).
+    Prover는 Trace 다항식들에 커밋한 뒤, FRI(Fast Reed-Solomon Interactive Oracle Proof of Proximity) 프로토콜로 커밋한 값들이 낮은 차수의 다항식에 가깝다는 것(저차 근접성)을 증명한다. FRI는 데이터를 압축하는 기술이 아니라 검사 프로토콜이다. 수백만에서 수십억 행에 달하는 Trace 다항식을 직접 검증하는 것은 불가능하기 때문에, FRI는 다항식을 반복적으로 '접는(Folding)' 방식을 취한다. 일반적인 설명에서는 짝수 항과 홀수 항을 분리하고 Verifier의 랜덤값을 혼합하여 차수를 절반씩 줄이며, RISC Zero는 한 번에 16배씩 접는다. Verifier는 무작위 위치를 정해진 횟수만큼 조회해(RISC Zero는 50회) 전체 실행 Trace가 제약을 만족하는 저차 다항식에서 나왔음을 높은 확률로 확인한다. RISC Zero Datasheet 기준 Segment 하나의 STARK 증명(Seal) 크기는 200 kB 남짓이다($$2^{15}$$ 사이클에서 201.3 kB, $$2^{16}$$ 사이클에서 213 kB).
 
-    대규모 프로그램 실행 시 발생하는 Memory 부하를 해결하기 위해, RISC Zero는 전체 실행 과정을 Segment로 분할한다. Segment 크기는 `segment_limit_po2`로 2의 거듭제곱 단위로 정하며, 기본값은 2^20(1,048,576) 사이클이다(`DEFAULT_SEGMENT_LIMIT_PO2 = 20`). risc0-zkp는 2^13(약 8천)~2^24(약 1,677만) 사이클을 정의하지만, 기본 검증 설정이 받아들이는 최대 Segment 크기는 2^22다(`DEFAULT_MAX_PO2 = 22`). 2^23과 2^24는 기본값이 아닌 검증 설정을 따로 써야 한다. 각 Segment는 독립적으로 STARK 증명을 생성하며, 이는 GPU 가속이나 Boundless 같은 분산 증명 시장을 통해 병렬로 처리될 수 있다. 이전에 쓰이던 Bonsai는 RISC Zero가 운영한 중앙화된 호스팅 증명 서비스였으며, 현재는 개인 개발자에게 제공되지 않는다. 이후 별도의 Recursion Prover(재귀 증명자)가 Segment 증명을 Recursion Circuit용 증명으로 변환(`lift`)하고 둘씩 합치는(`join`) 과정을 반복해, 수많은 Segment 증명을 하나의 Succinct Receipt로 병합한다.
+    대규모 프로그램 실행 시 발생하는 Memory 부하를 해결하기 위해, RISC Zero는 전체 실행 과정을 Segment로 분할한다. Segment 크기는 `segment_limit_po2`로 2의 거듭제곱 단위로 정하며, 기본값은 $$2^{20}$$(1,048,576) 사이클이다(`DEFAULT_SEGMENT_LIMIT_PO2 = 20`). risc0-zkp는 $$2^{13}$$(약 8천)~$$2^{24}$$(약 1,677만) 사이클을 정의하지만, 기본 검증 설정이 받아들이는 최대 Segment 크기는 $$2^{22}$$다(`DEFAULT_MAX_PO2 = 22`). $$2^{23}$$과 $$2^{24}$$는 기본값이 아닌 검증 설정을 따로 써야 한다. 각 Segment는 독립적으로 STARK 증명을 생성하며, 이는 GPU 가속이나 Boundless 같은 분산 증명 시장을 통해 병렬로 처리될 수 있다. 이전에 쓰이던 Bonsai는 RISC Zero가 운영한 중앙화된 호스팅 증명 서비스였으며, 현재는 개인 개발자에게 제공되지 않는다. 이후 별도의 Recursion Prover(재귀 증명자)가 Segment 증명을 Recursion Circuit용 증명으로 변환(`lift`)하고 둘씩 합치는(`join`) 과정을 반복해, 수많은 Segment 증명을 하나의 Succinct Receipt로 병합한다.
 
     기본적인 STARK 증명은 생성 속도가 빠르지만 증명 데이터의 크기가 커서 이더리움 On-chain 검증 시 많은 Gas 비용을 발생시킨다. 이를 최적화하기 위해 RISC Zero는 Succinct Receipt를 검증하는 로직을 Groth16 Circuit으로 구현하여, 이더리움 검증에 최적화된 Groth16(SNARK) 형식으로 변환(Wrapping)한다. 이 과정을 거치면 증명 크기가 BN254 기준 256바이트(압축 시 128바이트)로 줄어든다. Groth16 On-chain 검증은 페어링 Precompile 호출만 181,000 Gas가 들고 Public Input당 비용이 더해진다. RISC Zero 검증 컨트랙트는 Groth16 Public Input 5개(Control Root 두 조각, Claim 다이제스트 두 조각, BN254 Control ID)를 쓰며, risc0-ethereum의 End-to-End 테스트(2024년 6월)에서 측정된 검증 Gas는 약 25만 7천~26만 Gas다. 이 Groth16 Wrapping Circuit은 Trusted Setup이 필요하며, RISC Zero가 세레머니를 진행했다.
 
@@ -501,7 +502,7 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 
 2. **Define 메서드에서 제약 조건 작성**
 
-    - `Define(api frontend.API) error` 메서드 내에서, 덧셈, 곱셈, 비교 등 논리적 제약 조건을 작성한다. `api.Add`, `api.Mul`과 같은 산술 연산을 통해 $x^3 + x + 5 = y$와 같은 방정식을 구성하거나, `gnark/std` 라이브러리의 가젯을 호출하여 Merkle Proof 검증 및 EdDSA, ECDSA 서명 검증과 같은 복잡한 로직을 Circuit 안에 포함시킨다.
+    - `Define(api frontend.API) error` 메서드 내에서, 덧셈, 곱셈, 비교 등 논리적 제약 조건을 작성한다. `api.Add`, `api.Mul`과 같은 산술 연산을 통해 $$x^3 + x + 5 = y$$와 같은 방정식을 구성하거나, `gnark/std` 라이브러리의 가젯을 호출하여 Merkle Proof 검증 및 EdDSA, ECDSA 서명 검증과 같은 복잡한 로직을 Circuit 안에 포함시킨다.
 
     ```go
     func (circuit *CubicCircuit) Define(api frontend.API) error {
@@ -525,21 +526,23 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 
 3. **컴파일 (Compilation)**
 
-    정의된 Go 코드는 `frontend.Compile()` 을 통해 수학적 시스템인 R1CS(Rank-1 Constraint System) 또는 Plonkish 형식으로 변환된다. 이때 이더리움 Precompile 환경과의 호환성을 위해 주로 BN254 곡선을 사용하며, Circuit의 산술은 BN254의 스칼라체(약 254비트 소수 r) 위에서 이루어진다. 곡선 방정식 $y^2 = x^3 + 3$은 기저체 Fp 위의 식으로, Circuit 산술이 이루어지는 스칼라체와는 다른 체다.
+    정의된 Go 코드는 `frontend.Compile()` 을 통해 수학적 시스템인 R1CS(Rank-1 Constraint System) 또는 Plonkish 형식으로 변환된다. 이때 이더리움 Precompile 환경과의 호환성을 위해 주로 BN254 곡선을 사용하며, Circuit의 산술은 BN254의 스칼라체 $$\mathbb{F}_r$$(약 254비트 소수 $$r$$) 위에서 이루어진다. 곡선 방정식 $$y^2 = x^3 + 3$$은 기저체 $$\mathbb{F}_p$$ 위의 식으로, Circuit 산술이 이루어지는 스칼라체와는 다른 체다.
     
-    설계된 Circuit은 수학적 처리가 가능한 형태로 변환되기 위해 Flattening(평탄화) 과정을 거친다. 이는 복잡한 수식($x^3 + x + 5 = y$)을 하나의 곱셈 연산만 포함된 간단한 수식들의 집합으로 분해하는 작업이다. 모든 연산은 "입력1 × 입력2 = 출력" 형태로 쪼개지며, R1CS에서는 최종적으로 평탄화된 각 식이 $A \times B = C$ 형식의 제약 조건으로 변환된다. 이때 A, B, C는 Circuit 내의 모든 변수 v_i(입력값, 중간값, 상수(1 포함))의 Linear Combination(선형 결합)으로 구성된다. 
+    설계된 Circuit은 수학적 처리가 가능한 형태로 변환되기 위해 Flattening(평탄화) 과정을 거친다. 이는 복잡한 수식($$x^3 + x + 5 = y$$)을 하나의 곱셈 연산만 포함된 간단한 수식들의 집합으로 분해하는 작업이다. 모든 연산은 "입력1 × 입력2 = 출력" 형태로 쪼개지며, R1CS에서는 최종적으로 평탄화된 각 식이 $$A \times B = C$$ 형식의 제약 조건으로 변환된다. 이때 $$A, B, C$$는 Circuit 내의 모든 변수 $$v_i$$(입력값, 중간값, 상수 $$v_0 = 1$$ 포함)의 Linear Combination(선형 결합)으로 구성된다. 
     
-    ```text
-    A = α₁v₁ + α₂v₂ + ... + αₙvₙ
-    B = β₁v₁ + β₂v₂ + ... + βₙvₙ  
-    C = γ₁v₁ + γ₂v₂ + ... + γₙvₙ
-    ```
+    $$
+    \begin{aligned}
+    A &= \alpha_0 v_0 + \alpha_1 v_1 + \cdots + \alpha_n v_n \\
+    B &= \beta_0 v_0 + \beta_1 v_1 + \cdots + \beta_n v_n \\
+    C &= \gamma_0 v_0 + \gamma_1 v_1 + \cdots + \gamma_n v_n
+    \end{aligned}
+    $$
 
-    이때 A, B, C 내부의 덧셈(Linear Combination)은 R1CS에서 별도의 제약을 추가하지 않는다. 따라서 최대한 많은 덧셈을 $A \times B = C$의 괄호 안으로 병합하여, 전체 곱셈 횟수를 최소화하는 것이 R1CS Circuit 설계의 핵심 최적화 요소가 된다. PLONK의 Plonkish 제약에서는 게이트의 입력 수가 제한되어 있어 덧셈에도 게이트가 필요하다.
+    이때 $$A, B, C$$ 내부의 덧셈(Linear Combination)은 R1CS에서 별도의 제약을 추가하지 않는다. 따라서 최대한 많은 덧셈을 $$A \times B = C$$의 괄호 안으로 병합하여, 전체 곱셈 횟수를 최소화하는 것이 R1CS Circuit 설계의 핵심 최적화 요소가 된다. PLONK의 Plonkish 제약에서는 게이트의 입력 수가 제한되어 있어 덧셈에도 게이트가 필요하다.
 
     일반적인 프로그래밍 언어와 달리 산술 Circuit에서는 입력에 따라 실행 경로를 바꿀 수 없으므로, 조건문과 반복문을 수학적인 제약 조건으로 치환해야 한다. 조건문(if)은 `api.Select(condition, a, b)` 함수로 대체된다(조건이 첫 번째 인자). 이 함수는 `condition`이 1(참)이면 `a`를, 0(거짓)이면 `b`를 선택하며, 내부적으로 `b + condition × (a − b)`로 계산되어 곱셈 1개로 Circuit에 삽입된다. 현재 gnark는 R1CS 빌더와 PLONK용 SCS 빌더 모두 Select 안에서 `condition`이 0 또는 1이라는 Boolean 제약을 함께 추가한다(과거 버전의 SCS 빌더는 이 제약을 넣지 않아 감사에서 지적된 적이 있다). 반복문(for)은 컴파일 타임에 Unrolling(펼치기) 방식으로 처리된다. `Define()` 안의 Go for 문은 Circuit을 컴파일할 때 실행되어 반복마다 제약을 생성하므로, 반복 횟수가 컴파일 시점에 정해져 있으면 for 문을 그대로 쓰면 된다. 입력 개수가 정해진 경우에는 고정 크기 배열을 struct 필드로 정의한다. 이는 Circuit 컴파일 시 모든 제약 수가 정적으로 확정되어야 하는 Circuit 기반 SNARK의 특성 때문이다. 
 
-    이 모든 것이 평탄화되어 Go 코드가 다수의 $A \times B = C$ 제약으로 변환된다. 결과적으로 Prover는 이 방정식 시스템을 유한체 위에서 정확히 만족하는 Witness를 알고 있음을 증명하고, Verifier는 로직을 다시 실행하는 대신 증명과 Verifying Key(검증 키)로 페어링 등식을 확인하여 계산의 정합성을 입증한다.
+    이 모든 것이 평탄화되어 Go 코드가 다수의 $$A \times B = C$$ 제약으로 변환된다. 결과적으로 Prover는 이 방정식 시스템을 유한체 위에서 정확히 만족하는 Witness를 알고 있음을 증명하고, Verifier는 로직을 다시 실행하는 대신 증명과 Verifying Key(검증 키)로 페어링 등식을 확인하여 계산의 정합성을 입증한다.
 
 4. **Trusted Setup**
 
@@ -547,28 +550,28 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 
     - **Groth16 Trusted Setup**
         
-        컴파일 완료 후 Groth16의 Trusted Setup은 `groth16.Setup(cs)` 함수를 호출하여 진행된다. 이 과정에서 Circuit별 Proving Key(pk)와 Verifying Key(vk)를 생성하며, 내부적으로 Toxic Waste(비밀 난수: α, β, γ, δ, τ 등)를 사용해 Structured Reference String을 만든다. 이 값을 아는 사람은 증명을 위조할 수 있으므로 반드시 파기해야 하며, 대규모 프로젝트에서는 MPC(Multi-party Computation) 세레머니를 통해 수행된다. 참여자 중 한 명만 정직하게 파기해도 안전하다.
+        컴파일 완료 후 Groth16의 Trusted Setup은 `groth16.Setup(cs)` 함수를 호출하여 진행된다. 이 과정에서 Circuit별 Proving Key(pk)와 Verifying Key(vk)를 생성하며, 내부적으로 Toxic Waste(비밀 난수: $$\alpha, \beta, \gamma, \delta, \tau$$ 등)를 사용해 Structured Reference String을 만든다. 이 값을 아는 사람은 증명을 위조할 수 있으므로 반드시 파기해야 하며, 대규모 프로젝트에서는 MPC(Multi-party Computation) 세레머니를 통해 수행된다. 참여자 중 한 명만 정직하게 파기해도 안전하다.
     
     - **PLONK Trusted Setup**
         
         반면 PLONK의 Trusted Setup은 KZG Polynomial Commitment 기반의 Universal SRS를 전제로 하며, gnark에서는 `plonk.Setup(ccs, srs, srsLagrange)`처럼 SRS를 인자로 넘긴다. 각 Circuit마다 새 세레머니를 하는 대신 사전에 MPC로 생성된 공통 SRS를 재사용한다. 다만 Circuit마다 Proving Key와 Verifying Key를 만드는 전처리는 필요하므로, Circuit을 업데이트하면 키는 다시 생성해야 한다(새 세레머니는 필요 없다).
     
 
-    ⇒ 주요 차이점은 Groth16이 Circuit별 설정으로 상수 크기 증명(G1 점 2개 + G2 점 1개, BN254 기준 비압축 256바이트, 압축 128바이트)과 빠른 검증(e(α, β)를 미리 계산하면 페어링 3번)을 제공하는 반면, PLONK는 범용 설정으로 유연하지만 증명이 더 크고(gnark의 BN254 Solidity 직렬화 기준 768바이트: G1 점 9개와 스칼라 6개이며, Commitment 커스텀 게이트를 쓰면 게이트당 96바이트가 추가된다) 검증에 KZG 확인(페어링 2번과 여러 번의 G1 스칼라 곱)이 필요하다는 것이다.
+    ⇒ 주요 차이점은 Groth16이 Circuit별 설정으로 상수 크기 증명($$\mathbb{G}_1$$ 점 2개 + $$\mathbb{G}_2$$ 점 1개, BN254 기준 비압축 256바이트, 압축 128바이트)과 빠른 검증($$e(\alpha, \beta)$$를 미리 계산하면 페어링 3번)을 제공하는 반면, PLONK는 범용 설정으로 유연하지만 증명이 더 크고(gnark의 BN254 Solidity 직렬화 기준 768바이트: $$\mathbb{G}_1$$ 점 9개와 스칼라 6개이며, Commitment 커스텀 게이트를 쓰면 게이트당 96바이트가 추가된다) 검증에 KZG 확인(페어링 2번과 여러 번의 $$\mathbb{G}_1$$ 스칼라 곱)이 필요하다는 것이다.
 
 
 5. **증명 생성 (Proving)**
     
     Prover는 Assignment(실제 데이터)를 Circuit에 주입하여 Witness를 생성하고, 이를 Proving Key와 함께 백엔드에 전달한다. gnark에서는 `frontend.NewWitness(&assignment, field)`로 Witness를 생성한 후 `groth16.Prove(cs, pk, witness)` 또는 `plonk.Prove(cs, pk, witness)`를 호출한다. 이 단계에서 gnark는 두 가지 핵심 연산을 수행한다.
 
-    - **MSM (Multi-Scalar Multiplication)**: 타원 곡선 점들의 거대한 Linear Combination(P = Σ rᵢGᵢ)을 계산한다. 증명 생성에서 가장 무거운 연산 중 하나이며, gnark(gnark-crypto)는 Pippenger의 Bucket Method(버킷 방식)와 멀티코어 병렬화로 이를 계산한다.
+    - **MSM (Multi-Scalar Multiplication)**: 타원 곡선 점들의 거대한 Linear Combination($$P = \sum_{i} r_i G_i$$)을 계산한다. 증명 생성에서 가장 무거운 연산 중 하나이며, gnark(gnark-crypto)는 Pippenger의 Bucket Method(버킷 방식)와 멀티코어 병렬화로 이를 계산한다.
     - **FFT (Fast Fourier Transform)**: 계수 표현과 점(Point) 표현 간 변환을 수행한다. 유한체 위에서는 NTT(Number Theoretic Transform)로 계산하며, Cooley-Tukey 버터플라이 구조를 쓴다.
 
     gnark의 강점은 CPU 병렬화와 Memory 최적화를 통한 빠른 증명 생성이며, Groth16에 대해서는 GPU 가속(ICICLE)도 실험적으로 지원된다.
 
 6. **검증 (Verification)**
 
-    생성된 증명(Proof)은 Verifying Key(vk)와 Public Witness를 사용해 `groth16.Verify(proof, vk, publicWitness)` 또는 `plonk.Verify(proof, vk, publicWitness)`로 확인된다. Groth16의 경우 e(α, β)를 미리 계산해 두면 페어링 3번으로 검증이 완료되며, Off-chain에서는 빠르게 처리된다. On-chain에서는 비용을 Gas로 측정한다.
+    생성된 증명(Proof)은 Verifying Key(vk)와 Public Witness를 사용해 `groth16.Verify(proof, vk, publicWitness)` 또는 `plonk.Verify(proof, vk, publicWitness)`로 확인된다. Groth16의 경우 $$e(\alpha, \beta)$$를 미리 계산해 두면 페어링 3번으로 검증이 완료되며, Off-chain에서는 빠르게 처리된다. On-chain에서는 비용을 Gas로 측정한다.
 
     gnark는 `vk.ExportSolidity(f)` 함수로 Verifying Key를 Solidity 스마트 컨트랙트로 자동 변환해준다. 생성된 `Verifier.sol`은 이더리움의 `ecPairing` Precompile(주소 0x08)을 직접 호출하며, 페어링 4쌍 확인에 181,000 Gas(EIP-1108 기준)가 들고 Public Input당 약 6~7천 Gas가 더해져 일반적으로 20만~30만 Gas로 증명을 검증한다.
 
@@ -686,7 +689,7 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
     - PC가 2→3→...→16→2→... 로 반복 (Loop 한 번에 11단계 실행)
     - 검증: 모든 노드가 Re-execution
     - 제약: 없음 (Gas Limit만)
-    - 비용: 실행량 (반복 N번이면 전체 11N + 9단계, N=10이면 119단계)
+    - 비용: 실행량 (반복 $$N$$번이면 전체 $$11N + 9$$단계, $$N = 10$$이면 119단계)
 - Loop가 1번이든 100만 번이든, 노드는 그만큼 Opcode를 실
 
 ### zkEVM (trace 기반)
@@ -709,13 +712,19 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 - 특징:
     - 가변 Loop 가능 (Trace 길이만 늘어남)
     - ZK: "각 스텝의 PC/Stack/Memory 규칙 준수"를 증명
-    - **Trace 길이 N ∝ Loop 횟수 × Loop당 Opcode 수**
+    - **Trace 길이** $$N \propto$$ **Loop 횟수 × Loop당 Opcode 수**
         - **⇒ 따라서 Prover가 Trace → ZK 증명 생성하는 부분에서 오래 걸림**
         - 예시: Loop 100만 번 = Trace 약 1,100만 행 (Loop당 11단계) → 증명 시간 증가
 
 - **zkEVM/zkVM (Trace마다) Arithmetization 공식**
     
-    $[ \text{If } opcode_t = JUMPI \land cond_t \neq 0, \text{ then } PC_{t+1} - dest = 0 ]$
+    $$
+    \text{opcode}_t = \texttt{JUMPI} \implies
+    \begin{cases}
+    PC_{t+1} - \text{dest}_t = 0 & \text{if } \text{cond}_t \neq 0 \\
+    PC_{t+1} - (PC_t + 1) = 0 & \text{if } \text{cond}_t = 0
+    \end{cases}
+    $$
     
     - 이 방정식과 Stack, Gas, Memory 등 나머지 제약이 모든 Execution Trace에서 성립하고, 시작과 종료 상태가 Public Input과 맞으면 "이 Loop는 정당하게 실행되었다"고 결론내림
     - ZK는 Loop 횟수를 신경쓰지 않고, 각 스텝의 규칙 준수만 확인하므로 가변 Loop를 자연스럽게 처리 가능
@@ -740,18 +749,18 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
         trace[118]: PC=17, JUMPDEST                   stack=[10]
         ```
     - **ZK가 확인하는 것**
-        - 모든 t에 대해:
-            1. opcode_t에 따른 Stack/Memory 변화 규칙 준수
-            2. PC_{t+1} = f(PC_t, opcode_t, cond_t)
+        - 모든 $$t$$에 대해:
+            1. $$\text{opcode}_t$$에 따른 Stack/Memory 변화 규칙 준수
+            2. 다음 PC 규칙: $$PC_{t+1} = f(PC_t, \text{opcode}_t, \text{cond}_t)$$
         - JUMPI일 때:
-            - cond≠0 → PC_next = dest (점프 ✓)
-            - cond=0 → PC_next = PC+1 (다음으로 진행 ✓)
+            - $$\text{cond} \neq 0 \Rightarrow PC_{\text{next}} = \text{dest}$$ (점프 ✓)
+            - $$\text{cond} = 0 \Rightarrow PC_{\text{next}} = PC + 1$$ (다음으로 진행 ✓)
     - ZK는 Loop라는 개념보다는 PC 점프 패턴이 Opcode 규칙을 지켰는지만 확인하면 됨
         
-        ⇒ 즉, Loop 횟수 N ∈ {1, 10, 100만}에 상관없이 
+        ⇒ 즉, Loop 횟수 $$N \in \{1,\ 10,\ 10^6\}$$에 상관없이 
         
         1. 동일한 제약 공식 사용
-        2. Trace 길이만 N에 비례해서 증가
+        2. Trace 길이만 $$N$$에 비례해서 증가
         3. 각 스텝마다 같은 규칙만 확인
 
 - Loop가 1번이든 100만 번이든 상관 없이, "이 규칙을 모든 스텝에서 지켰다"만 보여주면 되기 때문에 가변 Loop가 자연스럽게 처리됨. 단, 100만 번 돌면 Trace가 길어지고, Prover 쪽 증명 시간이 길어지는 게 차이
@@ -769,7 +778,7 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 - 고정 상한 + Padding 방식으로 우회 가능
     - 즉, Max Bound(최대 횟수)를 정해두고 남는 단계는 Selector로 비활성화하는 Padding 기법 사용
     - 빈 자리에 0을 넣기만 하면 안 되고, Selector가 0 또는 1인지, 활성 단계가 앞쪽에 연속하는지, 활성 단계 수가 N인지를 제약해야 함
-    - 비용: 실제 N=10 / MAX=1000 → Circuit은 항상 1000단계 분량이므로 단계 수 기준 100배 (990번의 무의미한 단계가 발생하며, 이는 실제 단계 수의 99배). 증명 시간이 정확히 100배가 되는 것은 아님
+    - 비용: 실제 $$N = 10$$, $$\text{MAX} = 1000$$ → Circuit은 항상 1000단계 분량이므로 단계 수 기준 100배 (990번의 무의미한 단계가 발생하며, 이는 실제 단계 수의 99배). 증명 시간이 정확히 100배가 되는 것은 아님
 
 우회 방식 예시
  
@@ -804,7 +813,7 @@ gnark는 범용 Circuit 라이브러리로, 특정 연산의 증명부터 전체
 
 High-Level zkSNARK Toolchains: ZoKrates
 
-ZoKrates는 이더리움 환경을 겨냥한 zk-SNARK 툴체인으로, 자체 DSL을 통해 복잡한 산술 Circuit 설계를 추상화함으로써 개발자 접근성을 높인다. 개발자가 ZoKrates 언어(중괄호 블록을 쓰는 문법, 예: `def main(private field a) -> field { return a * a; }`)로 계산 로직을 기술하면, 툴체인은 이를 AST(추상 구문 트리)로 변환한 뒤 if, for Loop 및 중첩 수식을 기본 연산 단위로 분해하는 Flattening 과정을 수행한다. 분해된 연산들은 최종적으로 $A \times B = C$ 형식의 R1CS(Rank-1 Constraint System) 제약 조건으로 변환되며, 이 과정에서 코드상의 변수들은 행렬의 인덱스로 매핑된다.
+ZoKrates는 이더리움 환경을 겨냥한 zk-SNARK 툴체인으로, 자체 DSL을 통해 복잡한 산술 Circuit 설계를 추상화함으로써 개발자 접근성을 높인다. 개발자가 ZoKrates 언어(중괄호 블록을 쓰는 문법, 예: `def main(private field a) -> field { return a * a; }`)로 계산 로직을 기술하면, 툴체인은 이를 AST(추상 구문 트리)로 변환한 뒤 if, for Loop 및 중첩 수식을 기본 연산 단위로 분해하는 Flattening 과정을 수행한다. 분해된 연산들은 최종적으로 $$A \times B = C$$ 형식의 R1CS(Rank-1 Constraint System) 제약 조건으로 변환되며, 이 과정에서 코드상의 변수들은 행렬의 인덱스로 매핑된다.
 
 컴파일 이후의 Setup(설정) 단계에서는 R1CS Circuit을 입력받아 Proving Key(증명 키)와 Verifying Key를 생성한다. 이때 Groth16(G16) 백엔드를 사용할 경우 'Toxic Waste'라 불리는 비밀 난수가 생성되며, 증명의 무결성을 위해 이는 생성 직후 반드시 파괴되어야 한다. ZoKrates는 G16 외에도 GM17, Marlin 증명 체계를 지원하며(백엔드는 bellman, ark), PLONK는 지원하지 않는다. 이를 통해 개발자는 필요에 따라 상수 크기의 증명을 제공하는 G16을 선택하거나, 공통 설정(`universal-setup`)을 재사용할 수 있는 범용 설정 방식인 Marlin을 선택할 수 있다. Marlin도 Circuit별 Setup 단계는 거친다.
 
