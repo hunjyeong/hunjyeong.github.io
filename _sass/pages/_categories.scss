@@ -80,3 +80,8 @@
 .rotate {
   transform: rotate(-90deg);
 }
+
+/* post titles listed under each category */
+.categories .list-group-item.post-item.nested {
+  padding-left: 3.5rem;
+}
