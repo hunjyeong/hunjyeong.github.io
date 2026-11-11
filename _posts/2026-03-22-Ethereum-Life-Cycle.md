@@ -1,46 +1,53 @@
 ---
 title: "Ethereum Life Cycle"
 date: 2026-03-22 12:24:00 +0900
-categories: [blockchain, Ethereum]
-tags: [github Pages, githubBlog, blog, velog, github, blockchain]
+categories: [Blockchain, Ethereum]
+tags: [github Pages, githubBlog, blog, github, blockchain]
+media_subpath: /assets/img/posts/ethereum-life-cycle/
 ---
 
+> 이 글은 2026년 11월 기준 Ethereum 메인넷(Fusaka 업그레이드 적용 상태)을 기준으로 한다. Fusaka는 Fulu + Osaka의 줄임말로, Ethereum의 업그레이드 이름은 Consensus Layer 업그레이드 이름(Fulu)과 Execution Layer 업그레이드 이름(Osaka)을 합쳐서 만든다. 다음 업그레이드인 Glamsterdam(Gloas + Amsterdam)은 2026년 10월 6일 Sepolia 테스트넷에 활성화되었으나 메인넷 활성화 일정은 정해지지 않았다([Ethereum Foundation 공지](https://blog.ethereum.org/2026/10/16/glamsterdam-hoodi-announcement)). Glamsterdam이 메인넷에 적용되면 3장의 PBS(Proposer-Builder Separation) 구조, Slot 내 타이밍, Engine API(Application Programming Interface) 메서드 버전이 달라진다. PBS 구조의 변경은 ePBS(enshrined PBS)라고 부르며 [EIP-7732](https://eips.ethereum.org/EIPS/eip-7732)에 정의되어 있다. EIP(Ethereum Improvement Proposal)는 Ethereum 프로토콜 변경을 제안하는 문서이다.
 
-이더리움(Ethereum)은 블록과 트랜잭션 데이터를 검증할 수 있는 소프트웨어를 실행하는 컴퓨터들로 구성된 분산 네트워크이다. 컴퓨터가 노드가 되려면 소프트웨어(클라이언트)를 실행해야 한다.
+Ethereum(이더리움)은 블록과 트랜잭션 데이터를 검증할 수 있는 소프트웨어를 실행하는 컴퓨터들로 구성된 분산 네트워크이다. 컴퓨터가 Node가 되려면 이 소프트웨어(Client)를 실행해야 한다.
 
-[https://ethereum.org/developers/docs/nodes-and-clients/#:~:text=Simplified diagram of a coupled execution and consensus client](https://ethereum.org/developers/docs/nodes-and-clients/#:~:text=Simplified%20diagram%20of%20a%20coupled%20execution%20and%20consensus%20client).
+![Simplified diagram of a coupled execution and consensus client](node.webp)
+_출처: [ethereum.org - Nodes and clients](https://ethereum.org/developers/docs/nodes-and-clients/#:~:text=Simplified%20diagram%20of%20a%20coupled%20execution%20and%20consensus%20client)_
 
 ### What are Nodes?
 
-노드는 이더리움 네트워크 참여자로, 블록과 트랜잭션을 검증, 저장, 전파하며, 클라이언트 소프트웨어를 실행하는 하드웨어(컴퓨터) 인스턴스이다. 노드는 Full node, Archive node, Light node로 나뉜다.
+Node는 Ethereum Client 소프트웨어를 실행하는 컴퓨터이다. 다른 Node와 P2P(Peer-to-Peer)로 연결되어 블록과 트랜잭션을 검증하고, 저장하고, 전파한다.
 
-- Full node: 전체 블록체인 데이터 저장, 네트워크 동기화 지원
-- Archive node: 풀 노드에 저장된 모든 데이터 저장, 과거 상태 기록 보관
-- Light node: 블록 헤더만 저장, 경량화된 검증
+Node는 저장하는 데이터의 범위에 따라 세 가지로 나뉜다.
+
+- Full Node: 모든 블록을 직접 검증한다. 최신 상태는 유지하고 오래된 상태는 삭제한다.
+- Archive Node: Full Node의 데이터에 더해 과거의 모든 상태를 보관한다.
+- Light Node: 블록 헤더만 저장한다. 필요한 데이터는 Full Node에 요청하고, 헤더의 루트 값으로 직접 검증한다.
 
 ### What are Clients?
 
-클라이언트는 이더리움 프로토콜을 실제로 구현한 소프트웨어 프로그램(예: Geth, Prysm 등)을 말한다. PoS(Proof-of-Stake) 환경에서 완전한 Ethereum 노드를 운영하려면 Execution Client와 Consensus Client를 함께 실행해야 한다.
+Client는 Ethereum 프로토콜 명세를 구현한 소프트웨어이다. 명세는 하나이지만 여러 팀이 서로 다른 언어로 구현한 Client가 존재한다. PoS(Proof-of-Stake) 전환 이후 하나의 Node는 Execution Client와 Consensus Client를 함께 실행해야 한다. 두 Client는 Engine API라는 로컬 RPC(Remote Procedure Call)로 연결되며, Consensus Client가 Execution Client에 요청을 보내는 방향으로 동작한다.
 
-- **Execution Client** (EL client, Execution Engine, …)
-    - Execution Layer(실행 계층)를 실제로 구현한 프로그램이다.
-        - 예: Geth, Nethermind, Erigon, Besu 등
-    - 네트워크에서 트랜잭션을 수신하고 EVM에서 실행한다.
-    - 계정 잔고, 스토리지, 상태 트리 등 최신 이더리움 상태와 데이터베이스를 관리한다.
-    - JSON‑RPC API를 제공해서 외부(지갑, 페이지 등)에서 상태 조회·트랜잭션 전송이 가능하게 한다.
-    - Consensus Client의 요청(Engine API)에 따라 Execution Payload를 생성 및 검증한다.
+- **Execution Client** (EL Client, Execution Engine)
+    - Execution Layer(실행 계층)를 구현한 프로그램이다.
+        - 예: Geth, Nethermind, Besu, Erigon, Reth 등
+    - P2P 네트워크에서 트랜잭션을 수신하여 Mempool(블록에 포함되기 전의 트랜잭션을 보관하는 공간)에 저장하고 다른 Node에 전파한다.
+    - 트랜잭션을 EVM(Ethereum Virtual Machine)에서 실행하고, 계정 잔고와 스토리지 등 Ethereum의 최신 상태와 데이터베이스를 관리한다.
+    - JSON(JavaScript Object Notation)‑RPC API를 제공해서 외부(지갑, DApp(Decentralized Application) 등)에서 상태 조회와 트랜잭션 전송이 가능하게 한다.
+    - Consensus Client의 요청(Engine API)에 따라 Execution Payload를 생성하고 검증한다. Execution Payload는 블록에 담기는 트랜잭션 목록과 그 실행 결과이다.
 
-- **Consensus Client** (CL client, Beacon Node, …)
+- **Consensus Client** (CL Client, Beacon Node)
     - Consensus Layer(합의 계층)와 PoS 합의 알고리즘을 구현한 프로그램이다.
-        - 예: Prysm, Lighthouse, Teku, Nimbus 등
-    - 슬롯 기반으로 블록 제안자(Proposer)와 검증자 위원회(Committee)를 선정한다.
-    - 검증자의 투표(Attestation)를 수집하고 포크 선택 규칙(LMD-GHOST)을 수행한다.
-    - Execution Client와 상호작용하여 블록의 실행 결과를 검증한다.
-    - Casper FFG 규칙에 따라 체크포인트를 정당화(Justification) 및 완결(Finalization)한다.
+        - 예: Lighthouse, Prysm, Teku, Nimbus, Lodestar, Grandine 등
+    - Execution Client와는 별도의 P2P 네트워크에서 Beacon Block과 Attestation(Validator의 투표)을 수신하고 전파한다.
+    - Beacon State를 관리하며, 이 상태로부터 각 Slot(12초 단위의 시간 구간)의 Proposer(블록 제안자)와 Committee(투표를 맡은 Validator 집합)를 계산한다.
+    - 수집한 Attestation으로 Fork Choice Rule(포크 선택 규칙)인 LMD-GHOST(Latest Message Driven Greediest Heaviest Observed SubTree)를 실행하여 체인의 Head(최신 블록)를 결정한다.
+    - 블록의 실행 결과를 직접 계산하지 않고, Engine API로 Execution Client에 Execution Payload의 생성과 검증을 요청한다.
+    - Casper FFG(Friendly Finality Gadget) 규칙에 따라 Checkpoint를 Justified(정당화) 및 Finalized(완결) 상태로 만든다.
 
-&nbsp;
+<br />
+<br />
 
-실제로 트랜잭션이 네트워크에 들어와서 블록에 포함되고 확정되기까지 이더리움 트랜잭션의 라이프 사이클은 다음과 같이 진행된다.
+실제로 트랜잭션이 네트워크에 들어와서 블록에 포함되고 확정되기까지 Ethereum 트랜잭션의 Life Cycle은 다음과 같이 진행된다.
 
 ## 1. Transaction Origination and Signing
 
@@ -48,107 +55,131 @@ tags: [github Pages, githubBlog, blog, velog, github, blockchain]
 
 ### 1.1 트랜잭션 객체 생성 (Transaction Object Construction)
 
-사용자(EOA)가 지갑 소프트웨어(예: MetaMask)에서 트랜잭션을 생성한다.
-
-```tsx
+트랜잭션을 보낼 수 있는 계정은 EOA(Externally Owned Account, 개인키로 제어하는 계정)뿐이고, 컨트랙트 계정은 트랜잭션을 보낼 수 없다. 사용자는 지갑 소프트웨어(예: MetaMask)에서 트랜잭션 객체를 생성한다. 아래는 [EIP-1559](https://eips.ethereum.org/EIPS/eip-1559)(type 2) 트랜잭션 객체의 예시이다.
+ 
+```js
 {
-  from: "0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8",
+  from: "0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8", // 서명할 계정 (서명 대상 필드는 아님)
+  type: 2,                                          // EIP-1559 트랜잭션
+  chainId: 1,                                       // Ethereum 메인넷
+  nonce: 0,
   to: "0xac03bb73b6a9e108530aff4df5077c2b3d481e5a",
-  gasLimit: "21000",
-  maxFeePerGas: "300",
-  maxPriorityFeePerGas: "10",
-  nonce: "0",
-  value: "10000000000"
+  value: 10000000000n,                              // wei 단위 (= 10 gwei)
+  data: "0x",                                       // 단순 송금이므로 비어 있음
+  gasLimit: 21000n,                                 // 단순 송금에 필요한 가스
+  maxFeePerGas: 30000000000n,                       // 30 gwei
+  maxPriorityFeePerGas: 1000000000n,                // 1 gwei
+  accessList: []
 }
 ```
-
-- from: 거래에 서명할 발신자 주소
-- to: 수신자 주소 (EOA 또는 스마트 컨트랙트 주소)
-- gasLimit: 이 트랜잭션이 소모할 수 있는 가스의 최대 한도
-- maxFeePerGas (EIP-1559): 지불할 가스당 최대 요금
-    - maxFeePerGas = Base Fee + Priority Fee
-    - Base Fee는 블록당 소각되고 Priority Fee는 Proposer에게 지급됨
-- maxPriorityFeePerGas (EIP-1559): 블록 제안자(Proposer)에게 팁으로 지불할 가스당 최대 요금
-- nonce: 발신자 주소에서 보낸 트랜잭션의 총 횟수(리플레이 공격 방지)
-- value: 전송할 ETH의 양
-- data: 스마트 컨트랙트와 상호작용할 경우, 실행할 함수와 인코딩된 파라미터
+ 
+- **from**: 트랜잭션에 서명할 발신자 주소. 지갑이나 RPC 요청에서 서명할 계정을 지정하는 용도이며, 서명되는 트랜잭션 필드에는 포함되지 않는다. 네트워크는 서명에서 발신자 주소를 복구한다(2.1 참고).
+- **type**: 트랜잭션 유형([EIP-2718](https://eips.ethereum.org/EIPS/eip-2718)). 2는 EIP-1559 트랜잭션으로 현재의 표준 유형이다. 이 밖에 0(Legacy), 1([EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)), 3([EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) blob 트랜잭션), 4([EIP-7702](https://eips.ethereum.org/EIPS/eip-7702))가 있다.
+- **chainId**: 트랜잭션이 유효한 체인의 ID(Identifier). 서명 대상에 포함되어 다른 체인에서의 재전송(Replay Attack)을 막는다.
+- **nonce**: 발신자 계정의 현재 nonce와 같아야 하는 값. 0부터 시작하며, 트랜잭션이 블록에 포함될 때마다 계정 nonce가 1씩 증가하므로 같은 체인에서 동일 트랜잭션이 중복 실행되는 것을 막는다. EIP-7702의 authorization(EOA가 자신의 코드를 특정 컨트랙트에 위임한다는 서명된 승인)이 처리되거나 위임된 코드가 컨트랙트를 생성(CREATE/CREATE2)할 때도 증가하므로, 보낸 트랜잭션 수와 다를 수 있다.
+- **to**: 수신자 주소. 수신자가 EOA든 컨트랙트든 value가 전송되며, 수신자에 코드가 있으면(컨트랙트, 또는 EIP-7702로 코드를 위임한 EOA) 그 코드가 실행된다. 코드 실행이 revert되면 value 전송도 취소된다. 컨트랙트를 배포하는 트랜잭션은 to를 비워 두고 data에 init code(실행 결과로 컨트랙트의 런타임 코드를 반환하는 생성 코드)를 넣는다. type 3과 type 4 트랜잭션은 to를 비울 수 없어 배포에 쓸 수 없다.
+- **value**: 전송할 ETH의 양 (wei 단위. wei는 ETH의 최소 단위이며 1 ETH = 10^18 wei, 1 gwei = 10^9 wei)
+- **data**: 임의의 데이터를 담는 선택 필드. 컨트랙트를 호출할 때는 앞 4bytes에 호출할 함수의 selector를, 그 뒤에 ABI(Application Binary Interface) 규칙으로 인코딩한 인자를 넣는다.
+- **gasLimit**: 이 트랜잭션이 소모할 수 있는 가스의 최대 한도. 코드가 없는 주소로 ETH만 보내는 단순 송금은 21,000이 필요하다(Glamsterdam의 [EIP-2780](https://eips.ethereum.org/EIPS/eip-2780) 적용 후에는 존재하지 않는 주소로 value를 보내면 새 계정 생성 비용이 추가되고, value가 0이면 15,000으로 줄어든다. EIP-2780은 2026년 11월 기준 Last Call 상태이며 메인넷에 적용되지 않았다). 사용하지 않은 가스에 대한 요금은 청구되지 않는다.
+- **maxFeePerGas** (EIP-1559): 가스당 지불할 의사가 있는 총 요금의 상한. Base Fee와 Priority Fee를 모두 포함한 값이다.
+    - 포함 조건: maxFeePerGas ≥ Base Fee, maxFeePerGas ≥ maxPriorityFeePerGas, 발신자 잔고 ≥ gasLimit × maxFeePerGas + value (실제 차감액이 아니라 상한을 기준으로 잔고를 확인한다)
+    - 실제 가스당 지불액 = min(maxFeePerGas, Base Fee + maxPriorityFeePerGas)
+    - Base Fee는 소각되고, 나머지(Priority Fee)는 블록의 fee recipient(블록을 만든 쪽이 지정한 수수료 수령 주소)에게 지급된다. 상한과 실제 지불액의 차이는 청구되지 않는다.
+- **maxPriorityFeePerGas** (EIP-1559): fee recipient에게 팁으로 지불할 가스당 최대 요금
+- **accessList** ([EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)): 트랜잭션이 접근할 주소와 스토리지 키 목록. 대부분 비워 둔다.
 
 ### 1.2 계정 상태 조회 및 Fee 추정 (Account State Query & Fee Estimation)
 
-트랜잭션 생성 전 지갑은 RPC 노드에 연결해 상태 조회 및 fee를 추정한다. 사용자가 Gas 파라미터를 수정할 때마다 실시간 시뮬레이션(eth_call, eth_estimateGas)을 통해 예상 비용과 성공/실패 가능성을 보여준다.
+트랜잭션 서명 전 지갑은 RPC Node에 연결해 상태를 조회하고 fee를 추정한다. `eth_estimateGas`와 `eth_call`은 트랜잭션을 Node에서 시뮬레이션하므로 예상 가스 사용량과 실패 여부를 미리 확인할 수 있다. 어느 메서드를 어떤 시점에 호출하는지는 지갑 구현에 따라 다르다.
 
-```tsx
-// 실제 RPC 호출 과정
-1. eth_getTransactionCount(address, "pending") → nonce 조회
-2. eth_feeHistory() 또는 eth_getBlockByNumber("latest") → base fee 확인  
-3. eth_maxPriorityFeePerGas() → priority fee 제안
-4. eth_estimateGas({tx}) → gasLimit 추정
-5. eth_call({tx}, "latest") → 시뮬레이션 실행 (실패 여부 확인)
+```text
+1. eth_getTransactionCount(address, "pending")              → nonce 조회 (대기 중인 트랜잭션 포함)
+2. eth_feeHistory(blockCount, "latest", rewardPercentiles)  → 최근 블록들의 base fee와 priority fee 분포
+   또는 eth_getBlockByNumber("latest", false)                → 최신 블록의 baseFeePerGas
+3. eth_maxPriorityFeePerGas()                               → Node가 제안하는 priority fee
+4. eth_estimateGas({from, to, value, data})                 → gasLimit 추정
+5. eth_call({from, to, value, data}, "latest")              → 시뮬레이션 실행 (상태는 변경되지 않음)
 ```
 
 ### 1.3 개인키 기반 트랜잭션 서명 (Transaction Signing)
 
-먼저 서명 전, 트랜잭션 객체 `{nonce, gasLimit, to, value, data, maxFeePerGas, maxPriorityFeePerGas...}`를 RLP 인코딩하여 바이너리 데이터로 변환 후, keccak256 해시를 통해 32bytes의 messageHash를 생성한다. 
+먼저 서명 대상 해시를 만든다. EIP-1559 트랜잭션은 서명을 제외한 9개 필드를 정해진 순서로 RLP(Recursive Length Prefix) 인코딩하고, 그 앞에 트랜잭션 유형 바이트 `0x02`를 붙인 뒤 keccak256 해시를 계산한다.
 
-- RLP(Recursive Length Prefix): 이더리움에서 사용하는 데이터 직렬화(serialization) 형식. 트랜잭션 필드(nonce, gasPrice 등), 블록 헤더(stateRoot, txRoot 등)를 인코딩하며, 첫 번째 prefix 바이트에 길이와 타입 정보를 포함한다.
-- 해시 역할: 100바이트 이상의 TX를 32bytes로 압축 + 변조 불가능성 보장
+```text
+sigHash = keccak256(0x02 || RLP([chainId, nonce, maxPriorityFeePerGas, maxFeePerGas, 
+                                gasLimit, to, value, data, accessList]))
+```
 
-그 다음으로, messageHash를 secp256k1 개인키로 ECDSA 서명하여 (r, s, v)를 생성한다.
+- **RLP**: Ethereum Execution Layer에서 사용하는 데이터 직렬화(serialization) 형식. 트랜잭션 필드와 블록 헤더(stateRoot, transactionsRoot 등)를 인코딩한다. prefix 바이트가 뒤따르는 데이터의 종류(바이트열 또는 리스트)와 길이를 나타낸다.
+- **Hash의 역할**: 임의 길이의 트랜잭션을 32bytes 고정 길이 값으로 요약한다. 트랜잭션 내용이 조금이라도 바뀌면 해시가 달라지므로 서명이 무효가 된다.
 
-- r: 곡선 점 x좌표 (32bytes)
+그 다음으로, sigHash를 secp256k1 개인키로 ECDSA(Elliptic Curve Digital Signature Algorithm) 서명하여 (yParity, r, s)를 생성한다.
+
+- r: 서명 과정에서 만든 임시 곡선 점의 x좌표 (32bytes)
 - s: 서명값 (32bytes)
-- v: 복구 식별자 (27/28 또는 체인ID 기반)
+- yParity: 복구 식별자. 임시 곡선 점의 y좌표 홀짝을 나타내며 0 또는 1이다.
+    - Legacy(type 0) 트랜잭션에서는 이 값을 v라고 부르며, 27/28 또는 [EIP-155](https://eips.ethereum.org/EIPS/eip-155) 방식(chainId × 2 + 35 또는 36)을 사용한다. Type 2 트랜잭션은 chainId가 별도 필드이므로 v에 chainId를 넣지 않는다.
 
-서명 후 최종 RLP 인코딩을 통해 Signed Raw Transaction을 만든다.
+서명 후 서명값을 포함해 다시 RLP 인코딩하여 Signed Raw Transaction을 만든다.
 
-```tsx
-RLP([nonce, gasLimit, to, value, data, maxFeePerGas, maxPriorityFeePerGas, v, r, s])
+```text
+rawTx  = 0x02 || RLP([chainId, nonce, maxPriorityFeePerGas, maxFeePerGas,
+                      gasLimit, to, value, data, accessList, yParity, r, s])
+txHash = keccak256(rawTx)
 ```
 
 ### 1.4 노드로 트랜잭션 전송 (Transaction Submission to Node)
 
-Signed Raw Transaction을 `eth_sendRawTransaction` JSON-RPC 호출을 통해 이더리움 EL Client에게 전송한다. 전송 대상은 사용자가 직접 운영하는 노드(Geth, Nethermind 등 EL Client) 혹은 노드 서비스 제공자(Infura, Alchemy, QuickNode 등 RPC Endpoint)이다.
+Signed Raw Transaction을 `eth_sendRawTransaction` JSON-RPC 호출을 통해 Ethereum EL Client에게 전송한다. 전송 대상은 사용자가 직접 운영하는 Node(Geth, Nethermind 등 EL Client) 혹은 Node 서비스 제공자(Infura, Alchemy, QuickNode 등 RPC Endpoint)이다.
+
+<br />
 
 ## 2. Mempool Propagation and Block Construction
 
-서명된 트랜잭션이 EL 노드에 도착한 후 블록에 포함되기까지 대기하는 단계이다. EL 노드는 먼저 Mempool 검증을 통과한 트랜잭션만 Mempool에 저장하고 P2P 네트워크로 전파한다. 
+서명된 트랜잭션이 EL Node에 도착한 후 블록에 포함되기까지 대기하는 단계이다. EL Node는 먼저 Mempool 검증을 통과한 트랜잭션만 Mempool에 저장하고 P2P 네트워크로 전파한다. Mempool은 프로토콜이 규정한 자료구조가 아니라 각 Client가 구현한 로컬 저장소이므로, 세부 정책은 Client마다 다르다. 이 장의 용어와 기본값은 Geth를 기준으로 한다.
 
 ### 2.1 트랜잭션 1차 검증 (Initial Mempool Validation)
 
-[`eth_sendRawTransaction`](https://ethereum.org/developers/docs/apis/json-rpc/#eth_sendrawtransaction) 응답으로 트랜잭션 해시가 반환되고, 노드는 즉시 Mempool 검증을 수행한다. 다음을 순차적으로 검증한다.
+Node는 [`eth_sendRawTransaction`](https://ethereum.org/developers/docs/apis/json-rpc/#eth_sendrawtransaction)으로 받은 트랜잭션을 먼저 검증한다. 검증을 통과하면 트랜잭션 해시를 응답으로 반환하고, 실패하면 오류를 반환한다. 검증 항목은 다음과 같다.
 
-1. **서명 유효성 검증:** 
+1. **서명 유효성 검증 및 발신자 복구:** 
     
-    네트워크에서 서명이 유효한지 검증하는 방법은 다음과 같다.
+    트랜잭션에는 from 필드가 없으므로 Node는 서명에서 발신자 주소를 복구한다.
     
-    1. 서명 전 RLP 재생성(v,r,s 제외)
-        - RLP([nonce, gasLimit, to, value, data, maxFeePerGas, maxPriorityFeePerGas]) → keccak256 → messageHash
-    2. 발신자 주소 복구
-        - messageHash + (v,r,s) → ECDSA_recover() ⇒ 공개키 후보 4개 생성
-        - v값으로 1개 선택 → 공개키 확정
-        - keccak256()[12:] → 마지막 20bytes가 주소임
-    3. 서명 검증
-        - 복구된 공개키로 messageHash 서명 검증 → 유효성 확인
+    ```text
+    1. sigHash = keccak256(0x02 || RLP([chainId, nonce, maxPriorityFeePerGas, maxFeePerGas,
+                                        gasLimit, to, value, data, accessList]))   // 서명 필드 제외
+    2. pubKey  = ecrecover(sigHash, yParity, r, s)    // 64bytes 공개키 (x, y)
+    3. sender  = keccak256(pubKey)[12:32]             // 해시의 마지막 20bytes가 주소
+    ```
     
-    ⇒ 이때 서명 검증이 필요한 이유는 1) 트랜잭션 필드에 from 주소가 없기 때문에 r,s,v 서명으로 발신자 주소를 복구하여 “이 사람이 정말 해당 주소의 주인인가”를 확인한다. 2) v값에 체인 ID를 포함하여 Mainnet, Testnet 등 체인별로 서명이 달라져 같은 트랜잭션을 다른 체인에 재전송하는 공격(Replay Attack)을 방지한다. 3) 트랜잭션 내용을 조금만 변경해도 RLP 해시가 변경되므로 데이터 무결성도 검증된다. 즉, 개인키 없이 누구나 검증 가능하지만, 서명 생성은 개인키 소유자만 가능한 구조이다.
-    
+    - r과 s만으로는 공개키 후보가 여러 개 나오므로 yParity로 하나를 확정한다.
+    - Node는 chainId가 현재 체인과 일치하는지, s가 곡선 위수의 절반 이하인지([EIP-2](https://eips.ethereum.org/EIPS/eip-2)) 함께 확인한다.
+
+    ⇒ 별도의 "서명 검증" 단계는 없다. 복구 자체가 검증 역할을 한다. 개인키 없이 만든 서명이나 내용이 변조된 트랜잭션에서는 원래 발신자와 다른 주소가 복구되며, 그 주소에는 해당 nonce와 잔고가 없으므로 이후 검증에서 거부된다. 이 구조에서 얻는 성질은 세 가지이다. 1) 발신자 인증: 해당 주소의 개인키 소유자만 유효한 서명을 만들 수 있다. 2) Replay Attack 방지: chainId가 서명 대상에 포함되므로 같은 트랜잭션을 다른 체인에 재전송할 수 없다. 3) 무결성: 필드가 조금이라도 바뀌면 sigHash가 달라진다. 즉, 검증은 개인키 없이 누구나 할 수 있지만 서명 생성은 개인키 소유자만 가능하다.
+
 2. **Nonce 검증:**
-    - 트랜잭션의 논스가 발신자 계정의 현재 논스와 일치하는지 확인한다.
+    - 트랜잭션의 nonce가 발신자 계정의 현재 nonce보다 작지 않은지 확인한다.
     - 현재 계정의 nonce = 5인 경우 예시
-        - `tx.nonce = 5` → 정상 ⇒ 진행
-        - `tx.nonce < 5` → 중복/재전송 ⇒ 거부
-        - `tx.nonce > 5` → 미래 TX ⇒ 별도 Future Queue 저장
+        - `tx.nonce < 5` → 이미 사용된 nonce ⇒ 거부
+        - `tx.nonce = 5` → 바로 실행 가능 ⇒ Pending
+        - `tx.nonce > 5` → 앞선 nonce가 Mempool에 모두 있으면 Pending, 중간에 빈 nonce가 있으면 Queued 
+
 3. **Balance 검증:**
-    - 발신자가 ETH = value + (gasLimit × maxFeePerGas) 만큼의 잔고를 보유하고 있는지 확인한다.
-    - StateDB를 통해 실시간으로 잔고를 조회할 수 있다.
-4. **GasLimit 검증:**
-    - 21,000 ≤ gasLimit ≤ 블록 가스 리밋(30M)
-        - 너무 작음 → 실행 실패 예상 ⇒ 거부
-        - 너무 큼 → DoS 공격 의심 ⇒ 거부
+    - 발신자 잔고 ≥ value + (gasLimit × maxFeePerGas) 인지 확인한다.
+    - Node가 보유한 최신 상태(StateDB)에서 잔고를 조회한다.
+
+4. **Fee 및 GasLimit 검증:**
+    - maxFeePerGas ≥ maxPriorityFeePerGas
+    - intrinsic gas ≤ gasLimit ≤ 16,777,216
+        - intrinsic gas는 실행 전에 부과되는 기본 비용으로, 21,000에 calldata와 access list 비용 등이 더해진다. gasLimit이 이보다 작으면 거부된다. Pectra(Prague + Electra) 업그레이드의 [EIP-7623](https://eips.ethereum.org/EIPS/eip-7623) 이후에는 gasLimit이 calldata floor 비용(21,000 + 10 × calldata 토큰 수)보다 작아도 거부된다.
+        - 16,777,216(2^24)은 Fusaka 업그레이드의 [EIP-7825](https://eips.ethereum.org/EIPS/eip-7825)가 정한 트랜잭션당 가스 상한이다. 이 값을 넘으면 거부된다. Geth는 gasLimit이 현재 블록 가스 한도를 넘는지도 함께 확인한다.
+        - 블록 가스 한도는 고정 상수가 아니며 Validator들의 설정에 따라 블록마다 조금씩 조정된다. 2026년 11월 기준 메인넷은 약 60M(6,000만) gas이다. Fusaka에 포함된 [EIP-7935](https://eips.ethereum.org/EIPS/eip-7935)가 EL Client의 기본 설정값을 60M으로 정했다.
+
 
 ### 2.2 Mempool 등록 (Mempool Admission)
 
-1차 검증을 모두 통과한 트랜잭션은 노드의 로컬 Mempool에 다음과 같은 과정을 통해 추가된다. 
+1차 검증을 모두 통과한 트랜잭션은 Node의 로컬 Mempool에 다음과 같은 과정을 통해 추가된다. 
 
 1. 트랜잭션 해시 계산
     - RLP([...v,r,s]) → keccak256 → TX_HASH (0x1234...)
@@ -161,44 +192,68 @@ Signed Raw Transaction을 `eth_sendRawTransaction` JSON-RPC 호출을 통해 
 4. 높은 tip 우선 정렬 
     - maxPriorityFeePerGas 내림차순
 
-```tsx
-초기 상태:
-Mempool
-├── Pending: 빈 상태
-├── Future: 빈 상태
-└── Local: 빈 상태
+1. 트랜잭션 해시 계산
+    - keccak256(0x02 || RLP([..., yParity, r, s])) → 트랜잭션 해시 (0x1234...)
+2. Pending / Queued 분류
+    - Pending: 계정의 현재 nonce부터 빈 번호 없이 이어지는 트랜잭션. 바로 실행 가능하다.
+    - Queued: 앞선 nonce가 비어 있어 아직 실행할 수 없는 트랜잭션. 빈 nonce가 채워지면 Pending으로 승격된다.
+3. Replacement 체크
+    - 같은 발신자, 같은 nonce의 트랜잭션이 이미 있으면 수수료를 비교한다.
+    - Geth 기본 설정에서는 새 트랜잭션의 maxFeePerGas와 maxPriorityFeePerGas가 모두 기존 값보다 10% 이상 높아야 교체된다(`--txpool.pricebump`). 조건을 만족하지 못하면 새 트랜잭션이 거부된다.
+4. 블록 구성 시 정렬
+    - 같은 계정의 트랜잭션은 nonce 순서를 유지하고, 계정 간에는 effective tip이 높은 트랜잭션이 우선한다.
 
-1. TX1 (nonce=5, tip=20gwei) 도착 → 1차 검증 통과
-   ↓
-Pending: [TX1 (nonce=5, tip=20gwei)]
 
-2. TX2 (nonce=6, tip=15gwei) 도착 → 현재 nonce=5이므로 Future
-   ↓
-Pending: [TX1]
-Future: [TX2 (nonce=6, tip=15gwei)]
-
-3. TX3 (nonce=5, tip=25gwei) 도착 → TX1 동일 nonce, tip↑ → **Replacement**
-   ↓
-Pending: [TX3 (nonce=5, tip=25gwei)] ← TX1 삭제
-Future: [TX2]
-
-4. Proposer가 TX3 실행 → 블록에 포함
-   ↓
-Pending: [빈 상태]
-Future: [TX2] ← 자동 Pending 승격
-   ↓ 현재 nonce=6
-Pending: [TX2 (nonce=6, tip=15gwei)]
+```text
+계정의 현재 nonce = 5, 수수료 단위는 gwei, TX는 트랜잭션(Transaction)의 줄임말
+ 
+초기 상태
+  Pending: []
+  Queued:  []
+ 
+1. TX1 (nonce=5, maxFee=50, tip=20) 도착 → 1차 검증 통과
+  Pending: [TX1(5)]
+  Queued:  []
+ 
+2. TX2 (nonce=7, maxFee=50, tip=15) 도착 → nonce 6이 비어 있어 실행 불가
+  Pending: [TX1(5)]
+  Queued:  [TX2(7)]
+ 
+3. TX3 (nonce=5, maxFee=60, tip=25) 도착 → TX1과 같은 nonce, 두 수수료 모두 10% 이상 인상 → Replacement
+  Pending: [TX3(5)]          ← TX1 삭제
+  Queued:  [TX2(7)]
+ 
+4. TX4 (nonce=6, maxFee=50, tip=15) 도착 → 빈 nonce가 채워져 TX2가 Pending으로 승격
+  Pending: [TX3(5), TX4(6), TX2(7)]
+  Queued:  []
+ 
+5. TX3이 블록에 포함됨 → 계정 nonce = 6, TX3은 Mempool에서 제거
+  Pending: [TX4(6), TX2(7)]
+  Queued:  []
 ```
 
-- Local TX: 해당 노드에서 직접 받은 TX (Private RPC 등), 다른 노드로 전파 안함
-- Public TX: P2P로 전파되어 네트워크 전체 Mempool에 공유
+- **Local TX**: 해당 Node의 RPC로 직접 제출된 트랜잭션이다. 다섯 개 EL Client 모두 Local TX를 다른 Node에서 전파받은 트랜잭션(Remote TX)과 구분하며, 기본 설정에서는 Local TX도 P2P 네트워크에 전파한다. 우대 방식은 Client마다 다르다(2026년 11월 각 저장소 소스 기준).
+
+    | Client | Local TX 처리 |
+    | --- | --- |
+    | Geth | Mempool에는 Remote TX와 같은 규칙으로 들어간다. 별도의 tracker가 Local TX를 기록해 두었다가 Mempool에서 빠지면 다시 제출하고, journal 파일에 저장해 재시작 후 복원한다. v1.15.0에서 이 구조로 바뀌었다. |
+    | Reth | 기본 설정에서 가격 제한, 축출, 계정당 Slot 제한을 면제한다. `--txpool.no-local-transactions-propagation` 옵션을 켜면 Local TX를 전파하지 않는다(기본값은 전파). |
+    | Besu | 기본 설정에서 Local TX에 우선권을 준다. `--tx-pool-no-local-priority` 옵션으로 해제한다. |
+    | Nethermind | 수수료 하한 필터를 면제하고, 블록에 포함될 때까지 주기적으로 다시 전파한다. 단, maxFeePerGas가 현재 base fee의 70%(기본값) 미만이면 즉시 전파하지 않고 보관했다가 조건을 만족할 때 전파한다. |
+    | Erigon | 최소 수수료 제한과 계정당 Slot 제한을 면제하고, 주기적으로 다시 전파한다. |
+
+- **Private TX**: 공용 Mempool에 전파되지 않고 Builder에게 직접 전달되는 트랜잭션이다. Local TX와는 다른 개념이다.
+
 
 ### 2.3 P2P Gossip 기반 전파 (P2P Gossip Propagation)
 
-Mempool에 추가된 트랜잭션은 P2P Gossip 프로토콜을 통해 이웃 노드에 전파된다. 이때 전체 네트워크에 보내는게 아니라, 가까운 이웃 노드에게 보내고 그 이웃들이 다시 자신의 이웃에게 전달하는 Flooding 방식이다. 1-2초 내 네트워크 전체가 거의 동일한 Pending TX 풀을 공유하게 되므로, 모든 Builder가 동일한 최적 트랜잭션 세트를 보고 블록을 효율적으로 구성할 수 있다.
+Mempool에 추가된 트랜잭션은 EL의 P2P 프로토콜(devp2p의 eth 프로토콜)을 통해 연결된 피어에게 전파된다. Node는 전체 네트워크에 직접 보내지 않고 자신의 피어에게만 보내며, 피어들이 다시 자신의 피어에게 전달한다. Geth 기준으로 피어 수의 제곱근에 해당하는 수의 피어에게는 트랜잭션 전체를 보내고, 나머지 피어에게는 트랜잭션 해시만 알린다(announcement 형식은 [EIP-5793](https://eips.ethereum.org/EIPS/eip-5793)). blob 트랜잭션과 크기가 큰 트랜잭션은 모든 피어에게 해시만 알린다. 해시를 받은 피어는 자신에게 없는 트랜잭션만 요청해서 받아 온다.
+ 
+전파에는 시간이 걸리고 Node마다 Mempool 정책이 다르므로, 모든 Node의 Mempool이 동일하지는 않다. 또한 Builder는 공용 Mempool 외에 자신에게 직접 전달된 트랜잭션도 사용하므로, Builder마다 보는 트랜잭션 집합이 다르다.
+ 
+- **Private RPC:** MEV(Maximal Extractable Value)는 블록에 담을 트랜잭션의 포함 여부와 순서를 조정해서 얻는 수익이다. MEV 공격(샌드위치 공격 등)을 방지하려는 사용자는 공용 Mempool이 아닌, Flashbots Protect RPC 등 Private RPC를 통해 Builder에게 직접 트랜잭션을 전달하기도 한다.
 
-- **Private RPC (MEV 방지):** MEV 공격(샌드위치 공격 등)을 방지하려는 사용자는 공용 멤풀이 아닌, Flashbots Protect RPC 등 Private Relay를 통해 빌더(Builder)에게 직접 트랜잭션을 전달하기도 한다.
-
+<br />
 
 ## 3. Block Proposal
 
@@ -351,7 +406,7 @@ ExecutionPayload {
     이 과정은 네트워크 전체가 동일한 블록 상태에 합의하도록 만드는 첫 단계가 된다.
     
 
-![image.png](image.png)
+![Network layer schematic](network-layer.png)
 
 
 [https://ethereum.org/developers/docs/networking-layer/#:~:text=Network layer schematic,a new tab](https://ethereum.org/developers/docs/networking-layer/#:~:text=Network%20layer%20schematic,a%20new%20tab))
@@ -367,6 +422,7 @@ CL은 트랜잭션 실행을 직접 수행하지 않으며, Execution Payload의
 
 이 구조는 Execution Correctness와 Consensus Safety를 분리함으로써, 이더리움이 서로 다른 EL 및 CL 클라이언트 구현 간의 클라이언트 다양성([Client Diversity](https://ethereum.org/developers/docs/nodes-and-clients/client-diversity/))을 유지할 수 있도록 한다.
 
+<br />
 
 ## 4. Block Validation and Consensus
 
@@ -442,7 +498,7 @@ Aggregator는 동일 Committee 내 검증자들이 생성하여 전파한 Attest
 
 이러한 aggregation 메커니즘은 네트워크에서 전파되는 attestation 메시지 수를 줄이고, 블록에 포함되어야 하는 서명 데이터의 크기를 감소시켜 전체 데이터 전파 비용을 낮춘다. 이를 통해 수십만 명 이상의 validator가 참여하는 환경에서도 네트워크 부하를 효과적으로 제어하며 안정적인 확장성을 유지할 수 있도록 설계되었다.
 
-![https://ethereum.org/developers/docs/consensus-mechanisms/pos/attestations/#attestation-inclusion-lifecycle](attachment:5b1d730e-8fae-4f96-9e97-1e6bc1f0d108:image.png)
+![Attestation inclusion lifecycle](attestation-lifecycle.png)
 
 https://ethereum.org/developers/docs/consensus-mechanisms/pos/attestations/#attestation-inclusion-lifecycle
 
@@ -485,6 +541,7 @@ Slot N+2 (12:00:24) 제안자C → Block N+2 (Attestation 포함) 브로드캐�
                     ↓ Block N "체인 헤드" 확정!
 ```
 
+<br />
 
 ## 5. Justification and Finalization
 
