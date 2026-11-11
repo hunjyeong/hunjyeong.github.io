@@ -16,7 +16,7 @@ order: 4
 *Mar 2020 – Feb 2025*  
 **B.S. in Mathematics at Hanyang University**
 
-## Experience
+### Experience
 
 *Sep 2024 – Aug 2025*  
 **Senior Researcher at Decipher**
@@ -24,7 +24,5 @@ order: 4
 <br />
 
 ---
-
-<br />
 
 공부한거 기록하려고 만든 블로그
