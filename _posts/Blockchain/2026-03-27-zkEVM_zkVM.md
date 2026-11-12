@@ -250,117 +250,184 @@ Receipt(영수증)는 트랜잭션 하나의 실행 결과 기록으로, 성공 
 
 ## Zero-Knowledge Ethereum Virtual Machine (zkEVM)
 
-zkEVM은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증하는 시스템이다. 대표적인 사용처는 L2 ZK 롤업으로, 롤업은 "Off-chain Execution(오프체인 실행) + L1 On-chain Proof Verification(온체인 증명 검증)" 구조로 L2 트랜잭션을 처리한다. 이더리움 L1에서도 Global Re-execution(네트워크 전역 재실행) 기반 검증을 증명 검증으로 대체하는 방향이 연구되고 있지만, 아직 메인넷에는 도입되지 않았다(아래 '이더리움 L1의 zkEVM 도입 현황' 참고). zkEVM은 이더리움과 동일하게 State Transition을 검증의 기본 단위로 사용한다. 이더리움과 완전히 동일한 규칙을 증명하는 zkEVM(Type 1)은 State Transition Function $$\Pi(S, T) = S'$$ 자체를 변경하지 않는다. 다시 말해, 주어진 초기 상태 $$S$$에 대해 트랜잭션 집합 $$T$$를 적용했을 때 최종 상태 $$S'$$로 전이되는 Execution Semantics(실행 의미론)는 Ethereum의 EVM과 동일하게 유지하되, 그 전이가 올바르게 수행되었는지를 확인하는 검증 메커니즘만 암호학적 증명으로 대체하는 것이다. 다만 구현에 따라 상태 트리, 해시 함수, Gas 규칙 등을 바꾼 zkEVM도 있다(Type 2~4). 이 구조에서 zkEVM은 "주어진 초기 상태 $$S$$에서 트랜잭션 집합 $$T$$를 적용하여 최종 상태 $$S'$$로의 전이가 EVM 규칙을 정확히 따랐다"는 사실만을 간결한 증명으로 요약해 제출하며, Verifier(검증자)는 중간 실행 과정을 다시 계산하지 않고도 State Transition의 정당성을 검증할 수 있다. 여기서 활용되는 핵심 성질은 정보를 숨기는 영지식성보다, 증명이 짧고 빠르게 검증된다는 Succinctness(간결성)이다. 롤업은 Data Availability(데이터 가용성)를 위해 트랜잭션 데이터를 L1에 별도로 게시한다.
+### What is zkEVM?
 
-### zkEVM을 통한 트랜잭션 검증 방식
+zkEVM은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증할 수 있게 하는 시스템이다. EVM 검증 방식에서는 모든 노드가 블록을 Re-execution(재실행)하여 결과를 확인한다. zkEVM에서는 소수의 Prover(증명자)가 실행하고 **그 실행이 올바르다는 증명을 만들며, 나머지는 증명만 검증한다.**
 
-zkEVM에서는 소수의 Prover(증명자)가 블록 또는 트랜잭션 배치를 Off-chain에서 실행하고, EVM 바이트코드를 Opcode 단위로 순차적으로 실행하는 과정에서 발생하는 상태 변화를 추적하여 Execution Trace를 생성한다. 이 Execution Trace에는 각 스텝별 Stack 값, Memory 접근, Storage 읽기와 쓰기, 호출과 반환(Call/Return) 등의 세부적인 중간 상태가 포함되며, 이러한 세부 정보는 On-chain에 공개되지 않는다. EVM의 실행 규칙은 미리 수학적 제약으로 변환(Arithmetization, 산술화)되어 Polynomial Constraints(다항식 제약)로 표현되고, Execution Trace는 이 제약을 만족해야 하는 Witness(증인) 데이터가 된다. 즉, "ADD Opcode면 Stack 두 값을 더해야 한다" 같은 규칙을 방정식으로 미리 만들어 두고, Prover는 자신이 만든 Trace가 이 제약 조건들을 모두 만족한다는 증명 $$\pi$$를 생성한다.
+대표적인 사용처는 L2(Layer 2) ZK Rollup이다. Rollup은 L1(Layer 1, Ethereum Mainnet) 밖에서 트랜잭션을 실행하고(Off-chain Execution), 그 실행의 증명을 L1의 스마트 컨트랙트가 검증하는(On-chain Proof Verification) 구조다. Ethereum L1에서도 Re-execution을 증명 검증으로 대체하는 작업이 진행 중이다.
 
-Verifier(L2 롤업에서는 L1의 검증 스마트 컨트랙트)는 블록 내 트랜잭션을 다시 실행할 필요 없이, Public Input(공개 입력: 이전 State Root $$S_{\text{root}}$$, 트랜잭션 배치 Commitment, 이후 State Root $$S'_{\text{root}}$$)과 제출된 증명 $$\pi$$만 수학적으로 검증함으로써 실행의 정합성(Correctness)을 확인한다. 증명이 유효한 경우, $$T$$를 적용한 State Transition $$S \to S'$$가 EVM 규칙을 정확히 준수했음이 암호학적으로 보장되며, 이 검증 과정의 비용은 동일한 트랜잭션 집합을 모든 노드가 전부 다시 실행하는 비용에 비해 매우 작도록 설계된다. 그 결과, 기존 이더리움의 "Execution × N 노드" 구조와 비교했을 때, zkEVM 기반 구조에서는 "Execution × Prover(소수) + Verification × N 노드" 형태로 바뀌어 네트워크 전반에서 발생하던 계산 중복을 크게 줄이면서도 State Transition의 안전성과 무결성을 유지할 수 있다.
+### zkEVM의 분류
 
-zkEVM은 강력한 보안과 확장성을 제공하지만, 현실적인 제약도 존재한다. 먼저, 증명 생성 비용이 높다. EVM의 복잡한 로직을 Circuit(회로, 수학적 제약의 집합)으로 표현하면 Execution Trace가 비대해지며, 이를 증명하는 데 많은 연산 자원과 시간이 소모된다. 제약식의 종류는 EVM 규칙으로 고정되어 있고, 실행 스텝이 늘어나면 Trace의 행 수가 실행 스텝 수에 비례해 늘어난다. 같은 연산이라도 Re-execution보다 증명 생성이 훨씬 느리고 비싸며, 그 배수는 증명 시스템, 하드웨어, 작업량에 따라 크게 달라진다. 이더리움 재단(EF)은 2025년 말 L1 블록을 슬롯 시간 안에 증명하는 Real-Time Proving(실시간 증명)에 도달했다고 발표했지만, 이를 위해서는 GPU 클러스터 수준의 장비가 필요하다. 특히 Keccak-256 해시와 ECDSA 서명 검증(`ecrecover`) 같은 무거운 연산이 많은 트랜잭션은 "Gas는 저렴하지만 증명은 매우 비싼 Prover Killer"가 된다. 또한, 증명 방식 사이에는 개발 편의성과 성능 사이의 Trade-off가 있다. RISC Zero와 같은 zkVM 계열은 일반 프로그램을 그대로 증명할 수 있어 범용성이 높지만, CPU 명령어 단위로 증명하므로 네이티브 실행 대비 증명 생성 오버헤드가 크다. 반대로 gnark나 ZoKrates 같은 Circuit 기반 SNARK 도구는 특정 계산에 맞춘 Circuit으로 증명 생성 효율을 높일 수 있지만, Circuit을 직접 설계해야 하고 로직이 바뀔 때마다 Circuit을 다시 만들어야 하며, Groth16을 쓰면 Circuit마다 Trusted Setup(신뢰 설정)도 다시 해야 한다. 더해서 단일 Prover(또는 소수) 구조는 Liveness 위험을 가진다. 즉, Sequencer나 Prover를 운영하는 주체에 문제가 생기면 상태 확정이 지연된다. 예를 들어 Polygon zkEVM은 2024년 3월 L1 Reorg를 Synchronizer가 제대로 처리하지 못해 증명할 수 없는 배치가 생기면서 약 10시간 동안 블록 생성이 멈춘 바 있다. 이 장애의 원인은 증명 생성 속도가 아니라 운영 소프트웨어의 오류였다.
+zkEVM은 EVM과의 호환 수준에 따라 나뉜다. 아래는 Vitalik Buterin이 2022년에 제시한 분류다.(https://vitalik.eth.limo/general/2022/08/04/zkevm.html)
+| Type | 호환 수준 | 바뀌는 부분 |
+|---|---|---|
+| Type 1 | Ethereum과 완전히 동일 | 없음. Ethereum 블록 자체를 증명할 수 있다 |
+| Type 2 | EVM과 동일 | 상태 트리, 해시 함수 등 내부 데이터 구조 |
+| Type 2.5 | EVM과 동일하되 Gas 비용 변경 | 증명 비용이 큰 연산의 Gas 비용 |
+| Type 3 | EVM과 거의 동일 | 구현이 어려운 일부 Opcode나 Precompile 제외 |
+| Type 4 | 고급 언어 수준 호환 | Solidity 등을 다른 VM용 코드로 컴파일한다. EVM 바이트코드를 실행하지 않는다 |
 
-### zkEVM 검증 상세 과정
+Type 번호가 클수록 증명 효율은 높아지지만 Ethereum과의 호환성은 낮아진다. Ethereum L1 검증에 쓸 수 있는 것은 Ethereum과 같은 규칙을 증명하는 Type 1뿐이다.
+
+### 무엇을 증명하는가
+
+**Type 1 zkEVM은 State Transition Function을 바꾸지 않는다.** 블록 단위 전이 $$\sigma' = \Pi(\sigma, B)$$의 실행 규칙은 EVM과 같다. 바뀌는 것은 그 전이가 올바른지 확인하는 방법뿐이다.
+
+Prover가 제출하는 증명 $$\pi$$는 다음 명제를 증명한다.
+
+> Pre-State Root에서 시작해 블록(또는 배치)을 EVM 규칙대로 실행하면 Post-State Root가 된다.
+
+Verifier(증명 검증자)는 Public Input(공개 입력)과 $$\pi$$만으로 이 명제를 검증한다. Public Input은 Pre-State Root, 블록 또는 배치의 Commitment(트랜잭션 데이터를 대표하는 Hash), Post-State Root 등이다. 
+**Verifier는 중간 실행 과정을 다시 계산하지 않는다.**
+
+### 성질
+
+여기서 핵심 성질은 정보를 숨기는 Zero-Knowledge(영지식성)가 아니라 **Succinctness(간결성)**이다. 실행량이 늘어도 증명 크기와 검증 시간은 거의 늘지 않으며, 검증은 실행을 다시 하는 것보다 훨씬 짧게 끝난다. 이름에 "zk"가 들어 있지만, 대부분의 zkEVM은 실행 데이터를 숨기는 것을 목적으로 하지 않는다.
+
+증명은 실행이 올바르다는 사실만 보장하고, 트랜잭션 데이터 자체는 담지 않는다. 그래서 Rollup은 누구나 상태를 재구성할 수 있도록 트랜잭션 데이터를 L1에 따로 게시한다. 이를 **Data Availability**(DA, 데이터 가용성)라고 한다. Cancun(EIP-4844) 이후에는 주로 Blob(일정 기간 뒤 삭제되는 별도 데이터 공간)에 게시한다.
+
+증명 시스템은 프로그램을 직접 다루지 못한다. 그래서 EVM 실행 규칙을 미리 Polynomial Constraints(다항식 제약식)로 바꿔 둔다. 이 변환을 **Arithmetization(산술화)**이라고 한다. 예를 들어 "ADD Opcode면 Stack의 두 값을 더해야 한다"는 규칙을 방정식으로 만들어 둔다.
+
+Prover는 실제 실행 과정을 기록한 Execution Trace(실행 기록)를 만들고, 이 기록이 모든 제약식을 만족함을 증명한다. 이때 Execution Trace는 제약식에 대입되는 **Witness(증인)**, 즉 증명에 쓰이지만 공개되지 않는 값이 된다.
+
+
+### End-to-End Block Verification Process
 
 ![zkevm](zkevm.svg)
 _출처: [https://zkevm.ethereum.foundation/blog/zkevm-security-overview](https://zkevm.ethereum.foundation/blog/zkevm-security-overview)_
 
+아래는 L2 ZK Rollup 기준이다. Sequencer(트랜잭션 순서를 정해 배치를 만드는 주체)가 배치를 만들고, Prover가 증명하며, L1의 Verifier 컨트랙트가 검증한다.
 
 1. **Execution Trace 생성**
     
-    먼저 Sequencer(또는 Executor)가 트랜잭션 배치를 실행하여 EVM State Transition을 계산한다. zkEVM은 단순히 최종 결과 상태만 계산하지 않고, 실행 과정 전체를 Execution Trace 형태로 기록한다. 이 Execution Trace는 각 Opcode 실행 단계에서의 상태 변화를 시간 순서대로 저장한 것으로, Program Counter(PC), 실행 Opcode, Stack 값, Memory와 Storage 접근, Gas 소비량 등이 포함된다. 실제 구현은 매 행에 Memory와 Storage 전체를 복사하지 않고, 해당 스텝의 접근 기록만 남긴 뒤 별도 테이블과 Lookup으로 일관성을 확인한다.
+    Sequencer(또는 Executor)가 트랜잭션 배치를 실행해 State Transition을 계산한다. zkEVM은 최종 결과 상태만 계산하지 않고, **실행 과정 전체를 Execution Trace로 기록한다.** Execution Trace는 각 Opcode 실행 단계의 상태 변화를 시간 순서대로 저장한 것이다.
 
-    
-    ```text
+   ```text
     trace[t] = {
-      PC_t: Program Counter
-      opcode_t: 실행된 opcode
-      stack_t: 이 스텝에서 읽고 쓴 Stack 값
-      memory_t: 이 스텝의 Memory 접근 (주소, 값, 읽기/쓰기)
-      storage_t: 이 스텝의 Storage 접근 (키, 이전 값, 새 값)
-      gas_t: 남은 Gas
+    PC_t:      Program Counter
+    opcode_t:  실행된 Opcode
+    stack_t:   이 스텝에서 읽고 쓴 Stack 값
+    memory_t:  이 스텝의 Memory 접근 (주소, 값, 읽기/쓰기)
+    storage_t: 이 스텝의 Storage 접근 (키, 이전 값, 새 값)
+    gas_t:     남은 Gas
     }
     ```
     
-    즉, zkEVM은 결과(State Root)뿐 아니라 "어떻게 그 결과에 도달했는가"를 증명하기 위한 Witness를 수집한다.
-    
-    예를 들어 바이트코드 `60 02 60 03 01 00`(PUSH1 2, PUSH1 3, ADD, STOP)은 다음과 같이 기록된다. Stack은 실행 후 상태이며 오른쪽이 최상단이다.
-    
+    실제 구현은 매 행에 Memory와 Storage 전체를 복사하지 않는다. 해당 스텝의 접근 기록만 남기고, 일관성은 별도 테이블과 Lookup(조회 논증)으로 확인한다.
+
+    예를 들어 바이트코드 `60 02 60 03 01 00`(`PUSH1 2`, `PUSH1 3`, `ADD`, `STOP`)은 다음과 같이 기록된다. Stack은 실행 후 상태이며 오른쪽이 최상단이다.
+
     ```text
-    //예시
     step 0: PC=0, opcode=PUSH1 0x02, stack=[2]
     step 1: PC=2, opcode=PUSH1 0x03, stack=[2, 3]
     step 2: PC=4, opcode=ADD,        stack=[5]
     step 3: PC=5, opcode=STOP
     ```
+    
+    `PUSH1`은 Immediate 1byte를 포함해 2byte를 차지하므로 다음 PC는 2다.
+    
+2. **Arithmetization**
+    
+    Execution Trace를 State Machine의 실행 기록으로 보고, 각 단계가 EVM 규칙을 지켰는지 제약식으로 확인한다. 아래 예시는 개념을 보여주기 위해 단순화한 것이다.
 
-    `PUSH1`은 Immediate 1바이트를 포함해 2바이트를 차지하므로 다음 PC는 2다.
-    
-2. **Arithmetization: 실행 규칙의 수학적 변환**
-    
-    Execution Trace는 State Machine(상태 기계)으로 해석되며, 각 단계가 EVM 규칙을 위반하지 않았음을 검증할 수 있도록 EVM의 실행 규칙을 미리 Polynomial Constraints로 변환해 둔다(Arithmetization). 아래 예시는 개념을 보여주기 위해 단순화한 것이다.
-    
-    - 예시
-        
-        ```text
-        ADD opcode 규칙:
-        stack_new[0] = (stack_old[0] + stack_old[1]) mod 2^256
-        
-        → 다항식 제약식 (개념):
-        stack_new[0] − (stack_old[0] + stack_old[1]) + carry × 2^256 = 0,  carry ∈ {0, 1}
-        
-        증명 시스템의 유한체(예: BN254 스칼라체는 약 254비트)는 2^256보다 작으므로,
-        실제 구현은 256비트 값을 작은 조각(limb)으로 나누고
-        조각별 자리올림(carry)과 범위 확인(range check)을 제약으로 추가한다.
-        ```
-        
-        ```text
-        SSTORE 규칙:
-        storage_new[slot] = value
-        
-        → 다항식 제약식 (개념):
-        storage_new[slot] − value = 0
-        
-        실제로는 이 한 줄로 부족하다. 어느 계정의 Storage인지, 이전 값이 실제 상태에
-        있던 값인지(Merkle proof), 접근 순서, Gas와 revert 규칙, 최종 State Root까지
-        연결하는 제약이 함께 필요하다.
-        ```
-    
+    ```text
+    ADD Opcode 규칙:
+    stack_new[0] = (stack_old[0] + stack_old[1]) mod 2^256
+
+    → 제약식 (개념):
+    stack_new[0] − (stack_old[0] + stack_old[1]) + carry × 2^256 = 0,  carry ∈ {0, 1}
+    ```
+
+    증명 시스템의 유한체는 2^256보다 작다. 예를 들어 BN254 스칼라체는 약 254bit다. 그래서 실제 구현은 256bit 값을 작은 조각(Limb)으로 나누고, 조각별 자리올림(Carry)과 범위 확인(Range Check)을 제약으로 추가한다.
+
+    ```text
+    SSTORE 규칙:
+    storage_new[slot] = value
+
+    → 제약식 (개념):
+    storage_new[slot] − value = 0
+    ```
+
+    실제로는 이 한 줄로 부족하다. 어느 계정의 Storage인지, 이전 값이 실제 상태에 있던 값인지(Merkle Proof), 접근 순서, Gas와 Revert 규칙, 최종 State Root까지 연결하는 제약이 함께 필요하다.
+
     일반화하면 모든 인접한 실행 단계는 다음 조건을 만족해야 한다.
-    
+
     $$
     P_i\big(\mathrm{trace}[t],\ \mathrm{trace}[t+1]\big) = 0 \quad \text{for all } i \text{ and } t \in [0, N-1]
     $$
-    
-    Memory와 Storage 접근의 일관성, 값의 범위처럼 인접한 두 행만으로 표현하기 어려운 조건은 Lookup이나 Permutation 논증으로 따로 확인한다.
-    
+
+    Memory와 Storage 접근의 일관성이나 값의 범위처럼 인접한 두 행만으로 표현하기 어려운 조건은 Lookup이나 Permutation(순열) 논증으로 따로 확인한다.
+
 3. **Proof Generation**
     
-    Prover는 Execution Trace(Witness)와 제약식을 바탕으로 증명을 생성한다. 대규모 Execution Trace를 처리하기 위해 STARK 계열 증명을 쓰는 구현이 많지만, 증명 시스템은 구현마다 다르다. STARK는 Trusted Setup이 필요 없고 대형 Trace 처리에 유리하지만, 증명 크기가 크다는 단점이 있다. 이를 보완하기 위해 증명을 검증하는 계산을 다시 증명하는 Recursion(재귀 증명)이나 Aggregation으로 여러 증명을 하나로 합치고, 최종적으로는 L1에서 저비용으로 검증 가능하도록 작은 크기의 SNARK(예: Groth16)로 감싸는(Wrapping) 구성이 흔하다.
+    Prover는 Execution Trace(Witness)와 제약식으로 증명을 생성한다. 증명 시스템은 구현마다 다르다.
+
+    - **STARK(Scalable Transparent Argument of Knowledge):** 대형 Trace를 처리하는 데 많이 쓰인다. Trusted Setup(신뢰 설정)이 필요 없고 대형 Trace에 유리하지만, 증명 크기가 크다.
+    - **Recursion(재귀 증명)과 Aggregation(집계):** 증명을 검증하는 계산을 다시 증명하거나, 여러 증명을 하나로 합친다.
+    - **Wrapping:** 최종적으로는 L1에서 적은 비용으로 검증할 수 있도록, 작은 크기의 SNARK(Succinct Non-interactive Argument of Knowledge, 예: Groth16)로 감싸는 구성이 흔하다.
+
+    증명이 보장하는 내용은 다음과 같다.
+
+    - 모든 $$t \in [0, N-1]$$에 대해 $$\mathrm{trace}[t] \to \mathrm{trace}[t+1]$$ 전이가 EVM 규칙을 따른다.
+    - $$\mathrm{trace}[0]$$의 상태가 Pre-State Root와 일치한다.
+    - $$\mathrm{trace}[N]$$의 상태가 Post-State Root와 일치한다.
+
+    즉 **전체 실행이 올바른 State Transition이었음이 하나의 증명으로 요약된다.**
     
-    증명이 보장하는 내용은 모든 $$t \in [0, N-1]$$에 대해 $$\mathrm{trace}[t] \to \mathrm{trace}[t+1]$$ 전이가 EVM 규칙을 준수하고, $$\mathrm{trace}[0]$$에서 시작하는 상태가 $$S_{\text{root}}$$와, $$\mathrm{trace}[N]$$까지 실행한 결과 상태가 $$S'_{\text{root}}$$와 일치한다는 것이다. 즉, 전체 실행이 올바른 State Transition이었음이 하나의 증명으로 요약된다.
+4. **On-chain Verification**
     
-4. **Verification**
-    
-    마지막으로 생성된 증명과 핵심 상태 정보가 L1의 Verifier 스마트 컨트랙트에 제출되며, 일반적으로 제출되는 데이터는 다음과 같다.
-    
-    - Pre-State Root ($$S_{\text{root}}$$)
-    - Post-State Root ($$S'_{\text{root}}$$)
-    - Transaction Batch 데이터 또는 DA 커밋
-    - ZK Proof ($$\pi$$)
-    
-    검증 컨트랙트는 Pre-State Root가 현재 승인된 루트와 같은지 확인하고, 트랜잭션을 다시 실행하지 않고 제출된 증명 $$\pi$$의 수학적 타당성만을 검증한다. 검증이 성공하면 해당 배치의 State Transition은 EVM 규칙을 만족한 것으로 간주되며, 새로운 State Root가 On-chain에 기록된다. 이 상태가 되돌릴 수 없게 확정되는 시점은 검증 트랜잭션이 포함된 L1 블록이 Finalized 상태가 되는 시점이다.
-    
+    증명과 상태 정보가 L1의 Verifier 컨트랙트에 제출된다. 일반적으로 제출되는 데이터는 다음과 같다.
+
+    - Pre-State Root
+    - Post-State Root
+    - 배치 Commitment (L1에 게시한 트랜잭션 데이터와 연결되는 값)
+    - ZK Proof $$\pi$$
+
+    Verifier 컨트랙트는 다음을 확인한다.
+    1. Pre-State Root가 현재 승인된 State Root와 같은지 확인한다.
+    2. 배치 Commitment가 L1에 게시된 데이터와 일치하는지 확인한다.
+    3. 트랜잭션을 다시 실행하지 않고 $$\pi$$의 수학적 타당성만 검증한다.
+
+    검증이 성공하면 해당 배치의 State Transition은 EVM 규칙을 만족한 것으로 간주되고, 새 State Root가 On-chain에 기록된다. 이 상태가 되돌릴 수 없게 확정되는 시점은 검증 트랜잭션이 포함된 L1 블록이 Finalized되는 시점이다.
+
     ```text
     Sequencer / Prover:
-    1. TX 실행 → batch trace 생성
-    2. ZK proof π 생성
-    3. (S_root, S'_root, 배치 Commitment, π) L1 제출
-    
+    1. 트랜잭션 실행 → Execution Trace 생성
+    2. 증명 π 생성
+    3. (Pre-State Root, Post-State Root, 배치 Commitment, π)를 L1에 제출
+
     L1 Verifier 컨트랙트:
-    1. π 검증
-    2. S'_root 기록 → L1 Finality 이후 State Transition 확정
+    1. Pre-State Root와 배치 Commitment 확인
+    2. π 검증
+    3. Post-State Root 기록 → L1 Finality 이후 확정
     ```
+
+#### 비용 구조와 제약
+
+EVM 방식에서는 검증하는 모든 노드가 같은 계산을 반복한다(Execution × N 노드). zkEVM 방식에서는 소수가 실행하고 증명하며, 나머지는 증명만 검증한다(Execution × 소수의 Prover + Verification × N 노드). L2 Rollup에서는 L1 노드가 L2 트랜잭션을 실행하지 않고 증명만 검증한다. 검증 비용은 다시 실행하는 비용보다 훨씬 작도록 설계되므로, **네트워크 전체의 계산 중복이 크게 줄어든다.**
+
+**같은 연산이라도 증명 생성은 Re-execution보다 훨씬 느리고 비싸다.** EVM 로직을 제약식으로 표현하면 Execution Trace가 커지고, Trace의 행 수는 실행 스텝 수에 비례해 늘어난다. 증명 생성이 실행보다 몇 배 비싼지는 증명 시스템, 하드웨어, 작업량에 따라 크게 다르다.
+
+Ethereum 재단(EF)은 2025년 7월 L1용 Real-Time Proving(실시간 증명) 기준을 제시했다. 기준은 Mainnet 블록의 99% 이상을 10초 안에 증명하고, 장비 비용 약 10만 달러와 전력 10kW 이내를 지키는 것이다. EF는 2025년 12월 이 기준의 성능 목표가 달성되었다고 발표했다. 다만 이는 Off-chain 벤치마크 결과이며, Mainnet 검증에 쓰이는 것은 아니다.
+
+Gas 비용과 증명 비용은 일치하지 않는다. Keccak-256 해시나 ECDSA 서명 검증(`ecrecover`)처럼 제약식으로 표현하기 무거운 연산이 많은 트랜잭션은 **Gas는 싸지만 증명은 매우 비싸다.** 이런 트랜잭션을 Prover Killer라고 부른다.
+
+증명 방식 사이에는 개발 편의성과 증명 효율 사이의 Trade-off(상충 관계)가 있다.
+
+- **zkVM(Zero-Knowledge Virtual Machine) 방식:** RISC Zero, SP1 같은 zkVM은 RISC-V 같은 범용 명령어 집합을 증명한다. 일반 프로그램, 예를 들어 Execution Client의 EVM 구현을 그대로 증명할 수 있어 범용성이 높다. 명령어 단위로 증명하므로 전용 Circuit보다 오버헤드가 크다. 그래도 L1 Real-Time Proving 결과는 주로 이 방식에서 나왔다.
+- **Circuit 방식:** gnark, ZoKrates 같은 도구는 특정 계산에 맞춘 Circuit(회로, 제약식의 집합)으로 증명 효율을 높인다. 대신 Circuit을 직접 설계해야 하고, 로직이 바뀔 때마다 Circuit을 다시 만들어야 한다. Groth16을 쓰면 Circuit마다 Trusted Setup도 다시 해야 한다.
+
+Sequencer나 Prover를 소수가 운영하면 Liveness 위험이 생긴다. 운영 주체에 문제가 생기면 상태 확정이 지연된다.
+
+**Ethereum L1의 zkEVM 도입 현황**
+
+Ethereum L1은 현재 Re-execution으로 블록을 검증한다. 이를 증명 검증으로 바꾸기 위한 제안이 EIP-8025(Optional Execution Proofs)다. 2026년 11월 기준 이 제안은 Draft 상태다.
+
+- **증명 검증:** Beacon Node(Consensus Client)가 Execution Client를 실행하지 않고, 증명을 검증해 Execution Payload의 유효성을 판단한다.
+- **전달 경로:** 증명은 Consensus Layer의 P2P 네트워크로 전달된다.
+- **선택 사항:** 증명 검증은 선택 사항이며, 기존 Re-execution 방식도 그대로 쓸 수 있다.
+- **zkAttester:** 증명을 검증해 투표하는 Validator를 zkAttester라고 부른다. zkAttester는 Execution Layer의 상태를 보관할 필요가 없다.
+
 
 <br />
 <br />
