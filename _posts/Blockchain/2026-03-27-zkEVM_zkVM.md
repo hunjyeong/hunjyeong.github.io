@@ -248,9 +248,9 @@ Receipt(영수증)는 트랜잭션 하나의 실행 결과 기록으로, 성공 
 <br />
 <br />
 
-## zkEVM
+## Zero-Knowledge Ethereum Virtual Machine (zkEVM)
 
-zkEVM(Zero-Knowledge Ethereum Virtual Machine)은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증하는 시스템이다. 대표적인 사용처는 L2 ZK 롤업으로, 롤업은 "Off-chain Execution(오프체인 실행) + L1 On-chain Proof Verification(온체인 증명 검증)" 구조로 L2 트랜잭션을 처리한다. 이더리움 L1에서도 Global Re-execution(네트워크 전역 재실행) 기반 검증을 증명 검증으로 대체하는 방향이 연구되고 있지만, 아직 메인넷에는 도입되지 않았다(아래 '이더리움 L1의 zkEVM 도입 현황' 참고). zkEVM은 이더리움과 동일하게 State Transition을 검증의 기본 단위로 사용한다. 이더리움과 완전히 동일한 규칙을 증명하는 zkEVM(Type 1)은 State Transition Function $$\Pi(S, T) = S'$$ 자체를 변경하지 않는다. 다시 말해, 주어진 초기 상태 $$S$$에 대해 트랜잭션 집합 $$T$$를 적용했을 때 최종 상태 $$S'$$로 전이되는 Execution Semantics(실행 의미론)는 Ethereum의 EVM과 동일하게 유지하되, 그 전이가 올바르게 수행되었는지를 확인하는 검증 메커니즘만 암호학적 증명으로 대체하는 것이다. 다만 구현에 따라 상태 트리, 해시 함수, Gas 규칙 등을 바꾼 zkEVM도 있다(Type 2~4). 이 구조에서 zkEVM은 "주어진 초기 상태 $$S$$에서 트랜잭션 집합 $$T$$를 적용하여 최종 상태 $$S'$$로의 전이가 EVM 규칙을 정확히 따랐다"는 사실만을 간결한 증명으로 요약해 제출하며, Verifier(검증자)는 중간 실행 과정을 다시 계산하지 않고도 State Transition의 정당성을 검증할 수 있다. 여기서 활용되는 핵심 성질은 정보를 숨기는 영지식성보다, 증명이 짧고 빠르게 검증된다는 Succinctness(간결성)이다. 롤업은 Data Availability(데이터 가용성)를 위해 트랜잭션 데이터를 L1에 별도로 게시한다.
+zkEVM은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증하는 시스템이다. 대표적인 사용처는 L2 ZK 롤업으로, 롤업은 "Off-chain Execution(오프체인 실행) + L1 On-chain Proof Verification(온체인 증명 검증)" 구조로 L2 트랜잭션을 처리한다. 이더리움 L1에서도 Global Re-execution(네트워크 전역 재실행) 기반 검증을 증명 검증으로 대체하는 방향이 연구되고 있지만, 아직 메인넷에는 도입되지 않았다(아래 '이더리움 L1의 zkEVM 도입 현황' 참고). zkEVM은 이더리움과 동일하게 State Transition을 검증의 기본 단위로 사용한다. 이더리움과 완전히 동일한 규칙을 증명하는 zkEVM(Type 1)은 State Transition Function $$\Pi(S, T) = S'$$ 자체를 변경하지 않는다. 다시 말해, 주어진 초기 상태 $$S$$에 대해 트랜잭션 집합 $$T$$를 적용했을 때 최종 상태 $$S'$$로 전이되는 Execution Semantics(실행 의미론)는 Ethereum의 EVM과 동일하게 유지하되, 그 전이가 올바르게 수행되었는지를 확인하는 검증 메커니즘만 암호학적 증명으로 대체하는 것이다. 다만 구현에 따라 상태 트리, 해시 함수, Gas 규칙 등을 바꾼 zkEVM도 있다(Type 2~4). 이 구조에서 zkEVM은 "주어진 초기 상태 $$S$$에서 트랜잭션 집합 $$T$$를 적용하여 최종 상태 $$S'$$로의 전이가 EVM 규칙을 정확히 따랐다"는 사실만을 간결한 증명으로 요약해 제출하며, Verifier(검증자)는 중간 실행 과정을 다시 계산하지 않고도 State Transition의 정당성을 검증할 수 있다. 여기서 활용되는 핵심 성질은 정보를 숨기는 영지식성보다, 증명이 짧고 빠르게 검증된다는 Succinctness(간결성)이다. 롤업은 Data Availability(데이터 가용성)를 위해 트랜잭션 데이터를 L1에 별도로 게시한다.
 
 ### zkEVM을 통한 트랜잭션 검증 방식
 
@@ -365,9 +365,9 @@ _출처: [https://zkevm.ethereum.foundation/blog/zkevm-security-overview](https:
 <br />
 <br />
 
-## zkVM
+## Zero-Knowledge Virtual Machine (zkVM)
 
-zkVM(Zero-Knowledge Virtual Machine)은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, RISC-V와 같은 ISA(Instruction Set Architecture, 명령어 집합) 자체를 증명 가능한 가상 머신으로 구현한 범용 플랫폼이다.
+zkVM은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, RISC-V와 같은 ISA(Instruction Set Architecture, 명령어 집합) 자체를 증명 가능한 가상 머신으로 구현한 범용 플랫폼이다.
 
 zkEVM이 "무엇을 증명하는가(EVM 실행)"를 가리키는 말이라면, zkVM은 "어떤 방식으로 증명하는가(범용 ISA의 실행 증명)"를 가리키는 말이다. zkVM은 Rust, C/C++ 등 고수준 언어로 작성되어 해당 ISA로 컴파일된 프로그램의 실행 무결성을 증명하는 '범용 컴퓨터'의 역할을 수행한다(지원 언어는 zkVM의 툴체인마다 다르다). 쉽게 말해 zkEVM은 "EVM이라는 특정 상태 머신이 올바르게 실행되었는가?"를 증명하고, zkVM은 "일반적인 프로그램이 정의된 ISA 규칙에 따라 올바르게 실행되었는가?"를 증명한다. 두 개념은 배타적이지 않다. zkVM 위에서 EVM 실행 프로그램(예: 이더리움 블록 실행 로직)을 돌리면 그 자체로 zkEVM이 된다. 이때 증명은 프로그램이 올바르게 실행되었음을 보장하며, 프로그램이 이더리움 규칙을 정확히 구현했는지는 별도로 검증해야 한다.
 
