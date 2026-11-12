@@ -13,126 +13,237 @@ media_subpath: /assets/img/posts/zkevm/
 
 ## Ethereum Virtual Machine (EVM)
 
-EVM은 Ethereum 노드의 Execution Client(실행 클라이언트)가 공통으로 따르는 실행 환경으로, 스마트 컨트랙트의 실행과 트랜잭션 처리를 담당하는 Execution Layer(실행 계층)를 구성한다. Execution Client(Geth, Nethermind, Besu, Erigon, Reth 등)는 각자 EVM을 구현하지만 동일한 공식 사양(Ethereum Yellow Paper, 하드포크별 EIP와 실행 명세 `execution-specs`)을 따르며, 동일한 입력이 주어질 경우 항상 동일한 계산 결과를 생성하도록 설계되어 있다. 이러한 Deterministic Execution(결정론적 실행)은 네트워크 참여자 간의 상태 일관성을 보장하며, Ethereum의 합의 메커니즘이 성립하는 기반이 된다.
+### What is EVM?
 
-EVM의 핵심 역할은 상태를 직접 저장하는 것이 아니라, 트랜잭션 실행을 통해 State Transition(상태 전이) 규칙을 적용하고 Ethereum 네트워크의 Global State(전역 상태)에 대한 새로운 상태를 계산하는 것이다. Ethereum의 상태는 모든 계정 정보를 포함하는 거대한 데이터 구조로, Externally Owned Account(EOA, 외부 소유 계정)와 Contract Account(CA, 컨트랙트 계정)로 구성된다. 각 계정은 Nonce, Balance, Storage Root(`storageRoot`), Code Hash(`codeHash`)를 가지며, 스마트 컨트랙트 코드와 컨트랙트 Storage는 각각 이 해시와 루트로 연결된다. 이 Global State는 Modified Merkle Patricia Trie(MPT) 구조로 저장되며, 해당 Trie의 루트 해시는 블록 헤더의 State Root(상태 루트)로 기록된다. State Root와 Merkle Proof를 이용하면 전체 상태 데이터를 보유하지 않은 노드도 특정 계정이나 Storage 값이 그 상태에 포함되어 있는지 효율적으로 검증할 수 있다. 다만 State Root만으로 State Transition이 올바르게 실행되었는지까지 검증할 수는 없다.
+EVM은 Ethereum 노드의 Execution Client(실행 클라이언트)가 공통으로 따르는 실행 환경으로, 스마트 컨트랙트의 실행과 트랜잭션 처리를 담당하는 Execution Layer(실행 계층)의 핵심을 이룬다. Execution Client(Geth, Nethermind, Besu, Erigon, Reth 등)는 각자 EVM을 구현하지만 동일한 공식 사양(하드포크별 EIP(Ethereum Improvement Proposal)와 실행 명세 [`execution-specs`](https://github.com/ethereum/execution-specs); Ethereum Yellow Paper는 초기 형식 명세)을 따른다.
 
-Ethereum은 단순한 거래 원장이 아니라 트랜잭션 기반의 Distributed State Machine(분산 상태 머신)으로 동작한다. 네트워크는 Genesis State(초기 상태)에서 시작하여, 각 블록에 포함된 트랜잭션을 순차적으로 실행하면서 상태를 지속적으로 갱신한다. 이러한 과정은 State Transition Function(상태 전이 함수)으로 표현된다. Ethereum Yellow Paper는 트랜잭션 하나를 적용하는 State Transition을 $$\sigma' = \Upsilon(\sigma, T)$$로, 블록 전체를 적용하는 State Transition을 $$\sigma' = \Pi(\sigma, B)$$로 구분해 정의한다. 이 글에서는 이전 상태 $$S$$와 블록의 순서화된 트랜잭션 목록 $$T$$에 대한 블록 단위 State Transition을 편의상 $$S' = \Pi(S, T)$$로 쓴다. 블록 단위 전이에는 트랜잭션 실행 외에 Withdrawal(인출) 처리 같은 블록 단위 처리도 포함된다. 따라서 트랜잭션 실행은 곧 상태 변화를 의미하며, 블록체인은 이러한 State Transition의 연속적인 결과를 기록한 구조라고 볼 수 있다.
+EVM은 **동일한 입력이 주어질 경우 항상 동일한 계산 결과를 생성**하도록 설계되어 있다. 이러한 **Deterministic Execution**(결정론적 실행)은 모든 노드가 같은 블록을 독립적으로 실행해 같은 결과를 얻는 근거가 되며, Ethereum의 검증 방식이 성립하는 기반이다.
 
-스마트 컨트랙트는 Solidity나 Vyper와 같은 고급 언어로 작성되며 컴파일 과정을 통해 EVM 바이트코드로 변환된다. EVM 사양은 바이트코드를 Opcode 단위로 순차 실행하는 의미론으로 정의되며, 클라이언트는 이를 인터프리터 등으로 구현한다. 내부적으로 EVM은 Program Counter, Stack, Memory, Storage(영구 저장소), 그리고 컨트랙트 계정에 저장된 Code Segment(바이트코드 영역)로 구성된 실행 모델을 가진다. 대부분의 Opcode는 Stack에서 피연산자를 꺼내 연산을 수행한 뒤 결과를 다시 Stack에 넣으며, 필요에 따라 Memory와 Storage를 갱신한다. `STOP`, `JUMPDEST`처럼 Stack을 사용하지 않는 Opcode도 있다.
+Ethereum은 The Merge(2022년 9월) 이후 합의와 실행을 분리한 두 개의 Layer(계층) 구조를 가진다. 각 노드는 Consensus Client와 Execution Client를 함께 실행하며, 두 Client는 Engine API(Application Programming Interface)로 통신한다.
+
+- **Consensus Layer(CL, 합의 계층):** Block Proposer(블록 제안자) 선정, LMD-GHOST(Latest Message Driven Greedy Heaviest Observed Sub-Tree) 기반 Fork Choice(체인 선택), Casper FFG(Friendly Finality Gadget) 기반 Finality(최종성) 결정
+- **Execution Layer(EL, 실행 계층):** 트랜잭션 실행, State Transition 계산, 실행 결과 생성 및 검증
+
+Consensus Layer의 참여자는 Validator(검증자)다. Validator는 Ether를 Stake(예치)하고 블록 제안과 투표를 수행한다. EVM은 Execution Layer에서 트랜잭션의 코드 실행을 담당한다. Execution Layer는 블록을 직접 실행하고, 그 결과가 블록 헤더에 기록된 실행 결과 값과 일치하는지 확인해 블록의 실행 유효성을 판단한다.
+
+### World State and State Transition Function (STF)
+
+**EVM은 State(상태)를 직접 저장하지 않는다.** EVM은 트랜잭션이 컨트랙트를 호출하거나 생성할 때 바이트코드를 실행하여, 코드 실행에 따른 상태 변화를 계산한다. EVM이 읽고 쓰는 대상은 Ethereum의 **World State**(전역 상태)이다.
+World State는 주소에서 계정 상태로의 매핑이며, 각 계정은 Externally Owned Account(EOA, 외부 소유 계정) 또는 Contract Account(CA, 컨트랙트 계정)로 구분된다. 각 계정은 **Nonce, Balance, Storage Root**(`storageRoot`), **Code Hash**(`codeHash`)를 가지며, 스마트 컨트랙트 코드와 컨트랙트 Storage는 각각 이 해시와 루트로 연결된다. EIP-7702(Pectra) 이후에는 EOA도 Delegation Indicator(위임 표시자, `0xef0100 || address`)를 코드로 가질 수 있다.
+
+World State는 Modified Merkle Patricia Trie(MPT) 구조로 표현되며, 이 Trie의 Root Hash는 블록 헤더의 **State Root**로 기록된다. World State의 값이 하나라도 바뀌면 Root Hash도 바뀌므로, **State Root는 해당 시점 World State 전체를 대표한다.** 실제 디스크 저장 방식은 Client마다 다르다.
+
+State Root와 Merkle Proof(특정 값에서 Root Hash까지의 경로에 있는 Trie Node들)를 이용하면, 전체 상태 데이터를 보유하지 않은 노드도 특정 계정이나 Storage 값이 그 상태에 포함되어 있는지 효율적으로 검증할 수 있다. 다만 State Root는 결과 상태가 무엇인지만 나타낸다. 그 상태가 올바른 실행으로 만들어졌는지는 같은 규칙으로 블록을 다시 실행해야 확인할 수 있다. 이 규칙이 State Transition Function이다.
+
+**State Transition Function**
+
+Ethereum은 단순한 거래 원장이 아니라 트랜잭션 기반의 **Distributed State Machine**(분산 상태 머신)으로 동작한다. 네트워크는 Genesis State(초기 상태)에서 시작해 각 블록의 트랜잭션을 순서대로 실행하며 상태를 갱신한다. 이 갱신 규칙을 **State Transition Function**(상태 전이 함수)이라고 한다. Yellow Paper는 State Transition Function을 트랜잭션 단위와 블록 단위로 나누어 정의한다. 블록 단위 함수가 트랜잭션 단위 함수를 반복 호출하는 계층 구조다. 아래에서 $\sigma$는 이전 상태, $\sigma^\prime$는 결과 상태, $T$는 트랜잭션, $B$는 블록이다.
+
+- **트랜잭션 단위**: $\sigma^\prime = \Upsilon(\sigma, T)$
+
+$\Upsilon$은 트랜잭션 하나를 상태에 적용한다. $\Upsilon$이 곧 EVM 실행은 아니다. EVM의 코드 실행은 Yellow Paper에서 $\Xi$로 따로 정의되며, $\Upsilon$은 $\Xi$를 포함한 트랜잭션 처리 전체를 담당한다. 처리 순서는 다음과 같다.
+
+    1. 유효성 검사: 서명, Nonce, 잔액, Gas Limit을 확인한다.
+    2. 선차감: 발신자 잔액에서 Upfront Gas 비용(실행 전에 Gas Limit만큼 미리 차감하는 수수료)을 차감하고, Nonce를 1 증가시킨다.
+    3. 실행: Value를 이체하고, 수신자에 코드가 있으면 EVM이 그 코드를 실행한다($\Xi$).
+    4. 정산: 사용하지 않은 Gas를 환급한다. Priority Fee(블록 생성자에게 주는 추가 수수료)는 Fee Recipient(수수료 수령 주소)에 지급하고, Base Fee(EIP-1559에 따라 블록마다 정해지는 기본 수수료)는 소각한다.
+
+2단계의 선차감과 Nonce 증가는 실행이 실패해도 되돌려지지 않는다. 따라서 블록에 포함된 트랜잭션은 코드 실행이 실패하더라도 Nonce와 잔액을 바꾼다. 즉 **블록에 포함된 모든 트랜잭션은 상태 변화를 일으킨다.**
+
+- **블록 단위**: $\sigma^\prime = \Pi(\sigma, B)$
+
+$\Pi$는 블록 전체를 상태에 적용한다. 블록 $B$는 블록 헤더 값(블록 번호, Timestamp, Base Fee, Fee Recipient 등), 순서화된 트랜잭션 목록, Withdrawal 목록으로 이루어진다. $\Pi$는 트랜잭션 순서대로 $\Upsilon$을 반복 적용하며, 앞 트랜잭션의 결과 상태가 다음 트랜잭션의 입력 상태가 된다.
+
+```text
+σ₀ = 블록 시작 처리(σ)
+σ₁ = Υ(σ₀, T₀)
+σ₂ = Υ(σ₁, T₁)
+...
+σₙ = Υ(σₙ₋₁, Tₙ₋₁)
+σ' = 블록 종료 처리(σₙ)
+```
+
+트랜잭션 실행의 앞뒤에는 블록 단위 처리가 있다. 블록 단위 처리는 특정 트랜잭션에 속하지 않고 Protocol이 직접 수행하며, 주로 Consensus Layer와 Execution Layer가 정보를 주고받는 데 쓰인다.
+
+- **블록 시작 처리:** Protocol은 트랜잭션을 실행하기 전에 System Call(시스템 호출)로 특정 시스템 컨트랙트를 직접 호출해 블록 정보를 기록한다. System Call은 트랜잭션이 아니므로 서명과 수수료가 없다. Cancun 이후 EIP-4788은 부모 Beacon Block Root(Consensus Layer 블록의 Root Hash)를 기록하고, Prague 이후 EIP-2935는 부모 블록 Hash를 기록한다. 컨트랙트는 이 값을 읽어 Consensus Layer 정보나 과거 블록 Hash를 확인할 수 있다.
+- **블록 종료 처리:** 모든 트랜잭션을 실행한 뒤에는 두 방향의 처리가 일어난다.
+    - **Consensus Layer에서 Execution Layer로:** Shanghai 이후 Withdrawal(인출)을 처리한다. Validator가 Stake한 Ether를 출금하는 처리로, 대상 주소의 잔액을 늘린다. EVM을 실행하지 않으며 Gas도 쓰지 않는다.
+    - **Execution Layer에서 Consensus Layer로:** Prague 이후 요청(Requests)을 모아 Consensus Layer에 전달한다. 예치 요청(EIP-6110)은 Deposit Contract의 Log에서 모으고, 출금 요청(EIP-7002)과 통합 요청(EIP-7251)은 System Call로 모은다.
+
+The Merge 이후 Execution Layer에는 블록 보상이 없다. Validator 보상은 Consensus Layer에서 처리된다. Priority Fee 지급과 Base Fee 소각은 블록 단위가 아니라 각 트랜잭션의 $\Upsilon$ 안에서 일어난다.
+
+블록 실행 전 상태 $\sigma$를 Pre-State, 실행 후 상태 $\sigma^\prime$를 Post-State라고 한다. Pre-State의 Root Hash는 부모 블록의 State Root이고, Post-State의 Root Hash는 해당 블록의 State Root다. 그 사이의 $\sigma_1, \ldots, \sigma_n$은 계산 중에만 존재하며 블록에 기록되지 않는다. Byzantium(EIP-658) 이후 Receipt에도 트랜잭션별 중간 State Root 대신 성공 여부(status)만 들어간다. 따라서 상태 전이의 검증은 블록 단위로 이루어진다.
+
+**State Transition Function은 결정론적이다.** 같은 Pre-State, 같은 블록, 같은 Hard Fork 규칙이 주어지면 어떤 노드에서도 같은 Post-State, 즉 같은 State Root가 계산된다.
+
+```text
+Identical Pre-State
++ Identical Block (Transaction Order, Withdrawals, Header Fields)
++ Identical State Transition Rules (Same Fork)
+= Identical stateRoot
+```
+
+결국 **블록체인은 각 블록의 트랜잭션과, 그 실행 결과 상태를 대표하는 State Root를 연속적으로 기록한 구조**다. 상태 전체는 블록에 기록되지 않는다.
+
+
+### Transaction and Block Execution Pipeline
+
+State Transition 중 EVM이 담당하는 부분은 $\Upsilon$ 안의 코드 실행($\Xi$)이다. 스마트 컨트랙트는 Solidity나 Vyper와 같은 고급 언어로 작성되며 컴파일 과정을 통해 EVM 바이트코드로 변환된다. EVM 사양은 Program Counter가 가리키는 Opcode를 하나씩 실행하는 의미론으로 정의되며, Client는 이를 Interpreter(인터프리터) 등으로 구현한다.
+
+EVM의 실행 모델은 **Machine State(Program Counter, Stack, Memory, 가용 Gas)와 실행 대상 코드**로 구성되며, 실행 중 계정의 Storage에 접근한다. Cancun 이후에는 트랜잭션 종료 시 초기화되는 Transient Storage(EIP-1153)도 사용할 수 있다.
+
 
 ![evm](evm.png)
 _출처: [https://ethereum.org/developers/docs/evm/](https://ethereum.org/developers/docs/evm/)_
 
-- **Program Counter(PC):** 현재 실행 중인 바이트코드 위치(Offset)를 가리키는 포인터로, Opcode가 실행되면 다음 명령 위치로 이동한다. `PUSH` 명령은 뒤따르는 Immediate(즉시값) 길이만큼 더 이동하고, `JUMP`와 `JUMPI`는 지정된 위치(`JUMPDEST`)로 이동한다.
-- **Stack:** 256비트 단위 값을 저장하는 Stack 기반 계산 공간으로, 최대 1024개의 요소를 저장할 수 있다. 대부분의 연산은 Stack 최상위 값을 사용하여 수행된다.
-- **Memory:** 실행 중에만 존재하는 휘발성 선형 Memory 공간으로, 함수 호출 과정에서의 임시 데이터, ABI 인코딩 및 디코딩 등에 사용된다. Call Frame(호출 프레임, 컨트랙트 호출 하나) 단위로 새로 할당되며 해당 호출이 끝나면 폐기된다.
-- **Storage:** 컨트랙트 계정의 영구 상태를 저장하는 공간으로, 상태 변수, 매핑, 배열 등이 저장된다. `SLOAD`와 `SSTORE` Opcode를 통해 접근되며 상태 변경 시 높은 Gas 비용이 부과된다.
-- **Code Segment:** 컨트랙트 계정에 저장된 EVM 바이트코드 영역으로, 실행 중 Read-Only(읽기 전용)로 취급된다. Program Counter는 이 영역을 탐색하며 Opcode를 읽고 실행한다.
+- **Program Counter(PC):** 현재 실행 중인 바이트코드 위치(Offset)를 가리키는 포인터로, Opcode가 실행되면 다음 명령 위치로 이동한다. `PUSH1`~`PUSH32`는 뒤따르는 Immediate(즉시값) Byte 수만큼 더 이동한다(`PUSH0`은 즉시값이 없다). `JUMP`는 Stack에서 꺼낸 목적지로 이동하고, `JUMPI`는 조건 값이 0이 아닐 때만 이동한다. 목적지는 반드시 `JUMPDEST`여야 하며, 그렇지 않으면 예외가 발생해 실행이 중단된다.
+- **Stack:** 256bit(32byte) 워드를 저장하는 LIFO(Last In, First Out, 후입선출) 구조로, 최대 1024개의 요소를 저장할 수 있다. 각 Opcode는 Stack에서 정해진 개수의 항목을 꺼내고 정해진 개수의 결과를 넣는다(0개일 수 있음). `STOP`, `JUMPDEST`처럼 Stack을 사용하지 않는 Opcode도 있다. 연산은 주로 최상위 값을 대상으로 하며, DUP 계열은 위에서 16번째 항목까지, SWAP 계열은 위에서 17번째 항목까지 접근할 수 있다.
+- **Memory:** Byte 단위로 주소가 지정되는 휘발성 선형 공간으로, 연산 중간값, ABI(Application Binary Interface) 인코딩 및 디코딩, 반환값 등 임시 데이터에 사용된다. Call Frame(호출 프레임, 메시지 호출 또는 컨트랙트 생성 하나) 단위로 빈 상태로 새로 할당되며 해당 호출이 끝나면 폐기된다. 32byte 워드 단위로 확장되며, 확장 비용은 크기에 따라 이차적으로 증가한다.
+- **Storage:** 계정별 영구 저장소로, 256bit 키를 256bit 값에 대응시키는 매핑이다. 상태 변수, 매핑, 배열 등이 저장되며 `SLOAD`와 `SSTORE` Opcode로 접근한다. 트랜잭션이 끝난 뒤에도 World State에 남으므로 접근 비용이 높고, 특히 값 변경에는 높은 Gas 비용이 부과된다.
+- **Code:** 실행 대상 EVM 바이트코드로, 호출된 계정의 `codeHash`에 대응하는 코드 또는 컨트랙트 생성 시의 Init Code(초기화 코드)이다. 실행 중 Read-Only(읽기 전용)로 취급되며, Program Counter는 이 코드를 따라 Opcode를 읽고 실행한다. `DELEGATECALL`이나 EIP-7702 위임에서는 다른 계정의 코드를 현재 계정의 Storage와 Balance 맥락에서 실행한다.
 
-EVM은 계산 자원의 남용을 방지하기 위해 Gas 기반 비용 모델을 사용한다. 모든 Opcode에는 사전에 정의된 Gas 비용이 존재하며, Memory 확장이나 Storage 접근 이력 등에 따라 추가 비용이 붙는 Opcode도 있다. 실행 중 Gas가 소진되면 Out-of-Gas(OOG) 예외가 발생하여 해당 Call Frame의 실행이 즉시 중단된다. 이 경우 그 Call Frame에서 발생한 상태 변경은 모두 되돌려지며(Revert), 그 프레임에 할당된 Gas는 모두 소모된다. 하위 호출에서 OOG가 발생하면 상위 호출은 실패 결과를 받고 실행을 계속할 수 있다. 최상위 호출에서 발생하면 트랜잭션의 실행 결과가 되돌려지지만, 트랜잭션은 블록에 포함되고 수수료 지불과 Nonce 증가는 남는다. 이러한 메커니즘은 무한 Loop 실행과 DoS(서비스 거부 공격)를 방지하고 네트워크 자원의 공정한 사용을 보장한다.
+**Gas**
 
-결과적으로 모든 실행 노드는 동일한 EVM 사양에 따라 동일한 트랜잭션을 동일한 방식으로 실행하며 동일한 State Transition 결과를 계산한다. 따라서 Ethereum에서 블록의 실행 유효성은 모든 노드가 동일한 State Transition Function을 실행하여 동일한 State Root에 도달하는지로 판단된다. 유효한 블록 가운데 어떤 블록을 정식 체인으로 채택하고 확정할지는 Consensus Layer(합의 계층)의 체인 선택 규칙과 Finality(최종성) 규칙이 결정한다. 이 Deterministic Execution 모델 덕분에 Ethereum 네트워크는 중앙 통제 없이 하나의 통일된 Distributed State Machine으로 동작한다.
+Machine State의 가용 **Gas**는 계산 자원의 남용을 방지하기 위한 EVM의 비용 모델을 이룬다. Gas는 연산, Storage 접근, 데이터 크기 같은 자원 사용량을 근사한 비용 단위다. 모든 Opcode에는 사전에 정의된 Gas 비용이 존재하며, Memory 확장이나 Storage 접근 이력(EIP-2929의 Cold/Warm 구분 등)에 따라 추가 비용이 붙는 Opcode도 있다.
 
-#### **Opcodes**
+실행 중 Gas가 소진되면 **Out-of-Gas(가스 부족) 예외**가 발생하여 해당 Call Frame의 실행이 즉시 중단된다. 이 경우 **그 Call Frame에서 발생한 상태 변경은 모두 되돌려지며(Revert), 그 프레임에 할당된 Gas는 모두 소모된다.** 반면 Byzantium 이후의 `REVERT` Opcode로 실행을 명시적으로 되돌리면, 상태 변경은 되돌려지지만 남은 Gas는 반환된다.
+
+하위 호출이 실패하면 상위 호출은 실패 결과를 받고 실행을 계속할 수 있다. Tangerine Whistle(EIP-150) 이후 하위 호출에는 남은 Gas의 최대 63/64만 전달되므로, 하위 호출이 Gas를 모두 소진해도 상위 호출에는 Gas가 남는다. 최상위 호출에서 예외가 발생하면 트랜잭션의 실행 결과가 되돌려지지만, **트랜잭션은 블록에 포함되고 수수료 지불과 Nonce 증가는 남는다.** 이러한 메커니즘은 무한 Loop 실행과 DoS(Denial of Service, 서비스 거부 공격)를 방지한다.
+
+
+### What is Opcode?
 
 - https://www.evm.codes/
 
 ![opcode](opcode.png)
 _출처: [https://ethereum.org/developers/docs/evm/#opcodes](https://ethereum.org/developers/docs/evm/#opcodes)_
 
+Opcode(Operation Code)는 **"이 명령이 어떤 연산을 수행해야 하는지"를 지정하는 숫자 코드**이다. 하나의 Instruction(명령어)은 보통 Opcode + Operand(연산 대상/주소)로 이루어지며, 이 중 Opcode가 연산 종류(ADD, JUMP 등)를, Operand가 그 연산에 쓰일 데이터나 주소를 담는다.
 
-Opcode(Operation Code)는 "이 명령이 어떤 연산을 수행해야 하는지"를 지정하는 숫자 코드이다. 하나의 명령어(Instruction)는 보통 Opcode + Operand(연산 대상/주소)로 이루어지며, 이 중 Opcode가 연산 종류(ADD, JUMP 등)를, Operand가 그 연산에 쓰일 데이터나 주소를 담는다.
+CPU(Central Processing Unit, 중앙 처리 장치)에서 `ADD`, `SUB`, `LOAD`, `STORE`, `JMP` 등은 명령어의 Mnemonic(니모닉)이며, 실제 기계어 명령어는 Opcode 필드와 Operand 필드로 구성된 특정 Bit 패턴으로 인코딩된다. 제어 장치는 Memory에서 명령어를 읽어(Fetch) Opcode Bit를 해석(Decode)하고, 그에 맞는 제어 신호 또는 마이크로 연산 시퀀스를 생성해 실행한다.
 
-CPU 입장에서는 `ADD`, `SUB`, `LOAD`, `STORE`, `JMP` 등의 기계어 명령이 모두 내부적으로 특정 비트 패턴(숫자 값)으로 인코딩된 Opcode이며, 제어 장치는 Memory에서 명령어를 읽어 Opcode 비트를 해석하고, 이에 따라 어떤 마이크로 연산 시퀀스를 실행할지 결정한다.
+EVM에서는 스마트 컨트랙트가 바이트코드로 표현되고, 이 바이트코드는 **1byte Opcode와 일부 Opcode 뒤에 붙는 Immediate**로 구성된다. 예를 들어 0x01은 `ADD`, 0x55는 `SSTORE`처럼 각 1byte 값이 Stack 조작, 산술 연산, Storage 접근, 컨트랙트 호출 등 특정 동작을 의미한다. **EVM은 Stack 기반 머신이**므로 대부분의 Opcode는 Operand를 명령어 안에 갖지 않고 Stack에서 꺼내 사용한다. Immediate를 갖는 대표적인 예외는 `PUSH1`(0x60)부터 `PUSH32`(0x7F)까지로, Opcode 뒤에 1~32byte의 Immediate가 붙는다. 따라서 바이트코드의 모든 Byte가 Opcode인 것은 아니며, Immediate 안에 포함된 0x5B는 `JUMPDEST`로 인정되지 않는다.
 
-EVM에서는 스마트 컨트랙트가 바이트코드로 표현되고, 이 바이트코드는 1바이트짜리 Opcode와 일부 Opcode 뒤에 붙는 Immediate로 구성된다. 예를 들어 0x01은 `ADD`, 0x55는 `SSTORE`처럼 각 1바이트 값이 Stack 조작, 산술 연산, Storage 접근, 컨트랙트 호출 등 특정 동작을 의미한다. `PUSH1`(0x60)부터 `PUSH32`까지는 Opcode 뒤에 1~32바이트의 Immediate가 붙으므로, 바이트코드의 모든 바이트가 Opcode인 것은 아니다.
+계산 관련 Opcode(`ADD`, `MUL`, `AND`, `OR` 등)는 산술 연산과 비트 연산을 수행하고, 제어 흐름 Opcode(`JUMP`, `JUMPI`)는 무조건 분기와 조건 분기를 수행하며 이를 조합해 Loop를 구현한다. Storage와 Memory Opcode(`SLOAD`/`SSTORE`, `MLOAD`/`MSTORE`)는 각각 Storage와 Memory에 대한 읽기와 쓰기를 담당한다. 환경 및 블록 정보 Opcode(`BALANCE`, `BLOCKHASH` 등)는 계정 잔액, 블록 해시 같은 실행 환경 정보를 조회하고, 호출 및 생성 Opcode(`CALL`, `CREATE` 등)는 외부 호출과 컨트랙트 생성을 수행한다. 
+해시 계산은 `KECCAK256` Opcode가 담당한다. 반면 ECDSA(Elliptic Curve Digital Signature Algorithm, 타원곡선 디지털 서명 알고리즘) 서명자 주소 복구(`ecrecover`)와 BN254 곡선 연산 등은 Opcode가 아니라 특정 주소의 Precompile로 제공되며, `CALL` 계열 Opcode로 호출한다.
 
-계산 관련 Opcode(`ADD, MUL, OR, AND`)는 산술 연산과 비트 연산을 수행하고, 제어 흐름 Opcode(`JUMP, JUMPI`)는 조건 분기와 Loop를 구현한다. Storage와 Memory Opcode(`SLOAD/SSTORE, MLOAD/MSTORE`)는 각각 Storage와 Memory에 대한 읽기와 쓰기를 담당하며, 계정과 블록 관련 Opcode(`BALANCE, BLOCKHASH, CALL, CREATE` 등)는 계정 잔액 조회, 블록 해시 조회, 컨트랙트 생성, 외부 호출 등의 기능을 제공한다. 해시 계산은 `KECCAK256` Opcode가 담당하고, ECDSA 공개키 복구(`ecrecover`)와 BN254 곡선 연산 등은 Opcode가 아니라 특정 주소의 Precompile로 제공된다.
+#### 블록 실행 결과
 
-### EVM을 통한 트랜잭션 검증 방식
+블록의 모든 처리가 끝나면 Execution Layer는 결과를 블록 헤더에 기록한다. 블록 헤더에는 **실행해야 얻을 수 있는 결과값**과 **블록 입력을 요약한 값**이 함께 들어 있으므로 둘을 구분해야 한다.
 
-이더리움은 The Merge 이후 합의와 실행을 분리한 두 개의 레이어 구조를 가진다.
- 
-- **Consensus Layer(CL):** 블록 제안자 선정, LMD-GHOST 기반 체인 선택, Casper FFG 기반 Finality 결정
-- **Execution Layer(EL):** 트랜잭션 실행, State Transition 계산, State Root 생성 및 검증
+| 구분 | 헤더 값 | 계산 방법 |
+|---|---|---|
+| 실행 결과 | State Root | Post-State의 MPT Root Hash |
+| 실행 결과 | Receipts Root | 각 트랜잭션 Receipt로 만든 Trie의 Root Hash |
+| 실행 결과 | Logs Bloom | 모든 Log를 요약한 2048bit 값. 특정 Log의 포함 가능성을 빠르게 확인하는 데 쓴다 |
+| 실행 결과 | Gas Used | 블록의 모든 트랜잭션이 사용한 Gas 합계 |
+| 실행 결과 | Requests Hash (Prague 이후) | 요청 처리 결과의 Hash |
+| 입력 요약 | Transactions Root | 블록의 트랜잭션 목록으로 만든 Trie의 Root Hash |
+| 입력 요약 | Withdrawals Root (Shanghai 이후) | 블록의 Withdrawal 목록으로 만든 Trie의 Root Hash |
 
-Execution Layer에서 트랜잭션 실행은 State Transition을 의미한다. 블록 내 트랜잭션 집합이 기존 World State를 새로운 상태(Post-State)로 변환하는 과정은 다음과 같다.
+Receipt(영수증)는 트랜잭션 하나의 실행 결과 기록으로, 성공 여부, 누적 Gas 사용량, Log, Logs Bloom을 담는다. Log는 컨트랙트가 `LOG0`~`LOG4` Opcode로 남기는 이벤트 기록이다.
 
-- **State Transition Function:** $$S' = \Pi(S, T)$$
-    - **Pre-State** ($$S$$)**:** 블록 실행 전 World State (Nonce, Balance, Storage, Code). 이 상태를 커밋한 값이 부모 블록의 State Root다.
-    - **Ordered Transactions** ($$T$$)**:** 블록에 포함된 순서화된 트랜잭션 집합
-    - **EVM Execution Rules** ($$\Pi$$)**:** 해당 하드포크의 결정론적 실행 규칙. 블록 번호, Timestamp, Base Fee 같은 블록 실행 환경도 입력으로 사용한다.
-    - **Post-State** ($$S'$$)**:** 실행 후 도출되는 유일한 결과 상태. 이 상태를 커밋한 값이 블록 헤더의 State Root다.
-    
-EVM은 결정론적 실행 환경으로, 동일한 입력과 동일한 실행 규칙이 주어질 경우, 항상 동일한 결과 상태를 생성한다. 즉, 동일한 World State, 동일한 트랜잭션 순서, 동일한 블록 실행 환경, 동일한 하드포크의 실행 규칙이 보장되면 전 세계 어떤 노드에서도 동일한 State Root가 계산된다.
+**입력 요약 값은 실행하지 않아도 계산할 수 있고, 실행 결과 값은 블록을 실행해야만 얻을 수 있다.** 따라서 입력 요약 값으로는 블록 내용이 변조되지 않았는지를, 실행 결과 값으로는 실행이 올바른지를 확인한다.
 
-```text
-Identical State
-+ Identical Transaction Order
-+ Identical Block Environment
-+ Identical EVM Rules (same fork)
-= Identical stateRoot
-```
+### End-to-End Block Verification Process
 
-이더리움 실행 모델에서는 블록 생성자(Builder 또는 제안자)가 트랜잭션을 조합하여 블록을 구성하고 실행하여 State Root를 계산하면, 네트워크의 다른 노드들이 동일한 트랜잭션을 자신의 EVM에서 독립적으로 다시 실행(Re-execution, 재실행)하여 결과를 검증한다. 이때 각 노드는 블록 생성자가 제공한 실행 결과를 신뢰하지 않으며, Execution Layer를 통해 트랜잭션을 순차적으로 다시 실행하여 새로운 State Root를 계산하고, 이 결과가 블록 헤더에 포함된 State Root 값과 일치하는지 확인함으로써 State Transition의 정확성을 검증한다. 이러한 방식은 높은 보안성과 검증의 독립성을 제공하지만, 검증에 참여하는 노드 수에 비례하여 동일한 계산이 반복되는 Computational Redundancy(계산 중복)가 발생한다. 이 반복은 Validator 단위가 아니라 노드 단위로 일어난다. 하나의 노드가 여러 Validator를 운영할 수 있으므로 Validator 수는 노드 수보다 훨씬 많다.
+1. **트랜잭션 수신과 Mempool 사전 검증**
 
-하지만 이러한 설계는 이더리움의 핵심 원칙인 **"Don't Trust, Verify"** 철학에 기반한다. 특정 노드의 실행 결과를 신뢰하지 않고 다수 노드가 독립적으로 다시 실행함으로써 실행 결과의 정당성(Correctness)을 보장하며, 단일 노드가 잘못된 State Transition을 제시하더라도 다른 노드의 Re-execution 과정에서 즉시 검출되므로, 네트워크 전체의 무결성이 유지된다. 또한, 누구나 일반적인 하드웨어에서 다시 실행할 수 있도록 블록당 실행량이 Gas Limit으로 제한된다. Gas는 실제 연산량을 근사한 비용 단위이며, Gas Limit은 일반적인 하드웨어가 블록 시간 안에 실행을 마칠 수 있도록 정한 상한이다. 일부 노드에 장애가 발생해도 다른 노드가 검증을 계속하므로 체인은 진행된다. 다만 전체 Stake의 1/3을 초과하는 Validator가 오프라인이 되면 Finality는 멈추고 블록 생성만 계속된다.
+    Mempool(트랜잭션 대기 공간)은 노드가 블록에 포함되기 전의 트랜잭션을 보관하는 공간이다. 노드는 트랜잭션을 받으면 자원 낭비를 막기 위해 Mempool에 넣기 전에 사전 검증을 수행한다. 아래는 EIP-1559 Type-2 트랜잭션 기준이며, Mempool 정책은 Client마다 다를 수 있다.
 
-### EVM 검증 상세 과정
-
-1. **트랜잭션 수신 및 전파 검증 (Mempool Entry)**
-    
-    노드가 트랜잭션을 수신하면 리소스 낭비 방지를 위해 블록에 넣기 전 사전 검증을 수행한다. 아래는 EIP-1559(Type-2) 트랜잭션 기준이다.
-    
     ```text
-    1. ECDSA 서명 검증 (r, s, v → from 주소 복원 & malleability 체크: s ≤ secp256k1n/2)
-    2. nonce가 sender 계정의 pending/queued nonce 범위 내인지 확인
-    3. gasLimit ≥ intrinsic gas, maxFeePerGas ≥ maxPriorityFeePerGas (EIP-1559) 유효성
-    4. balance ≥ value + gasLimit × maxFeePerGas 확인
+    1. 서명 검증: (y_parity, r, s)로 발신자 주소를 복원하고, Chain ID가 네트워크와 일치하는지 확인
+    Malleability 방지: s ≤ secp256k1n / 2 (EIP-2)
+    2. Nonce 확인: nonce ≥ 발신자 계정의 현재 Nonce
+    3. Gas 확인: gasLimit ≥ max(Intrinsic Gas, Calldata Floor 비용) (EIP-7623, Pectra 이후)
+                gasLimit ≤ 2^24 (EIP-7825, Fusaka 이후)
+                maxFeePerGas ≥ maxPriorityFeePerGas
+    4. 잔액 확인: balance ≥ value + gasLimit × maxFeePerGas
     ```
 
-    Intrinsic Gas는 트랜잭션 자체에 드는 기본 Gas로 이미 gasLimit 안에 포함되므로 잔액 조건의 금액에 따로 더하지 않는다. 대기열 관리와 교체 규칙 같은 풀 정책은 클라이언트마다 다르다. 3, 4번 조건은 블록에서 실행할 때도 유효성 규칙으로 다시 확인되며, 블록에서 실행할 때 Nonce는 계정의 현재 Nonce와 정확히 일치해야 한다.
+    **Intrinsic Gas**는 코드 실행 전에 트랜잭션 자체에 부과되는 기본 Gas다. 기본 21,000 Gas에 Calldata, Access List, 컨트랙트 생성 비용이 더해진다. Intrinsic Gas는 `gasLimit` 안에 포함되므로 잔액 조건에 따로 더하지 않는다.
+
+    **Mempool 검증은 블록 유효성의 일부가 아니다.** 블록에서 실행할 때는 위 항목을 모두 다시 확인하며, 다음 조건이 추가된다.
+
+    - Nonce가 계정의 현재 Nonce와 **정확히** 일치해야 한다.
+    - `maxFeePerGas ≥` 해당 블록의 `baseFee`여야 한다.
+    - `gasLimit`이 블록의 남은 Gas 이하여야 한다.
+    - 발신자 계정에 Code가 없어야 한다(EIP-3607). Pectra 이후 Delegation Indicator를 가진 EOA는 예외다.
+
+2. **블록 생성자의 블록 실행**
+
+    블록은 각 Slot(12초 단위의 시간 구간)마다 Block Proposer로 선정된 Validator가 제안한다. 블록의 실행 내용(Execution Payload)은 Proposer의 Execution Client가 직접 구성하거나, Protocol 외부 시스템인 MEV-Boost를 통해 Builder(블록 빌더)가 구성한다. MEV는 Maximal Extractable Value(최대 추출 가능 가치)의 약자다. Glamsterdam의 ePBS(enshrined Proposer-Builder Separation, EIP-7732)가 적용되면 Builder의 역할이 Protocol 안으로 들어온다.
     
-2. **블록 제안자의 EVM 실행**
-    1. 실행 전 환경 설정 (State Setup)
-        - 현재 World State Snapshot 생성
-        - Sender 계정에서 Upfront Gas(`gasLimit × effectiveGasPrice`) 비용 선차감
+    블록 생성자는 Pre-State에서 $\Pi$를 다음 순서로 실행한다.
+
+    1. **블록 시작 처리:** EIP-4788(Cancun 이후)과 EIP-2935(Prague 이후)의 시스템 호출을 수행한다.
+    2. **트랜잭션별 실행($\Upsilon$):**
+        1. 4-1의 블록 규칙을 확인한다. 실패하면 그 트랜잭션은 블록에 포함될 수 없다.
+        2. 발신자 잔액에서 `gasLimit × effectiveGasPrice`를 선차감하고 Nonce를 1 증가시킨다. **이 두 변경은 실행이 실패해도 되돌려지지 않는다.**
             - `effectiveGasPrice = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)`
-        - Sender Nonce 증가 (실행 전에 증가하며, 실행이 실패해도 유지된다)
-    2. Opcode 레벨 실행 (Step-by-Step)
-        
-        EVM은 Stack 기반 가상 머신으로, 모든 노드는 동일한 바이트코드를 다음 프로세스로 실행한다.
-        
-        - Program Counter(PC) 순차 실행 (점프 시 목적지로 이동)
-        - Stack / Memory / Storage 갱신
-        - 각 Opcode마다 Gas 차감
-        - 남은 Gas가 부족하면 Out-of-Gas Exception 발생
+        3. Checkpoint(되돌림 기준점)를 만든다.
+        4. Intrinsic Gas를 차감한다.
+        5. `value`를 이체한다.
+        6. 실행 대상에 따라 처리한다.
+            - 수신자에 Code가 있으면 EVM이 실행한다.
+            - Code가 없으면 이체만 일어난다.
+            - 수신자 주소가 비어 있으면 Init Code를 실행해 새 컨트랙트를 만든다.
+        7. 최상위 Call Frame이 예외나 `REVERT`로 끝나면 Checkpoint로 되돌린다. 이체와 Storage 변경은 사라지고, 선차감과 Nonce 증가는 남는다.
+        8. Gas를 정산한다.
+            - 환급액은 `min(환급 카운터, gasUsed / 5)`다(EIP-3529, London 이후).
+            - Pectra 이후 최종 `gasUsed = max(gasUsed − 환급액, Calldata Floor 비용)`이다(EIP-7623).
+            - 발신자는 `(gasLimit − 최종 gasUsed) × effectiveGasPrice`를 돌려받는다.
+            - Fee Recipient는 `(effectiveGasPrice − baseFee) × gasUsed`를 받고, `baseFee × gasUsed`는 소각된다.
+        9. Receipt를 생성한다.
+    3. **블록 종료 처리:** Withdrawal(Shanghai 이후)을 처리하고, 요청(Prague 이후)을 모은다.
+    4. **헤더 기록:** 3장의 "블록 실행 결과" 값을 계산해 블록 헤더에 기록한다.
 
-        ```text
-        while gas_remaining ≥ cost and PC < codeSize:
-            opcode fetch
-            execute
-            update state
-        ```
-        
-    3. 실행 완료 (Finalization)
-        - Sender Balance 변경, Receiver Balance 변경
-        - Storage 변경 및 Commit
-        - 사용하지 않은 Gas와 Storage 삭제 환급액을 Sender에게 반환 (환급액은 EIP-3529 이후 사용 Gas의 최대 1/5, 즉 20%)
-        - `(effectiveGasPrice − baseFee) × gasUsed`는 블록의 Fee Recipient(수수료 수령자)에게 지급, `baseFee × gasUsed`는 소각
-        - 블록의 모든 트랜잭션을 처리한 뒤 Merkle Patricia Trie를 재계산하여 새로운 StateRoot 생성 (Byzantium 이후 State Root는 트랜잭션마다가 아니라 블록 단위로 계산)
-        
+3. **검증 노드의 Re-execution**
 
-3. **검증 노드 Re-execution 검증 (Verification)**
-    
-    검증 노드는 제안된 블록을 수신하면:
-    
-    1. 동일 초기 상태 $$S$$에서
-    2. 동일 트랜잭션 순서 $$T$$와 동일한 블록 실행 환경으로
-    3. EVM을 다시 실행하여
-    
-    $$\mathrm{My\_StateRoot} = \mathrm{Root}(\Pi(S, T))$$를 계산한다. 이후 내가 계산한 `My_StateRoot`와 블록 헤더의 `Block_StateRoot`가 맞는지 확인한다(Receipts Root, gasUsed 등도 함께 확인한다). 일치하면 Execution Layer는 블록을 유효하다고 판단하고, Validator는 이 블록이 포함된 체인에 Attestation(투표)을 보낸다. Finality는 Casper FFG에 따라 블록 하나가 아니라 Checkpoint(각 Epoch의 첫 블록) 단위로 결정된다. 전체 Stake의 2/3 이상이 투표한 Checkpoint가 Justified(정당화) 상태가 되고, 바로 다음 Epoch의 Checkpoint가 이어서 Justified 상태가 되면 앞의 Checkpoint가 Finalized(최종 확정) 상태가 된다. 정상적인 경우 블록이 Finalized 상태가 되기까지 약 두 Epoch(약 12.8분)이 걸린다.
+    검증 노드의 Consensus Client는 블록을 받으면 Engine API의 `engine_newPayload`로 Execution Payload를 Execution Client에 전달한다. **Execution Client는 블록 생성자가 제공한 결과를 신뢰하지 않는다.** 다음 순서로 직접 확인한다.
+
+    1. **헤더 사전 검사:** 실행 전에 헤더 값을 확인한다.
+        - 부모 Hash와 블록 번호가 올바른지, Timestamp가 부모 블록보다 큰지 확인한다.
+        - Gas Limit 변화가 부모 대비 1/1024 미만인지 확인한다.
+        - Base Fee가 부모 블록으로부터 계산한 값과 같은지 확인한다.
+        - Fusaka 이후에는 EIP-7934의 블록 크기 제한도 확인한다.
+    2. **입력 요약 확인:** Execution Payload의 트랜잭션 목록과 Withdrawal 목록으로 Transactions Root와 Withdrawals Root를 계산해 헤더를 재구성하고, 그 Hash가 블록 Hash와 같은지 확인한다.
+    3. **Re-execution(재실행):** 부모 블록의 State Root가 가리키는 Pre-State에서 4-2와 같은 절차로 블록을 다시 실행한다.
+    4. **실행 결과 비교:** 계산한 실행 결과 값이 블록 헤더 값과 모두 일치하는지 확인한다.
+
+    $$\mathrm{Root}(\Pi(\sigma, B)) \stackrel{?}{=} \texttt{stateRoot}$$
+
+    State Root 외에 Receipts Root, Logs Bloom, Gas Used, Requests Hash도 일치해야 한다. **하나라도 다르면 블록은 무효다.** Execution Client는 결과(`VALID` 또는 `INVALID`)를 Consensus Client에 돌려준다.
+
+    Re-execution은 동기화를 마친 Full Node가 수행한다. Light Client는 블록을 실행하지 않고, 블록 헤더와 Merkle Proof로 필요한 값만 확인한다.
+
+4. **Attestation과 Finality**
+
+    각 Validator는 Epoch(32 Slot, 약 6.4분)마다 배정된 Slot 하나에서 Attestation(투표)을 보낸다. Attestation에는 두 가지 투표가 함께 들어 있다.
+
+    - **Head 투표:** 자신이 보는 체인의 최신 블록에 대한 투표로, LMD-GHOST가 사용한다.
+    - **Checkpoint 투표:** Source Checkpoint와 Target Checkpoint에 대한 투표로, Casper FFG가 사용한다.
+
+    Validator는 Execution Client가 유효하다고 판단한 블록이 포함된 체인에만 투표한다.
+
+    Finality는 블록 하나가 아니라 **Checkpoint 단위**로 결정된다. Checkpoint는 각 Epoch 첫 Slot의 블록이며, 그 Slot이 비어 있으면 그 이전의 가장 최근 블록이다.
+
+    1. 전체 Stake의 2/3 이상이 투표한 Checkpoint는 **Justified(정당화)** 상태가 된다.
+    2. Justified Checkpoint를 Source로 삼아 바로 다음 Epoch의 Checkpoint가 Justified되면, 앞의 Checkpoint는 **Finalized(최종 확정)** 상태가 된다.
+    3. Finalized Checkpoint와 그 이전 블록은 모두 확정된다.
+
+    정상적인 경우 Checkpoint 블록은 약 2 Epoch(12.8분) 뒤에 Finalized된다. Epoch 중간에 있는 블록은 다음 Epoch의 Checkpoint가 Finalized될 때 함께 확정되므로, 블록 위치에 따라 최대 약 3 Epoch(19.2분)가 걸린다.
+
+5. **설계상 비용과 제약**
+
+    Re-execution 방식은 검증의 독립성을 보장하지만, 검증하는 노드 수만큼 같은 계산이 반복되는 **Computational Redundancy**(계산 중복)가 발생한다. 이 반복은 Validator 단위가 아니라 노드 단위로 일어난다. 하나의 노드에 여러 Validator를 연결해 운영할 수 있으므로 Validator 수는 노드 수보다 훨씬 많다. Validator를 운영하지 않는 Full Node도 같은 계산을 수행한다.
+
+    이 설계는 이더리움의 핵심 원칙인 **"Don't Trust, Verify"** 철학에 기반한다. 각 노드가 독립적으로 다시 실행하므로, 블록 생성자가 잘못된 State Transition을 담은 블록을 제안해도 정직한 노드는 Re-execution 과정에서 이를 발견하고 거부한다.
+
+    **누구나 일반적인 하드웨어로 Re-execution을 할 수 있도록 블록당 실행량은 Block Gas Limit으로 제한된다.** Block Gas Limit은 고정된 값이 아니다. Block Proposer가 블록마다 부모 블록 대비 1/1024 미만 범위에서 조정하며, Validator들은 통상 일반 하드웨어가 Slot 시간 안에 검증을 마칠 수 있는 수준을 고려해 목표값을 정한다.
+
+    일부 노드에 장애가 발생해도 다른 노드가 검증과 블록 제안을 계속하므로 체인은 진행된다. 다만 전체 Stake의 1/3을 초과하는 Validator가 오프라인이 되면 2/3 조건을 채울 수 없으므로 Finality가 멈추고, 온라인 Validator에 의한 블록 생성만 계속된다. Finality가 4 Epoch(약 25.6분) 넘게 성립하지 않으면 Inactivity Leak(비활성 누수)이 시작된다. Inactivity Leak은 오프라인 Validator의 Stake를 점차 줄이며, 온라인 Validator의 비율이 2/3를 회복하면 Finality가 재개된다.
+
 
 <br />
 <br />
