@@ -1,0 +1,201 @@
+---
+title: "RISC Zero zkVM: Architecture and Proving Process"
+date: 2026-03-27 00:01:00 +0900
+categories: [Blockchain, "EVM, zkEVM, zkVM"]
+tags: [Blockchain, ZKP, zkVM, RISC Zero]
+math: true
+media_subpath: /assets/img/posts/zkevm/
+---
+
+> **EVM, zkEVM, zkVM 시리즈**
+>
+> 1. [EVM, zkEVM, zkVM: Execution and Verification]({% post_url Blockchain/2026-03-27-zkEVM_zkVM %})
+> 2. **RISC Zero zkVM: Architecture and Proving Process**
+> 3. [Circuit-Based SNARK Tools: gnark and ZoKrates]({% post_url Blockchain/2026-03-27-gnark-ZoKrates %})
+>
+
+## RISC Zero zkVM
+
+### What is RISC Zero?
+
+RISC Zero는 범용 프로그램의 실행을 ZKP(Zero-Knowledge Proof, 영지식 증명)로 검증할 수 있게 만든 zkVM이다. 특정 연산마다 Circuit을 설계하는 대신, **RISC-V(RV32IM) CPU 자체를 증명 가능한 가상 머신으로 구현한다.** 따라서 RISC Zero가 증명하는 것은 다음 사실이다.
+
+> 주어진 프로그램이 특정 입력에 대해 RISC-V 명령어 규칙에 따라 정상적으로 실행되었다.
+
+RISC Zero는 Verifiable Computing(검증 가능한 연산) 모델을 따른다. 무거운 계산은 Prover가 맡고, Verifier는 프로그램을 다시 실행하지 않고 증명만 확인한다.
+
+```text
+기존 실행 모델: Input → Program Execution → Output
+RISC Zero:      Input → Program Execution (RISC-V) → Output + 증명(Receipt)
+```
+
+실행 결과로 생성되는 증명 객체를 **Receipt**라고 하며, 두 부분으로 이루어진다.
+
+- **Journal:** 프로그램이 공개한 출력(Public Output)
+- **Seal:** Journal이 특정 프로그램(Image ID)의 올바른 실행으로 나왔음을 입증하는 암호학적 증명
+
+자세한 API는 [RISC Zero zkVM 문서](https://dev.risczero.com/api/zkvm/)에서 확인할 수 있다.
+
+### Guest와 Host
+
+RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
+
+- **Guest:** 증명 대상 프로그램이다. Rust나 C++로 작성해 RISC-V ELF(Executable and Linkable Format) 바이너리로 컴파일한다.
+- **Host:** Guest 실행을 관리한다. Guest에 입력을 전달하고 실행기를 구동하며, 증명(Receipt) 생성을 요청하고 검증한다. 증명은 로컬 장비나 원격 증명 서비스에서 생성한다.
+
+### End-to-End Proving Process
+
+1. **Guest 프로그램 작성**
+
+    Rust나 C++로 증명할 로직을 작성한다. 예를 들어 서명 검증, Merkle Proof 검증, State Transition(잔고, Nonce) 처리 같은 로직이다. **개발자는 Circuit을 정의하지 않는다.**
+
+    - **입력:** `env::read()`로 Host에서 데이터를 받는다. 읽은 값은 기본적으로 비공개다.
+    - **출력:** `env::commit()`으로 Journal에 기록한다. Journal은 증명과 함께 외부에 공개된다.
+
+    ```rust
+    #![no_main]
+
+    use risc0_zkvm::guest::env;
+
+    risc0_zkvm::guest::entry!(main);
+
+    pub fn main() {
+        // Host에서 입력 받기 (비공개)
+        let a: u64 = env::read();
+        let b: u64 = env::read();
+
+        // 자명하지 않은 인수인지 확인 (0과 1 제외)
+        if a < 2 || b < 2 {
+            panic!("Trivial factors");
+        }
+
+        // 계산 (오버플로우 체크)
+        let product = a.checked_mul(b).expect("Overflow");
+
+        // 결과 공개 (Journal)
+        env::commit(&product);
+    }
+    ```
+
+2. **Guest 컴파일과 Image ID 생성**
+
+    Guest 코드는 zkVM이 실행할 수 있는 RISC-V ELF 바이너리로 컴파일된다. 보통 `methods` 크레이트의 빌드 스크립트(`risc0-build`)가 컴파일하며, 재현 가능한 빌드가 필요하면 `cargo risczero build`를 쓴다.
+
+    ```text
+    Rust/C++
+    ↓
+    risc0-build (또는 cargo risczero build)
+    ↓
+    RISC-V RV32IM ELF 바이너리
+    ↓
+    ELF를 zkVM의 초기 Memory 이미지로 적재 (1kB Page 단위)
+    ↓
+    Page들로 Merkle Tree 구성
+    ↓
+    Image ID = 초기 Memory 이미지를 커밋한 Merkle Root 기반 값 (32byte)
+    ```
+
+    **Image ID**는 Verifier가 어떤 프로그램이 실행되었는지 식별하는 값이다. Guest 코드가 바뀌면 Image ID도 바뀐다.
+
+3. **zkVM 실행과 Execution Trace 생성**
+
+    Host의 Executor가 RISC-V Interpreter로 바이너리를 실행하고, 각 명령어 처리 과정을 Execution Trace로 기록한다. 개념적으로는 매 사이클마다 명령어 실행 전후의 상태 변화를 기록한다.
+
+    - **실행 전 상태:** 실행 중인 명령어의 주소(PC), 읽은 레지스터 값, 읽은 Memory 값. 정수 레지스터는 x0~x31의 32개이며 x0은 항상 0이다.
+    - **실행 명령어:** RV32IM 명령어 48개 중 하나. RV32I가 40개, M 확장(곱셈, 나눗셈)이 8개이며, ADD, LW(Load), SW(Store), JAL(Jump) 등이 있다.
+    - **실행 후 변화:** 결과가 쓰인 레지스터, Memory에 쓴 주소와 값, 다음 PC
+
+    실제로는 매 사이클 전체 Memory와 레지스터를 복사하지 않는다. 그 사이클에서 읽고 쓴 값만 기록하고, Memory 일관성은 별도 논증으로 확인한다.
+
+    Execution Trace는 행이 실행 사이클, 열이 PC, 명령어, 레지스터 값, Memory 접근 정보인 행렬 형태의 테이블이다. 아래는 x10 = 0x2000으로 가정한 개념 예시다.
+
+    ```text
+    | Cycle | PC    | 명령            | 레지스터 쓰기 | MemAddr | Mem 쓰기 |
+    |-------|-------|-----------------|---------------|---------|----------|
+    | 0     | 0x100 | addi x5, x0, 5  | x5 = 5        | -       | -        |
+    | 1     | 0x104 | addi x6, x0, 3  | x6 = 3        | -       | -        |
+    | 2     | 0x108 | add  x7, x5, x6 | x7 = 8        | -       | -        |
+    | 3     | 0x10c | sw   x7, 0(x10) | -             | 0x2000  | 8        |
+    ```
+
+    RV32IM 명령어는 4byte이므로 분기가 없으면 PC는 4씩 증가한다. 실제 사이클 수는 명령 수와 정확히 같지 않다. Page를 처음 읽을 때의 Page-In이나 수정한 Page를 내보내는 Page-Out 같은 작업에도 사이클이 들기 때문이다.
+
+    **Continuations:** 실행이 길면 Trace 하나로 처리하기 어렵다. RISC Zero는 실행을 여러 Segment로 나누어 Trace를 만든다. Segment 크기는 `segment_limit_po2`로 2의 거듭제곱 단위로 정하며, 기본값은 $$2^{20}$$(1,048,576) 사이클이다. 기본 검증 설정이 받아들이는 최대 Segment 크기는 별도 상수로 정해져 있다. 각 Segment는 독립적으로 증명된 뒤 Recursion으로 합쳐진다.
+
+4. **Arithmetization**
+
+    Trace의 각 열을 다항식의 평가값(Evaluation)으로 보고, NTT(Number Theoretic Transform)로 그 값들을 지나는 다항식을 구한다. 검증 규칙은 두 종류의 제약으로 표현한다.
+
+    - **전이 제약:** Trace의 인접한 두 행 사이의 제약
+    - **경계 제약:** 첫 행과 마지막 행에 대한 제약
+
+    이 표현 방식을 **AIR(Algebraic Intermediate Representation)**라고 한다. Guest가 정상 실행되었다면 모든 제약 다항식이 Trace의 정의역에서 0이 된다.
+
+    - **PC 제약:** 분기나 점프가 없으면 $$PC_{n+1} = PC_n + 4$$, 분기나 점프가 실행되면 $$PC_{n+1} = \text{target}_n$$
+    - **레지스터 제약:** $$\text{rd}_{n+1} = \mathrm{ALU}(\text{rs1}_n, \text{rs2}_n, \text{imm}) \bmod 2^{32}$$이며, $$\text{rd} = x_0$$이면 값이 바뀌지 않는다.
+    - **Memory 제약:** 어떤 주소에서 읽은 값은 그 주소에 마지막으로 쓴 값과 같아야 한다. Memory 접근 기록을 주소와 시간 순으로 정렬한 Permutation 논증 등으로 확인한다.
+    - **디코딩과 범위 제약:** 명령 워드가 유효한 RV32IM 명령으로 디코딩되고, 레지스터와 Memory 값이 32bit 범위 안에 있어야 한다.
+
+5. **STARK 증명, Recursion, Wrapping**
+
+    - **FRI:** Prover는 Trace 다항식에 커밋한 뒤, FRI(Fast Reed-Solomon Interactive Oracle Proof of Proximity)로 커밋한 값이 낮은 차수의 다항식에 가깝다는 것을 증명한다. FRI는 다항식을 반복해서 접어(Folding) 차수를 줄인다. 일반적인 설명에서는 한 번에 차수를 절반으로 줄이며, RISC Zero는 한 번에 16배씩 접는다. Verifier는 무작위 위치를 정해진 횟수만큼 조회해(RISC Zero는 50회) 제약을 만족하는 저차 다항식에서 나왔음을 높은 확률로 확인한다. Segment 하나의 STARK 증명(Seal)은 수백 kB 규모다.
+    - **병렬 증명:** 각 Segment의 STARK 증명은 독립적이므로 GPU 가속이나 Boundless 같은 분산 증명 시장에서 병렬로 생성할 수 있다. RISC Zero가 운영하던 중앙화된 증명 서비스 Bonsai는 2025년 12월 종료되었다.
+    - **Recursion:** Recursion Prover가 Segment 증명을 Recursion Circuit용 증명으로 변환(`lift`)하고, 둘씩 합치는(`join`) 과정을 반복한다. 그 결과 모든 Segment 증명이 하나의 Succinct Receipt로 합쳐진다.
+    - **Groth16 Wrapping:** STARK 증명은 커서 Ethereum On-chain 검증 비용이 높다. 그래서 Succinct Receipt를 검증하는 로직을 Groth16 Circuit으로 구현해 Groth16 증명으로 감싼다. 증명 크기는 BN254 기준 256byte(압축 시 128byte)로 줄고, On-chain 검증 비용은 버전에 따라 20만 Gas대다. 이 Wrapping Circuit에는 Trusted Setup이 필요하며, RISC Zero가 세레머니를 진행했다.
+
+    최종 Receipt는 다음 구조다.
+
+    ```rust
+    pub struct Receipt {
+        pub inner: InnerReceipt,       // 내부 증명 (Composite, Succinct, Groth16 등)
+        pub journal: Journal,          // 공개 출력 (commit 결과)
+        pub metadata: ReceiptMetadata, // SDK 버전 등 메타데이터 (암호학적으로 보증되지 않음)
+    }
+    ```
+
+    InnerReceipt의 종류는 다음과 같다.
+
+    - **Composite Receipt:** Segment 증명을 모두 담으므로 실행 길이에 비례해 커진다.
+    - **Succinct Receipt:** Recursion으로 합친 상수 크기의 STARK 증명이다.
+    - **Groth16 Receipt:** Succinct Receipt를 Groth16으로 감싼 증명이다.
+
+6. **Verification**
+
+    Verifier는 **기대하는 Image ID, Seal, Journal**을 대조한다. Image ID는 Receipt에 별도 필드로 들어 있지 않다. 증명이 담은 Claim(주장)의 시작 상태 값이 Verifier가 넘긴 Image ID와 같은지 확인한다.
+
+    - **Off-chain 검증:** RISC Zero Rust SDK의 `receipt.verify(image_id)`를 호출한다. 서버, 클라이언트 앱, 다른 체인의 노드 등에서 쓴다. SDK는 InnerReceipt 종류에 맞는 검증 알고리즘을 수행하고, 프로그램이 정상 종료했는지와 Journal이 증명된 출력과 일치하는지도 확인한다.
+
+    - **On-chain 검증:** Solidity Verifier 컨트랙트의 `verify(bytes seal, bytes32 imageId, bytes32 journalDigest)`를 호출한다.
+        1. `imageId`와 `journalDigest`로 검증할 Claim을 재구성한다.
+        2. `seal`(Groth16 증명)을 검증한다.
+        3. 애플리케이션이 Journal 내용(이전 State Root, 배치 번호 등)을 기대값과 비교한다.
+
+    On-chain Verifier는 STARK를 직접 검증하지 않고 Groth16으로 감싼 증명을 검증한다. 따라서 **검증 비용은 원래 계산의 크기와 관계없이 일정하다.**
+
+### 트랜잭션 검증 로직의 동작 원리
+
+Guest 프로그램에는 서명 확인, 잔고 확인, Nonce 검증 같은 로직이 들어간다. 검증이 하나라도 실패하면 `panic!`이나 `assert!`로 즉시 중단하게 만들 수 있다. 중단된 실행으로는 정상 종료를 증명하는 Receipt를 얻을 수 없다. `receipt.verify`가 정상 종료만 받아들이기 때문이다. 모든 검증을 통과해야 마지막 단계의 `env::commit(new_state_root)`가 실행된다. 따라서 Verifier는 Receipt만 확인하고도 **검증 로직을 모두 통과한 트랜잭션만 새 상태값을 만들었다**는 사실을 신뢰할 수 있다.
+
+다만 Ethereum State Transition을 증명하는 Guest라면 두 경우를 구분해야 한다.
+
+- **무효 트랜잭션:** 서명이나 Nonce가 틀린 트랜잭션은 블록을 무효로 만든다.
+- **Revert된 트랜잭션:** 실행 중 Revert된 트랜잭션은 유효한 트랜잭션이며, 수수료와 Nonce 증가가 반영된다.
+
+Revert된 트랜잭션까지 `panic!`으로 처리하면 유효한 블록을 증명할 수 없다.
+
+### 장점과 한계
+
+**장점**
+
+- **기존 언어 사용:** 별도의 DSL(Domain-Specific Language, 도메인 전용 언어) 없이 Rust나 C++로 작성하므로 기존 라이브러리를 많이 재사용할 수 있다. 다만 zkVM 대상 환경의 제약이 있다. ECDSA나 해시 같은 암호 연산은 가속 Circuit을 쓰도록 패치된 크레이트를 쓰는 것이 좋다.
+- **규칙 변경에 강함:** 트랜잭션 형식이나 수수료 규칙이 바뀌어도 Guest 코드만 수정해 다시 컴파일하면 된다. 이때 Image ID가 바뀌므로 On-chain 컨트랙트 등 검증 쪽의 허용 Image ID도 갱신해야 업그레이드가 끝난다.
+- **일반 제어문 사용:** 반복문과 조건문을 일반 코드처럼 쓸 수 있다. 증명 비용은 실제 실행한 사이클 수에 비례한다.
+- **일정한 On-chain 검증 비용:** On-chain에서는 `verify(seal, imageId, journalDigest)` 하나로, 계산 크기와 관계없이 일정한 비용으로 배치 실행 결과를 확정할 수 있다. 배치 데이터를 L1에 게시하는 비용은 별도다.
+- **Trusted Setup 부담이 작음:** STARK 단계에는 Trusted Setup이 필요 없다. Groth16 Wrapping 단계에는 필요하지만, Wrapping Circuit 하나에 대한 것이므로 Guest를 바꿀 때마다 다시 할 필요는 없다.
+
+**한계**
+
+- **명령어 단위 오버헤드:** 명령어 단위로 증명하므로 특정 연산에 맞춘 전용 Circuit보다 증명 오버헤드가 크다.
+- **높은 증명 비용:** 네이티브 실행보다 증명 비용이 크게 늘어난다. 그 배수는 작업량, 가속 Circuit 사용 여부, 장비에 따라 다르다. 블록 시간 안에 증명하려면 GPU 같은 고성능 장비나 Boundless 같은 증명 시장이 필요하다.
+- **작은 연산에서의 고정 비용:** 단순 송금처럼 연산량이 매우 적은 경우, Segment 최소 크기, Recursion, Wrapping 같은 고정 비용 때문에 해당 연산에 특화된 작은 Circuit보다 비용이 더 들 수 있다.
+- **짧은 블록 시간에서의 한계:** 블록 시간이 매우 짧은 체인(예: 1초 미만)에서는 블록 시간 안에 증명을 생성하기 어렵다.
