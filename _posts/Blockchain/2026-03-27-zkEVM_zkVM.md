@@ -10,7 +10,8 @@ media_subpath: /assets/img/posts/zkevm/
 >
 > 1. **EVM, zkEVM, zkVM: Execution and Verification**
 > 2. [RISC Zero zkVM: Architecture and Proving Process]({% post_url Blockchain/2026-03-27-RISC-Zero-zkVM %})
-> 3. [Circuit-Based SNARK Tools: gnark and ZoKrates]({% post_url Blockchain/2026-03-27-gnark-ZoKrates %})
+> 3. [SP1 zkVM: Architecture and Proving Process]({% post_url Blockchain/2026-03-27-SP1-zkVM %})
+> 4. [Circuit-Based SNARK Tools: gnark and ZoKrates]({% post_url Blockchain/2026-03-27-gnark-ZoKrates %})
 >
 
 참고 문서
@@ -19,7 +20,7 @@ media_subpath: /assets/img/posts/zkevm/
 
 ## Ethereum Virtual Machine (EVM)
 
-### What is EVM?
+### What Is EVM?
 
 EVM(Ethereum Virtual Machine)은 Ethereum 노드의 Execution Client(실행 클라이언트)가 공통으로 따르는 실행 환경이다. 스마트 컨트랙트의 실행과 트랜잭션 처리를 담당하는 Execution Layer(실행 계층)의 핵심을 이룬다. Execution Client(Geth, Nethermind, Besu, Erigon, Reth 등)는 각자 EVM을 구현하지만 동일한 공식 사양을 따른다. 공식 사양은 하드포크별 EIP(Ethereum Improvement Proposal)와 실행 명세 [`execution-specs`](https://github.com/ethereum/execution-specs)이며, Ethereum Yellow Paper는 EVM의 형식 명세다. 현재 Client 구현의 기준은 `execution-specs`다.
 
@@ -81,7 +82,7 @@ $\Pi$는 블록 전체를 상태에 적용한다. 블록 $B$는 블록 헤더 �
 
 The Merge 이후 Execution Layer에는 블록 보상이 없다. Validator 보상은 Consensus Layer에서 처리된다. Priority Fee 지급과 Base Fee 소각은 블록 단위가 아니라 각 트랜잭션의 $\Upsilon$ 안에서 일어난다.
 
-블록 실행 전 상태 $\sigma$를 Pre-Sta\te, 실행 후 상태 $\sigma^\prime$를 Post-State라고 한다. Pre-State의 Root Hash는 부모 블록의 State Root이고, Post-State의 Root Hash는 해당 블록의 State Root다. 그 사이의 $\sigma_1, \ldots, \sigma_n$은 계산 중에만 존재하며 블록에 기록되지 않는다. Byzantium(EIP-658) 이후 Receipt(영수증)에도 트랜잭션별 중간 State Root 대신 성공 여부(status)만 들어간다. 따라서 상태 전이의 검증은 블록 단위로 이루어진다.
+블록 실행 전 상태 $\sigma$를 Pre-State, 실행 후 상태 $\sigma^\prime$를 Post-State라고 한다. Pre-State의 Root Hash는 부모 블록의 State Root이고, Post-State의 Root Hash는 해당 블록의 State Root다. 그 사이의 $\sigma_1, \ldots, \sigma_n$은 계산 중에만 존재하며 블록에 기록되지 않는다. Byzantium(EIP-658) 이후 Receipt(영수증)에도 트랜잭션별 중간 State Root 대신 성공 여부(status)만 들어간다. 따라서 상태 전이의 검증은 블록 단위로 이루어진다.
 
 **State Transition Function은 결정론적이다.** 같은 Pre-State, 같은 블록, 같은 Hard Fork 규칙이 주어지면 어떤 노드에서도 같은 Post-State, 즉 같은 State Root가 계산된다.
 
@@ -123,7 +124,7 @@ Machine State의 가용 **Gas**는 계산 자원의 남용을 방지하기 위�
 
 하위 호출이 실패하면 상위 호출은 실패 결과를 받고 실행을 계속할 수 있다. Tangerine Whistle(EIP-150) 이후 하위 호출에는 남은 Gas의 최대 63/64만 전달되므로, 하위 호출이 Gas를 모두 소진해도 상위 호출에는 Gas가 남는다. 최상위 호출에서 예외가 발생하면 트랜잭션의 실행 결과가 되돌려지지만, **트랜잭션은 블록에 포함되고 수수료 지불과 Nonce 증가는 남는다.** 이러한 메커니즘은 무한 Loop 실행과 DoS(Denial of Service, 서비스 거부 공격)를 방지한다.
 
-### What is Opcode?
+### What Is Opcode?
 
 ![opcode](opcode.png)
 _출처: [https://ethereum.org/developers/docs/evm/#opcodes](https://ethereum.org/developers/docs/evm/#opcodes)_
@@ -268,7 +269,7 @@ Re-execution 방식은 검증의 독립성을 보장하지만, 검증하는 노�
 
 ## Zero-Knowledge Ethereum Virtual Machine (zkEVM)
 
-### What is zkEVM?
+### What Is zkEVM?
 
 zkEVM은 EVM 실행이 올바르게 수행되었음을 암호학적 증명으로 검증할 수 있게 하는 시스템이다. Re-execution 방식에서는 모든 노드가 블록을 다시 실행하여 결과를 확인한다. zkEVM에서는 소수의 Prover(증명자)가 실행하고 **그 실행이 올바르다는 증명을 만들며, 나머지는 증명만 검증한다.**
 
@@ -437,7 +438,7 @@ Gas 비용과 증명 비용은 일치하지 않는다. Keccak-256 해시나 ECDS
 
 - **zkVM(Zero-Knowledge Virtual Machine) 방식:** RISC Zero, SP1 같은 zkVM은 RISC-V 같은 범용 명령어 집합을 증명한다. 일반 프로그램, 예를 들어 Execution Client의 EVM 구현을 그대로 증명할 수 있어 범용성이 높다. 명령어 단위로 증명하므로 전용 Circuit보다 오버헤드가 크다. 그래도 L1 Real-Time Proving 결과는 주로 이 방식에서 나왔다.
 
-- **Circuit 방식:** gnark, ZoKrates 같은 도구는 특정 계산에 맞춘 Circuit(회로, 제약식의 집합)으로 증명 효율을 높인다. 대신 Circuit을 직접 설계해야 하고, 로직이 바뀔 때마다 Circuit을 다시 만들어야 한다. Groth16을 쓰면 Circuit마다 Trusted Setup도 다시 해야 한다
+- **Circuit 방식:** gnark, ZoKrates 같은 도구는 특정 계산에 맞춘 Circuit(회로, 제약식의 집합)으로 증명 효율을 높인다. 대신 Circuit을 직접 설계해야 하고, 로직이 바뀔 때마다 Circuit을 다시 만들어야 한다. Groth16을 쓰면 Circuit마다 Trusted Setup도 다시 해야 한다.
 
 Sequencer나 Prover를 소수가 운영하면 Liveness(활성) 위험이 생긴다. 운영 주체에 문제가 생기면 상태 확정이 지연된다.
 
@@ -447,7 +448,7 @@ Ethereum L1에서 zkEVM으로 블록 실행을 검증하는 방안이 연구되�
 
 **Multiproofs 전략**
 
-Ethereum Foundation(EF, 이더리움 재단)은 [zkEVM Security Overview](https://zkevm.ethereum.foundation/blog/zkevm-security-overview)(2026년 1월 14일)에서 Multiproofs(다중 증명) 전략을 제시했다. Consensus Client가 서로 다른 여러 zkEVM 증명을 확인한 뒤에야 블록을 받아들이는 방식이다. 증명의 다양성은 Execution Client 구현과 zkVM 양쪽에서 확보한다. 지금 Execution Client(Geth, Besu, Nethermind 등)가 여러 개 존재하듯, 증명 쪽에서도 여러 조합을 써서 한 구현체의 치명적인 버그로 잘못된 블록이 받아들여지는 것을 막으려는 것이다.
+EF는 [zkEVM Security Overview](https://zkevm.ethereum.foundation/blog/zkevm-security-overview)(2026년 1월 14일)에서 Multiproofs(다중 증명) 전략을 제시했다. Consensus Client가 서로 다른 여러 zkEVM 증명을 확인한 뒤에야 블록을 받아들이는 방식이다. 증명의 다양성은 Execution Client 구현과 zkVM 양쪽에서 확보한다. 지금 Execution Client(Geth, Besu, Nethermind 등)가 여러 개 존재하듯, 증명 쪽에서도 여러 조합을 써서 한 구현체의 치명적인 버그로 잘못된 블록이 받아들여지는 것을 막으려는 것이다.
 
 단일 증명 시스템에 의존할 때의 위험은 L2에서 실제로 드러났다.
 - **Scroll:** OpenVM 전환 직후 OpenVM v1.0.0의 `auipc` Opcode Circuit에서 Soundness(건전성) 버그가 발견되어, 2025년 4월 25일 긴급 업그레이드를 했다. 당시 Sequencer와 Prover를 모두 Scroll이 운영하고 있어 제3자가 악용할 수는 없었다.
@@ -474,7 +475,7 @@ EIP-8025는 Glamsterdam 다음 Hard Fork인 Hegotá의 포함 대상으로 제�
 
 ## Zero-Knowledge Virtual Machine (zkVM)
 
-### What is zkVM?
+### What Is zkVM?
 
 zkVM은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, ISA(Instruction Set Architecture, 명령어 집합) 자체를 증명 가능한 가상 머신으로 구현한 범용 증명 플랫폼이다. 대표적인 ISA는 RISC-V(오픈 소스 RISC(Reduced Instruction Set Computer) 명령어 집합)다.
 
@@ -542,11 +543,132 @@ Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 
 
     Verifier는 Seal이 "Image ID에 해당하는 프로그램을 실행해 이 Journal을 출력했다"는 사실을 증명하는지 확인한다. **입력은 기본적으로 비공개다.** 공개하려는 입력은 프로그램이 Journal에 직접 기록해야 한다.
 
-    검증이 성공하면, 해당 프로그램이 수정되지 않은 채 주어진 입력으로 실행되어 그 출력을 냈다는 사실이 암호학적으로 보장된다.
+    검증이 성공하면, 해당 프로그램이 수정되지 않은 채 주어진 입력으로 실행되어 그 출력을 냈다는 사실이 암호학적으로 보장된다. Verifier가 실제로 무엇을 계산하는지는 다음 절에서 설명한다.
+
+### How the Proof Works Mathematically
+
+앞 절의 "증명을 생성한다"와 "증명의 타당성을 확인한다"가 실제로 무엇을 계산하는지 설명한다. 아래는 STARK 기반 zkVM(RISC Zero, SP1, OpenVM 등)의 공통 구조다. 구현마다 세부는 다르지만 "Trace를 다항식으로 바꾸고, 규칙 위반이 없음을 다항식의 차수로 확인한다"는 원리는 같다.
+
+![zkvm-proving](zkvm-proving.svg)
+
+#### Execution Trace as Polynomials
+
+Execution Trace는 $N$행 $k$열의 표이고, 모든 칸은 유한체 $\mathbb{F}$의 원소다. $N$은 2의 거듭제곱으로 맞춘다. 열 $j$의 값 $v_j[0], \ldots, v_j[N-1]$을 다항식 하나로 바꾸기 위해, $\mathbb{F}$에서 위수가 $N$인 원소 $\omega$($\omega^N = 1$)를 잡고 Evaluation Domain(평가 영역) $H = \{\omega^0, \omega^1, \ldots, \omega^{N-1}\}$을 정한다. 그러면 다음을 만족하는 차수 $N$ 미만의 다항식 $f_j$가 유일하게 존재한다(Lagrange Interpolation).
+
+$$
+f_j(\omega^t) = v_j[t] \quad (t = 0, \ldots, N-1)
+$$
+
+이 다항식을 Trace Polynomial(트레이스 다항식)이라고 한다. $t$행의 값은 $f_j(x)$, $t+1$행의 값은 $f_j(\omega x)$로 표현되므로, "인접한 두 행 사이의 규칙"은 $x$와 $\omega x$에 대한 식이 된다.
+
+#### Constraints and the Quotient Polynomial
+
+Arithmetization 절의 제약식 $P_i(\mathrm{trace}[t], \mathrm{trace}[t+1]) = 0$을 다항식으로 옮기면 Constraint Polynomial(제약 다항식)이 된다.
+
+$$
+C_i(x) = P_i\big(f_1(x), \ldots, f_k(x),\ f_1(\omega x), \ldots, f_k(\omega x)\big)
+$$
+
+"모든 행에서 규칙이 성립한다"는 말은 "$C_i(x)$가 $H$의 모든 점에서 0이다"와 같다. 다항식이 $H$의 모든 점에서 0이면 Vanishing Polynomial(소멸 다항식) $Z_H(x) = \prod_{h \in H}(x - h) = x^N - 1$로 나누어떨어진다. 전이 규칙은 마지막 행에는 적용되지 않으므로, 실제로는 마지막 점을 제외한 $Z(x) = (x^N - 1)/(x - \omega^{N-1})$을 쓴다. 따라서 다음이 성립한다.
+
+$$
+\text{모든 행에서 } P_i = 0 \iff Q_i(x) = \frac{C_i(x)}{Z(x)} \text{가 다항식이다}
+$$
+
+이 동치가 STARK의 핵심이다. $N$개 행을 하나씩 확인하는 문제가 "$Q_i$가 낮은 차수의 다항식인가"라는 하나의 문제로 바뀐다. 한 행에서라도 규칙이 깨지면 $C_i$는 $Z$로 나누어떨어지지 않고, $Q_i$는 다항식이 아니라 유리함수가 된다. 경계 조건(첫 행의 레지스터가 입력과 같다, 마지막 행의 출력이 Journal과 같다)도 같은 방식으로 특정 점에서의 값에 대한 제약으로 표현한다.
+
+#### Commitment, Random Evaluation, and FRI
+
+Verifier는 $Q_i$가 다항식인지 직접 확인할 수 없다. $Q_i$의 계수를 모두 받으면 증명 크기가 Trace 크기와 같아지기 때문이다. 대신 다음 절차를 쓴다.
+
+1. **Commitment(약속):** Prover는 $f_j$와 $Q_i$를 $H$보다 큰 영역 $D$($|D| = \rho^{-1} N$, $\rho^{-1}$은 Blowup Factor로 보통 2에서 8 사이)에서 평가하고, 그 값들을 Merkle Tree로 묶어 Root만 보낸다. 다항식을 큰 영역에서 평가한 값의 목록은 Reed-Solomon Code의 Codeword이므로, 값 몇 개를 바꾸면 더 이상 낮은 차수 다항식의 평가값이 아니게 된다.
+2. **Random Evaluation(무작위 점 평가):** Verifier는 $H$ 밖의 무작위 점 $z$를 고른다. Prover는 $f_j(z)$, $f_j(\omega z)$, $Q_i(z)$를 Merkle Proof와 함께 보낸다. Verifier는 받은 값으로 $C_i(z)$를 직접 계산한 뒤 다음을 확인한다.
+
+    $$
+    C_i(z) \stackrel{?}{=} Q_i(z) \cdot Z(z)
+    $$
+
+    두 다항식이 다르면 무작위 점에서 값이 같을 확률은 Schwartz-Zippel 보조정리에 따라 $d / |\mathbb{F}|$ 이하다($d$는 차수). $|\mathbb{F}|$가 $2^{128}$ 수준이면 이 확률은 무시할 수 있다. 실제 zkVM은 연산 효율을 위해 작은 Base Field(BabyBear $2^{31} - 2^{27} + 1$, Goldilocks $2^{64} - 2^{32} + 1$ 등)를 쓰고, 무작위 점은 그 Extension Field(확장체)에서 뽑아 확률을 낮춘다.
+3. **FRI(Fast Reed-Solomon Interactive Oracle Proof of Proximity):** 2단계는 $Q_i$가 "어떤 함수"라는 것까지만 확인한다. Prover가 낮은 차수 다항식이 아닌 값을 Commit했을 가능성을 막기 위해, FRI로 Commit된 값이 차수 $d$ 미만 다항식의 평가값에 가깝다는 것을 확인한다. FRI는 다항식을 짝수 차수 항과 홀수 차수 항으로 나누어 $f(x) = g(x^2) + x \cdot h(x^2)$로 쓰고, 무작위 $\alpha$로 $g + \alpha h$를 만들어 차수를 절반으로 줄이는 Folding을 $\log_2 d$번 반복해 상수에 도달한다. 각 라운드의 Commitment를 무작위 위치에서 열어 Folding이 일관되게 되었는지 확인한다.
+4. **Fiat-Shamir Transform:** 위 절차는 Verifier가 무작위 값을 보내는 대화형 프로토콜이다. 무작위 값을 Verifier 대신 "지금까지의 Commitment를 Hash한 값"으로 정하면 Prover 혼자 증명을 완성할 수 있다. 이렇게 Non-interactive(비대화형) 증명이 된다. Verifier는 같은 Hash를 다시 계산해 Prover가 무작위 값을 고를 수 없었음을 확인한다.
+
+증명은 Merkle Root 몇 개, 무작위 위치의 값과 Merkle Proof, FRI 각 라운드의 값으로 이루어진다. 크기와 검증 시간은 $N$에 대해 다중 로그($\mathrm{polylog}\,N$)로 늘어난다. 이것이 Succinctness의 수학적 근거다.
+
+#### Worked Example over a Small Field
+
+원리를 작은 수로 확인한다. 유한체를 $\mathbb{F}_{17}$로 잡고, $N = 4$인 Trace를 쓴다. $\mathbb{F}_{17}$에서 $4^4 = 256 = 1 \pmod{17}$이므로 $\omega = 4$이고, $H = \{1, 4, 16, 13\}$이다.
+
+Trace는 두 열 $a$, $b$를 가지며, 전이 규칙은 "$a$는 이전 $b$를 복사하고, $b$는 이전 두 값의 합"이다. 실제 zkVM의 레지스터 갱신 규칙을 가장 단순하게 줄인 형태다.
+
+| $t$ | $x = \omega^t$ | $a_t$ | $b_t$ |
+|---|---|---|---|
+| 0 | 1 | 1 | 1 |
+| 1 | 4 | 1 | 2 |
+| 2 | 16 | 2 | 3 |
+| 3 | 13 | 3 | 5 |
+
+**Trace Polynomial.** 네 점을 지나는 3차 다항식을 보간하면 다음과 같다(계수는 모두 $\bmod 17$).
+
+$$
+a(x) = 2x^3 + 4x^2 + 6x + 6, \qquad b(x) = 5x^3 + 12x^2 + 11x + 7
+$$
+
+확인: $a(1) = 18 \equiv 1$, $a(4) = 128 + 64 + 24 + 6 = 222 \equiv 1$ (222 = 13 × 17 + 1).
+
+**Constraint Polynomial.** 전이 규칙 두 개를 다항식으로 쓴다.
+
+$$
+C_1(x) = a(\omega x) - b(x), \qquad C_2(x) = b(\omega x) - a(x) - b(x)
+$$
+
+$C_1$과 $C_2$는 $t = 0, 1, 2$인 세 점($x = 1, 4, 16$)에서 0이어야 하고, 마지막 행에는 다음 행이 없으므로 $x = 13$은 제외한다. 계산하면 $C_1(x) = 4x^3 + x^2 + 13x + 16$, $C_2(x) = 7x^3 + 6x^2 + 10x + 11$이고, $H$에서의 값은 각각 $(0, 0, 0, 13)$, $(0, 0, 0, 10)$이다.
+
+**Quotient Polynomial.** 소멸 다항식은 $Z(x) = (x^4 - 1)/(x - 13) = x^3 + 13x^2 + 16x + 4$다. 나누면 나머지 없이 떨어진다.
+
+$$
+C_1(x) = 4 \cdot Z(x), \qquad C_2(x) = 7 \cdot Z(x) \quad \Rightarrow \quad Q_1 = 4,\ Q_2 = 7
+$$
+
+이 예시에서는 $C$와 $Z$의 차수가 같아 몫이 상수다. 실제 시스템에서는 제약식의 차수가 Trace 다항식보다 높아 몫도 다항식이 되며, FRI가 그 차수 상한을 확인한다.
+
+**Random Evaluation.** Verifier가 $z = 5$를 골랐다고 하자. $\omega z = 20 \equiv 3$이다. Prover는 $a(5) = 12$, $a(3) = 12$, $b(5) = 1$, $b(3) = 11$, $Q_2 = 7$을 보낸다. Verifier는 $Z(5) = 7$을 직접 계산하고 다음을 확인한다.
+
+$$
+C_2(5) = b(3) - a(5) - b(5) = 11 - 12 - 1 = -2 \equiv 15, \qquad Q_2 \cdot Z(5) = 7 \cdot 7 = 49 \equiv 15
+$$
+
+같으므로 통과한다. $C_1$도 $11 = 4 \cdot 7 \bmod 17$로 통과한다.
+
+**Tampered Trace.** Prover가 마지막 행을 $b_3 = 6$으로 조작했다고 하자. $b(x)$는 $4x^3 + 16x^2 + 12x + 3$으로 바뀌고, $C_2$의 $H$에서의 값은 $(0, 0, 1, 9)$가 된다. $t = 2$에서 $6 - 2 - 3 = 1 \neq 0$이므로 규칙이 깨진 것이다. 이때 $C_2(x)$를 $Z(x)$로 나누면 나머지 $12x^2 + 8x + 14$가 남는다. 즉 $Q_2$는 다항식이 아니다. Prover가 어떤 낮은 차수 다항식 $Q_2'$를 대신 Commit하더라도 $C_2(x) \neq Q_2'(x) Z(x)$이므로, 무작위 점 $z$에서 등식이 성립할 확률은 $\mathbb{F}_{17}$에서조차 $3/17$ 이하이고, 실제 크기의 체에서는 사실상 0이다.
+
+이 예시는 행이 4개, 체가 17개 원소뿐이지만 구조는 실제 zkVM과 같다. 실제로는 행이 $2^{20}$개 이상이고 열이 수백 개이며, 체는 $2^{31}$ 또는 $2^{64}$ 크기에 확장체를 더한다.
+
+#### From the Toy Example to a Real zkVM
+
+실제 zkVM은 위 구조를 여러 겹으로 쌓는다.
+
+- **여러 개의 Table:** CPU(명령어 Fetch와 Decode), ALU(산술 연산), Memory, Range Check, 가속 Circuit(Keccak, SHA-256 등)이 각각 별도의 Table과 제약식을 가진다. Table 하나의 제약식 집합을 AIR(Algebraic Intermediate Representation)라고 부른다.
+- **Table 사이의 연결:** "CPU Table이 ALU에 요청한 연산이 ALU Table에 실제로 있다"처럼 Table 사이의 일관성은 인접한 두 행으로 표현할 수 없다. 이런 조건은 Lookup Argument로 확인한다. 예를 들어 LogUp 방식은 무작위 $\alpha$에 대해 $\sum_i \frac{1}{\alpha - a_i} = \sum_j \frac{m_j}{\alpha - b_j}$가 성립하는지 확인해, 집합 $\{a_i\}$의 모든 원소가 집합 $\{b_j\}$에 포함됨($m_j$는 등장 횟수)을 증명한다. Memory 일관성은 접근 기록을 주소와 시각 순으로 정렬한 Table을 두고, "같은 주소의 연속한 접근에서 읽은 값은 직전에 쓴 값과 같다"는 제약과 정렬 전후가 같은 집합이라는 Permutation Argument로 확인한다.
+- **프로그램 고정:** CPU Table이 읽는 명령어 열은 증명 대상 프로그램의 바이트코드와 일치해야 한다. 프로그램을 Commit한 값(RISC Zero의 Image ID)을 Public Input으로 두고 Lookup으로 연결하므로, 증명은 특정 프로그램에 묶인다.
+- **Segment와 Continuation:** Trace를 Segment로 나누면 Segment마다 위 절차를 독립적으로 수행한다. 앞 Segment의 마지막 레지스터와 Memory 상태(Merkle Root)가 다음 Segment의 첫 상태와 같다는 조건을 경계 제약으로 건다.
+- **Recursion:** "STARK 증명을 검증하는 프로그램"을 다시 zkVM에서 실행해 증명한다. 검증 프로그램은 Hash 계산과 체 연산만 하므로 원래 프로그램보다 Trace가 짧다. Segment 증명들을 Tree 형태로 합쳐 하나의 증명으로 만든다.
+- **Wrapping:** 마지막 STARK 증명은 수십에서 수백 KiB다. L1에서 검증하기에는 크므로, "STARK 증명을 검증한다"는 계산을 BN254 곡선 위의 Groth16이나 PLONK Circuit으로 만들어 증명한다. Groth16 증명은 곡선 점 세 개로 크기가 고정되고, 검증은 Pairing 등식 $e(A, B) = e(\alpha, \beta) \cdot e(L, \gamma) \cdot e(C, \delta)$ 하나다. Ethereum에서는 `ecPairing` Precompile로 계산하며, 비용은 EIP-1108 이후 $45{,}000 + 34{,}000 \times k$ Gas($k$는 Pairing 쌍의 수, Groth16은 4)다.
+
+#### What the Verifier Actually Computes
+
+종합하면 Verifier의 입력과 작업은 다음과 같다.
+
+- **입력:** Verification Key(제약식 집합과 프로그램 Commitment, RISC Zero의 Image ID), Public Values(Journal, 예를 들어 Pre-State Root와 Post-State Root), 증명 $\pi$
+- **STARK 증명을 직접 검증할 때:** Commitment에서 Fiat-Shamir 무작위 값을 재계산하고, 무작위 위치의 Merkle Proof를 확인하고, 그 위치에서 $C(z) = Q(z) Z(z)$를 확인하고, FRI의 Folding이 일관되는지 확인한다. 비용은 $\mathrm{polylog}\,N$이며, 대부분 Hash 계산이다.
+- **Wrapping된 증명을 검증할 때:** Pairing 등식 하나를 확인한다. 비용은 Trace 길이와 무관하게 상수다.
+
+어느 경우든 Verifier는 프로그램을 실행하지 않고, Trace를 보지도 않는다. 확인하는 것은 "Commit된 값이 낮은 차수 다항식이고, 그 다항식들이 제약식을 만족하며, 경계값이 Public Values와 일치한다"는 사실뿐이다. 이 세 조건이 함께 성립하면, 그 값들을 만든 Execution Trace가 존재하고 그 Trace가 ISA 규칙대로 프로그램을 실행한 기록이라는 결론이 수학적으로 따라온다.
+
+증명의 안전성은 체의 크기, Blowup Factor, FRI의 질의 횟수 같은 파라미터에 달려 있다. EF가 2025년 12월 제시한 128bit 보안 목표는 이 파라미터로 계산한 Soundness Error가 $2^{-128}$ 이하여야 한다는 뜻이다.
 
 ### Use Cases
 
-L2 Rollup과 Ethereum L1 실행 증명 모두 zkVM 기반으로 옮겨가고 있다.
+L2 Rollup은 zkVM 기반으로 옮겨가고 있고, Ethereum L1 실행 증명도 zkVM 기반으로 연구되고 있다.
 
 - **Scroll:** 2025년 4월 Euclid 업그레이드에서 기존 halo2 Circuit을 폐기하고 OpenVM 기반 Prover로 전환했다.
 - **Taiko:** 다중 증명(Multi-proof)을 사용한다. 2026년 11월 기준 SGX(Geth), SGX(Reth), SP1, RISC Zero 네 가지 증명 중 정확히 두 개가 필요하며, 그중 최소 하나는 SP1이나 RISC Zero여야 한다. SGX는 Intel SGX(Software Guard Extensions)를 쓰는 TEE(Trusted Execution Environment, 신뢰 실행 환경) 증명으로, 암호학적 증명이 아니라 하드웨어 신뢰에 기반한다.

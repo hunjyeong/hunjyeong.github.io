@@ -7,11 +7,11 @@ math: true
 media_subpath: /assets/img/posts/zkevm/
 ---
 
-> **EVM, zkEVM, zkVM 시리즈**
 >
 > 1. [EVM, zkEVM, zkVM: Execution and Verification]({% post_url Blockchain/2026-03-27-zkEVM_zkVM %})
 > 2. **RISC Zero zkVM: Architecture and Proving Process**
-> 3. [Circuit-Based SNARK Tools: gnark and ZoKrates]({% post_url Blockchain/2026-03-27-gnark-ZoKrates %})
+> 3. [SP1 zkVM: Architecture and Proving Process]({% post_url Blockchain/2026-03-27-SP1-zkVM %})
+> 4. [Circuit-Based SNARK Tools: gnark and ZoKrates]({% post_url Blockchain/2026-03-27-gnark-ZoKrates %})
 >
 
 ## RISC Zero zkVM

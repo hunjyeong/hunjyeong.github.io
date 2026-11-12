@@ -10,7 +10,8 @@ media_subpath: /assets/img/posts/zkevm/
 >
 > 1. [EVM, zkEVM, zkVM: Execution and Verification]({% post_url Blockchain/2026-03-27-zkEVM_zkVM %})
 > 2. [RISC Zero zkVM: Architecture and Proving Process]({% post_url Blockchain/2026-03-27-RISC-Zero-zkVM %})
-> 3. **Circuit-Based SNARK Tools: gnark and ZoKrates**
+> 3. [SP1 zkVM: Architecture and Proving Process]({% post_url Blockchain/2026-03-27-SP1-zkVM %})
+> 4. **Circuit-Based SNARK Tools: gnark and ZoKrates**
 >
 
 ## Circuit 기반 SNARK 도구

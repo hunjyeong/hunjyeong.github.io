@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 600" font-family="Helvetica, Arial, sans-serif" font-size="13">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#444"/>
+    </marker>
+  </defs>
+  <rect width="980" height="600" fill="#ffffff"/>
+
+  <!-- Section labels -->
+  <text x="20" y="30" font-size="15" font-weight="bold" fill="#222">Prover</text>
+  <text x="20" y="455" font-size="15" font-weight="bold" fill="#222">Verifier</text>
+  <line x1="20" y1="430" x2="960" y2="430" stroke="#bbb" stroke-dasharray="6 4"/>
+
+  <!-- Row 1: Program -> Execution Trace -> Polynomials -> Constraints / Quotient -->
+  <g>
+    <rect x="20" y="50" width="150" height="80" rx="8" fill="#eef3fb" stroke="#4a6fa5"/>
+    <text x="95" y="78" text-anchor="middle" font-weight="bold">Program</text>
+    <text x="95" y="98" text-anchor="middle" fill="#444">ISA bytecode</text>
+    <text x="95" y="116" text-anchor="middle" fill="#444">+ input</text>
+  </g>
+  <line x1="170" y1="90" x2="210" y2="90" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="190" y="80" text-anchor="middle" font-size="11" fill="#666">execute</text>
+
+  <g>
+    <rect x="212" y="50" width="190" height="80" rx="8" fill="#eef3fb" stroke="#4a6fa5"/>
+    <text x="307" y="72" text-anchor="middle" font-weight="bold">Execution Trace</text>
+    <text x="307" y="92" text-anchor="middle" fill="#444">N rows x k columns</text>
+    <text x="307" y="110" text-anchor="middle" fill="#444">(pc, instr, registers, mem)</text>
+    <text x="307" y="125" text-anchor="middle" font-size="11" fill="#666">Witness</text>
+  </g>
+  <line x1="402" y1="90" x2="442" y2="90" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="422" y="80" text-anchor="middle" font-size="11" fill="#666">interpolate</text>
+
+  <g>
+    <rect x="444" y="50" width="190" height="80" rx="8" fill="#eef3fb" stroke="#4a6fa5"/>
+    <text x="539" y="72" text-anchor="middle" font-weight="bold">Trace Polynomials</text>
+    <text x="539" y="94" text-anchor="middle" fill="#444">f_j(ω^t) = trace[t][j]</text>
+    <text x="539" y="114" text-anchor="middle" fill="#444">deg f_j &lt; N</text>
+  </g>
+  <line x1="634" y1="90" x2="674" y2="90" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="654" y="80" text-anchor="middle" font-size="11" fill="#666">AIR</text>
+
+  <g>
+    <rect x="676" y="50" width="284" height="80" rx="8" fill="#eef3fb" stroke="#4a6fa5"/>
+    <text x="818" y="72" text-anchor="middle" font-weight="bold">Constraints and Quotient</text>
+    <text x="818" y="94" text-anchor="middle" fill="#444">C(f(x), f(ωx)) = 0 on H</text>
+    <text x="818" y="114" text-anchor="middle" fill="#444">Q(x) = C(x) / Z_H(x) must be a polynomial</text>
+  </g>
+
+  <!-- Down arrow from Quotient to Commitment -->
+  <line x1="818" y1="130" x2="818" y2="168" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="806" y="153" text-anchor="end" font-size="11" fill="#666">evaluate on D (|D| &gt; N), hash</text>
+
+  <!-- Row 2: Commitment -> Fiat-Shamir -> FRI -> STARK proof -->
+  <g>
+    <rect x="676" y="170" width="284" height="80" rx="8" fill="#fbf3e6" stroke="#b7791f"/>
+    <text x="818" y="192" text-anchor="middle" font-weight="bold">Commitment</text>
+    <text x="818" y="214" text-anchor="middle" fill="#444">Merkle root of f_j, Q over domain D</text>
+    <text x="818" y="234" text-anchor="middle" fill="#444">(Reed-Solomon codeword)</text>
+  </g>
+  <line x1="676" y1="210" x2="636" y2="210" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="656" y="200" text-anchor="middle" font-size="11" fill="#666">hash</text>
+
+  <g>
+    <rect x="444" y="170" width="190" height="80" rx="8" fill="#fbf3e6" stroke="#b7791f"/>
+    <text x="539" y="192" text-anchor="middle" font-weight="bold">Fiat-Shamir</text>
+    <text x="539" y="214" text-anchor="middle" fill="#444">challenges z, α, query</text>
+    <text x="539" y="234" text-anchor="middle" fill="#444">positions from hash</text>
+  </g>
+  <line x1="444" y1="210" x2="404" y2="210" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="212" y="170" width="190" height="80" rx="8" fill="#fbf3e6" stroke="#b7791f"/>
+    <text x="307" y="192" text-anchor="middle" font-weight="bold">FRI</text>
+    <text x="307" y="214" text-anchor="middle" fill="#444">low-degree test of Q</text>
+    <text x="307" y="234" text-anchor="middle" fill="#444">fold: degree halves per round</text>
+  </g>
+  <line x1="212" y1="210" x2="172" y2="210" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="20" y="170" width="150" height="80" rx="8" fill="#e8f5e9" stroke="#2e7d32"/>
+    <text x="95" y="196" text-anchor="middle" font-weight="bold">STARK Proof</text>
+    <text x="95" y="218" text-anchor="middle" fill="#444">per Segment</text>
+    <text x="95" y="236" text-anchor="middle" fill="#444">(openings + FRI)</text>
+  </g>
+
+  <!-- Down from STARK proof to recursion -->
+  <line x1="95" y1="250" x2="95" y2="288" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <!-- Row 3: Recursion -> Aggregation -> Wrapping -->
+  <g>
+    <rect x="20" y="290" width="260" height="80" rx="8" fill="#e8f5e9" stroke="#2e7d32"/>
+    <text x="150" y="312" text-anchor="middle" font-weight="bold">Recursion / Aggregation</text>
+    <text x="150" y="334" text-anchor="middle" fill="#444">prove "I verified these STARKs"</text>
+    <text x="150" y="354" text-anchor="middle" fill="#444">Segment proofs -&gt; one proof</text>
+  </g>
+  <line x1="280" y1="330" x2="320" y2="330" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="322" y="290" width="230" height="80" rx="8" fill="#e8f5e9" stroke="#2e7d32"/>
+    <text x="437" y="312" text-anchor="middle" font-weight="bold">Wrapping</text>
+    <text x="437" y="334" text-anchor="middle" fill="#444">STARK -&gt; SNARK (e.g. Groth16)</text>
+    <text x="437" y="354" text-anchor="middle" fill="#444">small, constant-size proof</text>
+  </g>
+  <line x1="552" y1="330" x2="592" y2="330" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+
+  <g>
+    <rect x="594" y="290" width="366" height="80" rx="8" fill="#e8f5e9" stroke="#2e7d32"/>
+    <text x="777" y="312" text-anchor="middle" font-weight="bold">Final Proof π + Public Values</text>
+    <text x="777" y="334" text-anchor="middle" fill="#444">program commitment (Image ID), public output (Journal)</text>
+    <text x="777" y="354" text-anchor="middle" fill="#444">e.g. Pre-State Root, Post-State Root</text>
+  </g>
+
+  <!-- Arrow down to verifier -->
+  <line x1="777" y1="370" x2="777" y2="470" stroke="#444" stroke-width="1.5" marker-end="url(#arrow)"/>
+  <text x="800" y="420" font-size="11" fill="#666">submit</text>
+
+  <!-- Verifier row -->
+  <g>
+    <rect x="20" y="472" width="420" height="108" rx="8" fill="#f3e8f5" stroke="#6a1b9a"/>
+    <text x="230" y="494" text-anchor="middle" font-weight="bold">Verifier checks (no re-execution)</text>
+    <text x="34" y="516" fill="#444">1. Recompute Fiat-Shamir challenges from commitments</text>
+    <text x="34" y="534" fill="#444">2. Merkle openings at query positions are consistent</text>
+    <text x="34" y="552" fill="#444">3. C(z) = Q(z) · Z_H(z) at random z</text>
+    <text x="34" y="570" fill="#444">4. FRI folding consistent down to a constant</text>
+  </g>
+
+  <g>
+    <rect x="460" y="472" width="500" height="108" rx="8" fill="#f3e8f5" stroke="#6a1b9a"/>
+    <text x="710" y="494" text-anchor="middle" font-weight="bold">Wrapped proof: Verifier contract on L1</text>
+    <text x="474" y="516" fill="#444">Inputs: verification key, public values, π</text>
+    <text x="474" y="534" fill="#444">Pairing check (Groth16: 4 pairings via ecPairing Precompile)</text>
+    <text x="474" y="552" fill="#444">Cost is constant, independent of trace length N</text>
+    <text x="474" y="570" fill="#444">Accept -&gt; program with this Image ID produced this Journal</text>
+  </g>
+</svg>
