@@ -1,7 +1,7 @@
 ---
 title: "RISC Zero zkVM: Architecture and Proving Process"
 date: 2026-03-27 00:01:00 +0900
-categories: [Blockchain, "EVM, zkEVM, zkVM"]
+categories: [Blockchain]
 tags: [Blockchain, ZKP, zkVM, RISC Zero]
 math: true
 media_subpath: /assets/img/posts/zkevm/

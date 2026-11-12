@@ -1,7 +1,7 @@
 ---
 title: "EVM, zkEVM, zkVM: Execution and Verification"
 date: 2026-03-27 00:00:00 +0900
-categories: [Blockchain, "EVM, zkEVM, zkVM"]
+categories: [Blockchain]
 tags: [Blockchain, Ethereum, EVM, zkEVM, zkVM]
 math: true
 media_subpath: /assets/img/posts/zkevm/

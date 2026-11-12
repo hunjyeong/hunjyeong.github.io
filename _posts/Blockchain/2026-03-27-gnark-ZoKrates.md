@@ -1,7 +1,7 @@
 ---
 title: "Circuit-Based SNARK Tools: gnark and ZoKrates"
 date: 2026-03-27 00:02:00 +0900
-categories: [Blockchain, "EVM, zkEVM, zkVM"]
+categories: [Blockchain]
 tags: [Blockchain, ZKP, zk-SNARK, gnark, ZoKrates]
 math: true
 media_subpath: /assets/img/posts/zkevm/
