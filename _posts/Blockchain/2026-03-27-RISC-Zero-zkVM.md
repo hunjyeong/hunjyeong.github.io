@@ -150,8 +150,11 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
 5. **STARK 증명, Recursion, Wrapping**
 
     - **FRI:** Prover는 Trace 다항식에 커밋한 뒤, FRI(Fast Reed-Solomon Interactive Oracle Proof of Proximity)로 커밋한 값이 낮은 차수의 다항식에 가깝다는 것을 증명한다. FRI는 다항식을 반복해서 접어(Folding) 차수를 줄인다. 일반적인 설명에서는 한 번에 차수를 절반으로 줄이며, RISC Zero는 한 번에 16배씩 접어(`FRI_FOLD = 16`) 차수가 `FRI_MIN_DEGREE`(256)에 도달할 때까지 반복한다. Reed-Solomon 확장률의 역수(`INV_RATE`)는 4다. Verifier는 무작위 위치를 50회(`QUERIES`) 조회하며, 소스 주석은 이 설정이 97bit의 추정(Conjectured) 보안 수준을 목표로 한다고 밝힌다. 상수는 [risc0-zkp 소스](https://docs.rs/risc0-zkp/3.0.1/src/risc0_zkp/lib.rs.html)에서 확인할 수 있다. `DEFAULT_MAX_PO2` 문서에 따르면 Segment 크기가 커질수록 보안 수준은 po2당 약 1bit씩 낮아진다.
+    
     - **병렬 증명:** 각 Segment의 STARK 증명은 독립적이므로 GPU 가속이나 Boundless 같은 분산 증명 시장에서 병렬로 생성할 수 있다. [Boundless 문서](https://docs.boundless.network/developers/tutorials/bonsai)에 따르면 RISC Zero가 운영하던 중앙화된 증명 서비스 Bonsai는 2025년 12월 기준으로 종료되었고, 원격 증명은 Boundless로 대체되었다.
+    
     - **Recursion:** RISC Zero zkVM은 세 가지 회로로 구성된다. RISC-V 실행을 증명하는 RISC-V Circuit, STARK 증명 검증에 특화된 별도의 STARK 회로인 Recursion Circuit, 그리고 Recursion Circuit의 증명을 검증하는 R1CS 회로인 STARK-to-SNARK Circuit이다. 공식 순서는 다음과 같다. 각 Segment 증명을 `lift`로 Recursion Circuit용 증명(Succinct Receipt)으로 변환하고, `join`으로 둘씩 합치는 과정을 하나가 남을 때까지 반복한다. 마지막 Succinct Receipt는 `identity_p254`를 거친다. `identity_p254`는 Poseidon254 해시 함수를 쓰는 Recursion Prover로 증명을 다시 검증하는 단계로, Groth16 Prover 실행 직전에 수행된다. Succinct Receipt는 실행 길이와 무관한 상수 크기이며 약 200kB다. 자세한 내용은 [Recursive Proving 문서](https://dev.risczero.com/api/recursion)에 있다.
+    
     - **Groth16 Wrapping:** STARK 증명은 커서 Ethereum On-chain 검증 비용이 높다. 그래서 Succinct Receipt를 검증하는 로직을 Circom으로 작성한 Groth16 Circuit(`stark_verify` 회로)으로 구현해 Groth16 증명으로 감싼다(`compress`). 증명은 BN254 곡선의 G1 두 점(각 64byte)과 G2 한 점(128byte)으로 256byte이며, On-chain Seal에는 앞에 4byte Selector가 붙어 260byte가 된다. 이 Wrapping Circuit에는 Trusted Setup이 필요하다. RISC Zero는 2024년에 PSE(Privacy and Scaling Explorations)의 p0tion 도구로 공개 세레머니를 진행했으며, [L2BEAT의 ZK Catalog](https://ethbeat.org/zk-catalog/risc0)는 Phase 2 참여자를 238명으로 집계한다. 3.1.0에서는 회로 수정에 따라 새 Trusted Setup(2026-10-20.1)과 새 Verifying Key를 적용했다. 검증 절차는 [Trusted Setup Security 문서](https://dev.risczero.com/api/trusted-setup-ceremony)에 있다.
 
     최종 [Receipt](https://docs.rs/risc0-zkvm/latest/risc0_zkvm/struct.Receipt.html)는 다음 구조다. Seal은 최상위 필드가 아니라 `inner` 안에 들어 있다.
@@ -177,6 +180,7 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
     - **Off-chain 검증:** RISC Zero Rust SDK의 `receipt.verify(image_id)`를 호출한다. 서버, 클라이언트 앱, 다른 체인의 노드 등에서 쓴다. SDK는 InnerReceipt 종류에 맞는 검증 알고리즘을 수행하고, 프로그램이 정상 종료(`Halted(0)`)했는지와 Journal이 증명된 출력과 일치하는지도 확인한다. 정상 종료 여부와 Image ID를 확인하지 않고 Seal이 Claim과 Journal을 보증하는지만 확인하는 `verify_integrity_with_context`도 별도로 있다. 이 함수를 쓰면 호출자가 Claim의 필드를 직접 확인해야 한다.
 
     - **On-chain 검증:** Solidity Verifier 컨트랙트([RiscZeroGroth16Verifier.sol](https://github.com/risc0/risc0-ethereum/blob/release-3.0/contracts/src/groth16/RiscZeroGroth16Verifier.sol))의 `verify(bytes seal, bytes32 imageId, bytes32 journalDigest)`를 호출한다. `journalDigest`는 `sha256(journal)`이다. `seal`은 4byte Selector 뒤에 ABI 인코딩된 Groth16 증명이 붙은 형태다.
+
         1. `seal`의 처음 4byte(Selector)가 컨트랙트가 기대하는 Verifier 버전과 일치하는지 확인한다. Selector는 Groth16 Verifying Key와 Control Root 등 Verifier 파라미터의 해시에서 만든 값이다. 불일치하면 `SelectorMismatch`로 revert하며, 보통 Prover와 Verifier의 버전이 다를 때 발생한다.
         2. `imageId`와 `journalDigest`로 검증할 Claim을 재구성한다.
         3. Groth16 증명을 검증한다. 공개 입력은 Control Root, Claim Digest, BN254 Control ID다.
