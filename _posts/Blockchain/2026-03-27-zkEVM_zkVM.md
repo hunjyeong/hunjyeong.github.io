@@ -434,44 +434,97 @@ Ethereum L1은 현재 Re-execution으로 블록을 검증한다. 이를 증명 �
 
 ## Zero-Knowledge Virtual Machine (zkVM)
 
-zkVM은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, RISC-V와 같은 ISA(Instruction Set Architecture, 명령어 집합) 자체를 증명 가능한 가상 머신으로 구현한 범용 플랫폼이다.
+### What is zkVM?
 
-zkEVM이 "무엇을 증명하는가(EVM 실행)"를 가리키는 말이라면, zkVM은 "어떤 방식으로 증명하는가(범용 ISA의 실행 증명)"를 가리키는 말이다. zkVM은 Rust, C/C++ 등 고수준 언어로 작성되어 해당 ISA로 컴파일된 프로그램의 실행 무결성을 증명하는 '범용 컴퓨터'의 역할을 수행한다(지원 언어는 zkVM의 툴체인마다 다르다). 쉽게 말해 zkEVM은 "EVM이라는 특정 상태 머신이 올바르게 실행되었는가?"를 증명하고, zkVM은 "일반적인 프로그램이 정의된 ISA 규칙에 따라 올바르게 실행되었는가?"를 증명한다. 두 개념은 배타적이지 않다. zkVM 위에서 EVM 실행 프로그램(예: 이더리움 블록 실행 로직)을 돌리면 그 자체로 zkEVM이 된다. 이때 증명은 프로그램이 올바르게 실행되었음을 보장하며, 프로그램이 이더리움 규칙을 정확히 구현했는지는 별도로 검증해야 한다.
+zkVM은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, ISA(Instruction Set Architecture, 명령어 집합) 자체를 증명 가능한 가상 머신으로 구현한 범용 증명 플랫폼이다. 대표적인 ISA는 RISC-V(오픈 소스 RISC(Reduced Instruction Set Computer) 명령어 집합)다.
 
-### zkVM을 통한 트랜잭션 검증 방식
+**zkEVM이 "무엇을 증명하는가(EVM 실행)"를 가리키는 말이라면, zkVM은 "어떤 방식으로 증명하는가(범용 ISA의 실행 증명)"를 가리키는 말이다.**
 
-개발자는 복잡한 영지식 Circuit 설계 지식 없이도 일반적인 프로그램 로직을 통해 트랜잭션 검증 기능을 구현할 수 있다. 예를 들어, Rust로 작성된 검증 로직을 zkVM 환경에서 구동하면, VM 내부의 각 명령어(Instruction) 실행 단계가 미리 제약으로 변환해 둔 ISA 규칙을 만족한다는 암호학적 증명이 만들어진다. 이를 통해 특정 입력값에 대해 프로그램이 정해진 규칙대로 올바른 결과값을 산출했음을 보장할 수 있다. Prover가 zkVM 내에서 검증 프로그램을 실행하여 실행 결과와 그 정합성을 요약한 하나의 증명을 생성하면, Verifier는 해당 증명만을 검증(Verification)함으로써 실행 결과를 신뢰할 수 있게 된다.
+- **zkEVM:** "EVM이라는 특정 State Machine이 올바르게 실행되었는가"를 증명한다.
+- **zkVM:** "일반 프로그램이 정의된 ISA 규칙에 따라 올바르게 실행되었는가"를 증명한다.
 
-zkVM은 범용적인 검증 환경을 제공한다는 점에서 높은 유연성을 가진다. 트랜잭션 검증 로직을 일반 프로그램 형태로 구현할 수 있기 때문에 복잡한 로직을 비교적 쉽게 증명 시스템에 통합할 수 있다. 하지만 이러한 범용성은 동시에 상당한 성능 비용을 동반한다. zkVM은 일반적인 CPU 명령어 수준에서 프로그램 실행을 증명하기 때문에, 단일 트랜잭션 검증을 위해서도 매우 긴 Execution Trace가 생성될 수 있다. 이는 결과적으로 증명 생성 비용과 증명 생성 시간을 크게 증가시키는 요인이 된다.
+두 개념은 배타적이지 않다. zkVM 위에서 EVM 실행 프로그램(예: Execution Client의 블록 실행 로직)을 돌리면 그 자체로 zkEVM이 된다. 다만 **증명은 프로그램이 ISA 규칙대로 실행되었음만 보장한다.** 그 프로그램이 Ethereum 규칙을 정확히 구현했는지는 별도로 검증해야 한다.
 
-특히 범용 zkVM 시스템인 RISC Zero와 같은 플랫폼은 높은 범용성을 제공하는 대신, 네이티브 실행 대비 상당한 증명 생성 오버헤드를 가진다. 이를 줄이기 위해 SHA-256, Keccak, 타원곡선 연산 같은 무거운 연산은 전용 가속 Circuit(Precompile)로 처리한다. 최근에는 L2 롤업과 이더리움 L1 실행 증명 연구 모두 zkVM 기반으로 옮겨가는 추세다. Scroll은 2025년 4월 Euclid 업그레이드에서 기존 halo2 Circuit을 폐기하고 OpenVM 기반 Prover로 전환했고, Taiko는 TEE(SGX) 증명과 RISC Zero, SP1 증명을 조합한 다중 증명을 사용한다.
+### 동작 원리
 
-### zkVM 검증 상세 과정
+개발자는 Rust, C/C++ 같은 고급 언어로 프로그램을 작성하고, 이를 zkVM의 ISA로 컴파일한다. 지원 언어는 zkVM의 툴체인마다 다르다.
+
+zkVM의 증명 구조는 zkEVM과 같다. 차이는 제약식으로 바꿔 두는 대상이다.
+- **zkEVM:** EVM Opcode 규칙을 제약식으로 바꿔 둔다.
+- **zkVM:** ISA 명령어(Instruction) 규칙을 제약식으로 바꿔 둔다(Arithmetization).
+
+Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 실행 단계가 ISA 규칙을 만족함을 증명한다. Verifier(증명 검증자)는 프로그램을 다시 실행하지 않고 증명만 검증해 실행 결과를 신뢰할 수 있다.
+
+### 장점과 비용
+
+**zkVM의 장점은 유연성이다.**
+- 개발자는 Circuit 설계 지식 없이 일반 프로그램으로 증명할 로직을 구현할 수 있다.
+- 로직이 바뀌면 프로그램을 수정하고 다시 컴파일하면 된다.
+
+**대신 성능 비용이 크다.** zkVM은 명령어 단위로 실행을 증명한다. 고급 언어의 코드 한 줄도 여러 명령어로 컴파일되므로, 같은 계산이라도 전용 Circuit보다 Trace가 훨씬 길어진다. 그만큼 증명 생성 시간과 비용이 늘어난다.
+
+이를 줄이기 위해 SHA-256, Keccak-256, 타원곡선 연산 같은 무거운 연산은 zkVM 가속 Circuit으로 처리한다. 프로젝트에 따라 Precompile이나 Accelerator라고 부르며, EVM의 Precompile과는 다른 개념이다. 해당 연산을 명령어 단위로 증명하지 않고 전용 Circuit 하나로 증명한다.
+
+### End-to-End Proving Process
+
+아래는 RISC Zero, SP1 같은 RISC-V 기반 zkVM의 일반적인 구성이다. 모든 zkVM의 공통 구조는 아니다.
 
 1. **Program Execution**
 
-    Prover는 트랜잭션 검증 로직이 담긴 프로그램(예: Rust 기반 트랜잭션 검증기)을 zkVM 환경 내에서 실행한다. 이 프로그램은 입력 데이터 검증, State Transition 규칙 적용, 새로운 State Root 계산 등의 작업을 수행한다. zkVM은 프로그램의 실행 과정을 CPU 명령어(Instruction) 단위로 세분화하여 기록한다. 이때 PC(Program Counter), 레지스터 상태 변화, Memory Read/Write 로그 등이 포함된 Execution Trace가 생성된다. Rust나 C++ 같은 고수준 언어의 코드 한 줄은 여러 CPU 명령어로 컴파일되므로, 복잡한 로직일수록 Execution Trace가 길어진다. Trace 길이는 실행된 명령어 수에 비례해 선형으로 늘어난다.
+    Prover는 증명할 프로그램을 zkVM 안에서 실행한다. 예를 들어 블록 검증 프로그램이라면 다음을 수행한다.
+    - 입력 데이터를 검증한다.
+    - State Transition 규칙을 적용한다.
+    - 새 State Root를 계산한다.
+
+    zkVM은 실행 과정을 명령어 단위로 기록한다. Execution Trace에는 PC(Program Counter), 레지스터 상태 변화, Memory 읽기와 쓰기 기록 등이 포함된다. **Trace 길이는 실행된 명령어 수에 비례해 늘어난다.**
+
+    긴 Trace는 한 번에 증명하기 어렵다. 그래서 일정 길이의 Segment(RISC Zero) 또는 Shard(SP1)로 나누어 각각 증명한다.
 
 2. **Proof Generation**
-    
-    기록된 Trace가 해당 CPU의 연산 규칙(Instruction Rules)을 완벽히 준수했음을 암호학적으로 입증하는 단계이다. zkEVM과 마찬가지로 CPU의 State Transition 규칙을 미리 Polynomial Constraints로 정의해 두고(Arithmetization), Trace가 이를 만족함을 증명한다. 이후 대규모 Trace를 빠르게 처리할 수 있고 Trusted Setup이 필요 없는 STARK 기반 초기 증명을 생성하며, 이를 Recursion 기술로 결합하여 하나의 증명으로 합친다. 최종적으로 L1(이더리움 등) On-chain 검증 비용을 최소화하기 위해 고정된 작은 크기를 갖는 SNARK 증명(예: Groth16)으로 변환(Wrapping)하여 결과물을 도출한다. RISC Zero, SP1 등이 이 구성을 쓰지만 모든 zkVM의 공통 구조는 아니다.
+
+    Trace가 ISA 규칙을 지켰음을 증명하는 단계다.
+    - **STARK 증명:** 각 Segment에 대해 STARK 기반 증명을 생성한다. STARK는 Trusted Setup이 필요 없고 대형 Trace 처리에 유리하다.
+    - **Recursion:** Segment별 증명을 Recursion으로 결합해 하나의 증명으로 합친다.
+    - **Wrapping:** L1 On-chain 검증 비용을 줄이기 위해, 크기가 작고 고정된 SNARK 증명(예: Groth16)으로 감싼다.
 
 3. **Verification**
 
-    Verifier(Off-chain 프로그램 또는 스마트 컨트랙트)는 원본 프로그램을 다시 실행하지 않고, 제출된 증명의 타당성만을 수학적으로 확인한다. RISC Zero를 예로 들면 Verifier는 [Image ID(실행한 프로그램을 식별하는 값), Journal(프로그램이 공개한 출력), Seal(증명)]의 세 가지 요소가 서로 일치하는지 확인한다. 입력은 기본적으로 비공개이며, 공개하려는 입력은 프로그램이 Journal에 기록해야 한다. 증명 검증이 성공하면, 해당 프로그램이 주어진 입력에 대해 수정되거나 왜곡되지 않은 채 원래 설계된 로직대로 실행되어 결과값을 산출했음이 암호학적으로 보장된다.
+    Verifier(Off-chain 프로그램 또는 스마트 컨트랙트)는 프로그램을 다시 실행하지 않고 증명의 타당성만 수학적으로 확인한다.
+
+    RISC Zero를 예로 들면 증명 결과물(Receipt)은 세 요소로 이루어진다.
+    - **Image ID:** 실행한 프로그램을 식별하는 값
+    - **Journal:** 프로그램이 공개한 출력
+    - **Seal:** 증명
+
+    Verifier는 Seal이 "Image ID에 해당하는 프로그램을 실행해 이 Journal을 출력했다"는 사실을 증명하는지 확인한다. **입력은 기본적으로 비공개다.** 공개하려는 입력은 프로그램이 Journal에 직접 기록해야 한다.
+
+    검증이 성공하면, 해당 프로그램이 수정되지 않은 채 주어진 입력으로 실행되어 그 출력을 냈다는 사실이 암호학적으로 보장된다.
+
+### 적용 사례
+
+L2 Rollup과 Ethereum L1 실행 증명 모두 zkVM 기반으로 옮겨가고 있다.
+
+- **Scroll:** 2025년 4월 Euclid 업그레이드에서 기존 halo2 Circuit을 폐기하고 OpenVM 기반 Prover로 전환했다.
+- **Taiko:** 다중 증명(Multi-proof)을 사용한다. SGX(Geth), SGX(Reth), SP1, RISC Zero 네 가지 증명 중 정확히 두 개가 필요하며, 그중 최소 하나는 SP1이나 RISC Zero여야 한다. SGX는 Intel SGX(Software Guard Extensions)를 쓰는 TEE(Trusted Execution Environment, 신뢰 실행 환경) 증명으로, 암호학적 증명이 아니라 하드웨어 신뢰에 기반한다.
+- **Ethereum L1:** EIP-8025(Optional Execution Proofs) 설계에서는 Execution Client의 블록 실행 프로그램을 zkVM으로 증명한다(zkEVM 문서 참고).
+
+### 전용 Circuit 방식과 zkVM 방식 비교
+
+zkEVM은 두 방식 모두로 구현할 수 있다. 따라서 비교 대상은 zkEVM과 zkVM이 아니라 **증명 방식**이다.
+
+| 구분 | 전용 Circuit 방식 | zkVM 방식 |
+|---|---|---|
+| 증명 대상 | 특정 계산 (예: EVM Opcode) | ISA로 컴파일된 임의의 프로그램 |
+| 증명 단위 | 해당 계산에 맞춘 제약식 | ISA 명령어 |
+| 증명 효율 | 높음 | 명령어 단위 오버헤드가 크며, 무거운 연산은 가속 Circuit으로 보완 |
+| 유지보수 | 로직이 바뀌면 Circuit을 다시 설계 | 프로그램을 수정하고 다시 컴파일 |
+| 사례 | Linea | 범용 zkVM: RISC Zero, SP1, OpenVM, Jolt / zkVM 기반 zkEVM: Scroll(OpenVM), Taiko(SP1, RISC Zero와 TEE의 다중 증명) |
+
+Verifier가 확인하는 내용도 다르다.
+- **zkEVM:** Verifier는 "블록의 트랜잭션들이 EVM 규칙대로 상태를 바꿨다"는 것을 확인한다.
+- **zkVM:** Verifier는 "어떤 프로그램(Image ID)이 주어진 입력으로 실행되어 이 출력을 냈다"는 것을 확인한다. 그 프로그램이 Ethereum 블록 실행 로직이면 zkEVM으로 동작하는 것이고, 게임 엔진이면 게임 결과의 무결성을 증명하는 것이 된다.
 
 <br />
-
-### zkEVM과 zkVM 비교
-
-| **구분** | **zkEVM** | **zkVM** |
-| --- | --- | --- |
-| **목적** | EVM 실행 증명 (L2 롤업, 이더리움 L1 실행 증명 연구) | 범용 프로그램의 실행 증명 (zkVM 위에서 EVM을 실행해 zkEVM을 구현하는 데도 쓰임) |
-| **최적화** | 전용 Circuit 방식은 EVM 연산에 맞춰 Circuit을 설계 | CPU 명령어 단위로 증명하므로 오버헤드가 크고, 무거운 연산은 가속 Circuit으로 보완 |
-| **복잡도** | 전용 Circuit 방식은 EVM 업데이트 시 Circuit을 수정해야 함 | 프로그램 로직만 바꾸고 다시 컴파일하면 되어 유지보수가 쉬움 |
-| **대표 프로젝트** | 전용 Circuit: Linea (Polygon zkEVM은 2026년 7월 종료). zkVM 기반: Scroll(OpenVM), Taiko(TEE(SGX) + RISC Zero, SP1) | RISC Zero, Succinct(SP1), OpenVM, Jolt |
-- **zkEVM**에서 Verifier는 "이더리움 블록 안의 트랜잭션들이 상태를 정확히 바꿨다"는 것을 확인한다.
-- **zkVM**에서 Verifier는 "어떤 프로그램(Image ID)이 주어진 입력값을 가지고 실행되어 이 결과값을 냈다"는 사실을 확인한다. 이 프로그램이 이더리움 블록 실행 로직이라면 zkEVM처럼 동작하는 것이고, 게임 엔진이라면 게임 결과의 무결성을 증명하는 것이 된다.
 
 
 ### RISC Zero zkVM
