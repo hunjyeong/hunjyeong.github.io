@@ -1,6 +1,7 @@
 ---
 title: "Ethereum Lifecycle"
 date: 2026-03-22
+last_modified_at: 2026-11-11
 categories: [Blockchain]
 tags: [Blockchain, Ethereum]
 media_subpath: /assets/img/posts/ethereum-life-cycle/

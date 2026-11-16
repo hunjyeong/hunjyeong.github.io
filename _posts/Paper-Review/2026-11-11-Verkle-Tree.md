@@ -1,6 +1,7 @@
 ---
 title: "Verkle Tree"
 date: 2026-11-11
+last_modified_at: 2026-11-11
 categories: [Paper Review]
 tags: [Blockchain, Ethereum, Verkle Tree, Merkle Patricia Trie, Stateless Client, Commitment]
 math: true

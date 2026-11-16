@@ -2,6 +2,7 @@
 title: Writing a New Post
 author: cotes
 date: 2019-08-08
+last_modified_at: 2026-11-11
 categories: [Blogging, Tutorial]
 tags: [writing]
 render_with_liquid: false
