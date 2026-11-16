@@ -14,34 +14,126 @@ media_subpath: /assets/img/posts/zkevm/
 > 4. **Circuit-Based SNARK Tools: gnark and ZoKrates**
 >
 
-## Circuit 기반 SNARK 도구
+## Background
 
-zkVM이 범용 ISA의 실행을 증명하는 것과 달리, 아래 도구들은 **증명할 로직을 개발자가 직접 산술 제약(Circuit)으로 작성한다.**
+2편과 3편에서 본 zkVM(Zero-Knowledge Virtual Machine)은 RISC-V 같은 범용 ISA(Instruction Set Architecture, 명령어 집합)의 실행을 증명한다. Rust로 작성한 프로그램을 그대로 증명할 수 있다는 장점이 있다. 대신 프로그램이 실행한 모든 명령어를 Execution Trace로 기록해 증명하므로 Trace가 길다. 또 On-chain에서 검증할 작은 증명을 얻으려면 STARK(Scalable Transparent Argument of Knowledge) 증명을 Recursion으로 합친 뒤 SNARK(Succinct Non-Interactive Argument of Knowledge)로 한 번 더 감싸야 한다.
 
-### gnark
+Circuit 기반 SNARK 도구는 반대로 접근한다. **개발자가 증명할 로직을 직접 Circuit(회로)으로 작성한다.** CPU를 흉내 내는 계층이 없으므로 증명에 필요한 관계만 제약으로 표현하고, Groth16이나 PLONK로 바로 작은 증명을 만든다. 대신 로직이 바뀌면 Circuit을 다시 설계해야 한다.
 
-[gnark](https://github.com/Consensys/gnark)는 Consensys가 개발한 Go 기반 zk-SNARK 라이브러리다. Go의 struct와 전용 API(`frontend.API`)로 산술 Circuit을 설계하므로, Go 안에 내장된 DSL로 제약을 작성하는 방식이다.
+SNARK는 증명이 짧고 검증이 빠른 비대화형 증명이고, 여기에 Zero-Knowledge를 더한 것이 zk-SNARK다. 자세한 내용은 [ZKP 글]({% post_url Cryptography/2026-04-06-zkp %})을 참고한다.
 
-gnark는 Frontend(Circuit 정의)와 Backend(증명 생성)를 분리한다. 작성한 Go 코드는 두 가지 제약 시스템 중 하나로 컴파일된다.
-- **R1CS(Rank-1 Constraint System):** Groth16용
-- **SCS(Sparse Constraint System):** PLONK용 Plonkish 제약
+Circuit 기반 도구는 다음과 같은 곳에 쓰인다.
 
-Go의 타입 시스템, 테스트 프레임워크, CI/CD(Continuous Integration/Continuous Deployment)를 그대로 쓸 수 있다. 지원 곡선은 BN254, BLS12-381, BLS12-377, BW6-761 등이며, Solidity Verifier 내보내기는 주로 BN254를 대상으로 한다.
+- **특정 기능 Circuit:** Rollup, Bridge, Light Client처럼 검증할 로직이 정해진 경우
+- **zkVM 증명의 Wrapping:** SP1은 마지막 Groth16 또는 PLONK Wrapping 단계를 gnark로 구현한다(3편).
+- **zkEVM의 Outer Proof:** ZK(Zero-Knowledge) Rollup인 Linea의 [Prover](https://docs.linea.build/protocol/architecture/prover)는 Corset으로 만든 zkEVM(Zero-Knowledge Ethereum Virtual Machine) 제약을 자체 증명 체계로 증명한 뒤(Inner Proof), gnark로 L1(Layer 1) 검증용 Outer Proof를 만든다.
 
-gnark는 특정 연산의 증명부터 EVM 전체 State Transition까지 표현할 수 있다. 실제로 Linea ZK Rollup의 Prover가 gnark를 사용한다. 개발자가 제약을 직접 설계하므로 특정 연산에 맞춰 제약 수를 줄일 수 있다. 예를 들어 Keccak 해시나 ECDSA 서명 검증을 `gnark/std`의 가젯으로 Circuit 안에 직접 구성할 수 있다.
+이 글은 gnark v0.16.5와 ZoKrates `zokrates_cli` 0.8.7을 기준으로 한다. ZoKrates develop 브랜치의 마지막 커밋은 2024-04-15다.
+
+## Core Concepts
+
+### Circuit and Constraint System
+
+Circuit은 계산을 유한체 위의 덧셈과 곱셈으로 표현한 제약식의 집합이다. Circuit은 입력에 따라 실행 경로를 바꿀 수 없다. 그래서 **컴파일 시점에 모든 제약 수가 정적으로 확정되어야 하고**, 조건문과 반복문도 고정된 제약으로 바꿔야 한다. 제약을 표현하는 형식은 두 가지가 많이 쓰인다.
+
+- **R1CS(Rank-1 Constraint System):** Groth16이 쓰는 형식이다. 각 제약은 $$A \times B = C$$ 꼴이며, $$A, B, C$$는 Circuit의 모든 변수 $$v_i$$(입력, 중간값, 상수 $$v_0 = 1$$ 포함)의 Linear Combination(선형 결합)이다.
+
+    $$
+    \begin{aligned}
+    A &= \alpha_0 v_0 + \alpha_1 v_1 + \cdots + \alpha_n v_n \\
+    B &= \beta_0 v_0 + \beta_1 v_1 + \cdots + \beta_n v_n \\
+    C &= \gamma_0 v_0 + \gamma_1 v_1 + \cdots + \gamma_n v_n
+    \end{aligned}
+    $$
+
+    $$A, B, C$$ 안의 덧셈은 별도 제약을 만들지 않으므로, 제약 하나에 곱셈은 하나만 들어간다. 복잡한 수식은 곱셈 하나씩을 포함한 식들로 나누어야 한다. **덧셈을 최대한 곱셈 제약의 괄호 안으로 합쳐 곱셈 수를 줄이는 것**이 R1CS 최적화의 핵심이다.
+
+- **Plonkish 제약:** PLONK(Permutations over Lagrange-bases for Oecumenical Noninteractive arguments of Knowledge)가 쓰는 형식이다. 각 Gate(게이트)는 Wire 값 $$a, b, c$$에 대해 $$q_L a + q_R b + q_O c + q_M ab + q_C = 0$$을 만족해야 하고, Gate 사이의 Wire 연결은 별도의 Copy Constraint(복사 제약)로 확인한다. Gate 하나가 받는 입력 수가 제한되어 있으므로 덧셈에도 Gate가 필요하다.
+
+### Witness
+
+Witness(증인)는 Circuit의 모든 변수에 대입하는 값의 집합이다. 입력값과 중간 계산값을 모두 포함한다. 입력은 두 종류로 나뉜다.
+
+- **Public Input(공개 입력):** Verifier도 아는 값
+- **Secret Input(비공개 입력):** Prover만 알고 증명에 공개되지 않는 값
+
+Prover는 모든 제약을 만족하는 Witness를 알고 있다는 사실을, Secret Input을 공개하지 않고 증명한다. Verifier는 로직을 다시 실행하지 않고 증명과 Public Input만으로 이를 확인한다.
+
+### Setup
+
+Groth16과 PLONK는 Prover와 Verifier가 함께 쓰는 공개 파라미터인 SRS(Structured Reference String)가 필요하다. SRS는 비밀 난수로 만든다. 이 난수를 Toxic Waste라고 부르며, Toxic Waste를 아는 사람은 증명을 위조할 수 있으므로 반드시 파기해야 한다. 이렇게 비밀 값의 파기를 믿어야 하는 Setup을 Trusted Setup(신뢰 설정)이라고 한다. 대규모 프로젝트에서는 MPC(Multi-Party Computation) 세레머니로 수행하며, 참여자 중 한 명만 정직하게 파기해도 안전하다.
+
+- **Circuit별 Setup:** Groth16은 Circuit마다 Trusted Setup이 필요하다. Circuit이 조금만 바뀌어도 Setup을 다시 해야 한다.
+- **Universal SRS:** PLONK는 KZG(Kate-Zaverucha-Goldberg) Polynomial Commitment 기반의 Universal SRS를 쓴다. 세레머니를 한 번 하면 그 SRS가 지원하는 최대 Circuit 크기 이하의 Circuit에 재사용할 수 있다. 다만 Circuit마다 Proving Key와 Verifying Key를 만드는 전처리는 필요하다. 이 전처리에는 새로운 비밀 값이 없으므로 세레머니가 필요 없다.
+
+### Pairing
+
+Pairing(페어링) $$e: \mathbb{G}_1 \times \mathbb{G}_2 \to \mathbb{G}_T$$는 $$e(aP, bQ) = e(P, Q)^{ab}$$를 만족하는 함수다. Verifier는 이 성질로 값을 직접 보지 않고도 타원곡선 점 안에 숨은 값들의 곱셈 관계를 확인한다. Groth16의 검증과 KZG Commitment의 확인이 모두 Pairing 등식이다.
+
+BN254 기준으로 $$\mathbb{G}_1$$은 기저체 $$\mathbb{F}_p$$ 위 곡선의 점으로 이루어진 군이고, 점 하나는 비압축 64바이트다. $$\mathbb{G}_2$$는 확장체 $$\mathbb{F}_{p^2}$$ 위 곡선의 점으로 이루어진 군이고, 점 하나는 비압축 128바이트다. Circuit의 산술은 이와 다른 스칼라체 $$\mathbb{F}_r$$ 위에서 이루어진다.
+
+### Proving Cost
+
+제약 수는 연산 종류에 따라 크게 다르다.
+
+- **덧셈:** R1CS에서는 선형식 안에 들어가므로 추가 제약이 거의 없다.
+- **곱셈:** 제약 하나가 된다.
+- **해시와 비트 연산:** 값을 비트로 분해하고 비트마다 0 또는 1이라는 제약을 걸어야 하므로, 코드 한 줄이 많은 제약으로 늘어난다. Keccak처럼 비트 연산 위주인 해시가 특히 비싸다.
+- **다른 체 위의 연산:** ECDSA(Elliptic Curve Digital Signature Algorithm) 서명 검증에 쓰는 secp256k1 곡선은 BN254 스칼라체 $$\mathbb{F}_r$$와 다른 체 위에서 정의된다. 그래서 gnark `std/signature/ecdsa`는 체 에뮬레이션(`std/math/emulated`)으로 큰 수 연산을 여러 원소로 나누어 구현하며, 제약이 많이 든다.
+
+증명 생성에서 무거운 연산은 두 가지다.
+
+- **MSM(Multi-Scalar Multiplication):** 타원곡선 점들의 Linear Combination $$P = \sum_{i} r_i G_i$$를 계산한다. 증명 생성에서 가장 무거운 연산 중 하나다.
+- **FFT(Fast Fourier Transform):** 다항식의 계수 표현과 점 표현을 변환한다. 유한체 위에서는 NTT(Number Theoretic Transform)로 계산한다.
+
+증명 생성의 CPU와 Memory 부담은 Prover가 지고, Verifier는 작은 증명만 확인한다. 따라서 **Circuit 기반 도구의 한계는 검증 비용이 아니라 증명 생성 비용과 Circuit을 직접 설계하는 부담에 있다.** 이는 gnark와 ZoKrates 모두에 해당한다.
+
+### On-chain Verification
+
+gnark와 ZoKrates 모두 Verifying Key로 Solidity Verifier 컨트랙트를 자동 생성한다. 컨트랙트는 BN254 Precompile인 `ecAdd`(0x06), `ecMul`(0x07), `ecPairing`(0x08)을 호출한다. EIP(Ethereum Improvement Proposal) 중 [EIP-1108](https://eips.ethereum.org/EIPS/eip-1108) 기준으로 `ecPairing` 호출 비용은 $$34{,}000k + 45{,}000$$ Gas다($$k$$는 Pairing 쌍의 수).
+
+Groth16의 검증식은 다음과 같다. $$A, C \in \mathbb{G}_1$$, $$B \in \mathbb{G}_2$$는 증명이고, $$L$$은 Public Input으로 계산한 $$\mathbb{G}_1$$ 점이다.
+
+$$
+e(A, B) = e(\alpha, \beta)\, e(L, \gamma)\, e(C, \delta)
+$$
+
+Off-chain에서는 $$e(\alpha, \beta)$$를 Verifying Key에 미리 계산해 두면 Pairing 3번으로 끝난다. 하지만 EVM(Ethereum Virtual Machine)의 `ecPairing` Precompile은 $$\prod_i e(P_i, Q_i) = 1$$인지 여부만 반환하고, $$\mathbb{G}_T$$ 원소를 입력으로 받지 않는다. 그래서 미리 계산한 $$e(\alpha, \beta)$$를 쓸 수 없고, 모든 항을 한쪽으로 옮긴 4쌍을 한 번에 넘긴다.
+
+$$
+e(A, B)\, e(-\alpha, \beta)\, e(-L, \gamma)\, e(-C, \delta) = 1
+$$
+
+Groth16 Verifier의 비용은 다음과 같다.
+
+- **Pairing 4쌍 확인:** 입력 768바이트(4 × (64 + 128)), $$34{,}000 \times 4 + 45{,}000 = 181{,}000$$ Gas
+- **Public Input 하나당:** $$L$$을 계산하는 `ecMul`과 `ecAdd`로 약 6~7천 Gas 추가
+- **일반적인 총비용:** 20만~30만 Gas
+
+## gnark
+
+[gnark](https://github.com/Consensys/gnark)는 Consensys가 개발한 Go 기반 zk-SNARK 라이브러리다. Go의 struct와 전용 API(`frontend.API`)로 Circuit을 설계하므로, Go 안에 내장된 DSL(Domain-Specific Language, 도메인 전용 언어)로 제약을 작성하는 방식이다.
+
+gnark는 Frontend(Circuit 정의)와 Backend(증명 생성)를 분리한다. 같은 Circuit 코드를 빌더에 따라 두 가지 제약 시스템 중 하나로 컴파일한다.
+- **R1CS:** Groth16용 (`r1cs.NewBuilder`)
+- **SCS(Sparse Constraint System):** PLONK용 Plonkish 제약 (`scs.NewBuilder`)
+
+지원 곡선은 BN254, BLS12-381, BLS12-377, BW6-761이다. Solidity Verifier는 주로 BN254를 대상으로 한다. gnark v0.15.0(2026년 5월)부터는 BLS12-381 Solidity Verifier도 생성한다. 이 Verifier는 2025년 5월 7일 메인넷에서 활성화된 [Pectra](https://ethereum.org/roadmap/pectra/) 업그레이드의 [EIP-2537](https://eips.ethereum.org/EIPS/eip-2537) BLS12-381 Precompile을 쓴다.
+
+### Workflow
 
 1. **Circuit 설계**
 
-    Circuit은 Go `struct`로 정의한다. 필드는 기본적으로 Secret Witness이며, 공개할 필드에 `gnark:",public"`을 붙인다(쉼표 필요).
+    Circuit은 Go `struct`로 정의한다. 필드는 기본적으로 Secret Input이며, Public Input으로 쓸 필드에 `gnark:",public"`을 붙인다(쉼표 필요). Rollup의 State Transition을 증명한다면 다음과 같이 나뉜다.
 
-    - **Public Witness:** Verifier가 아는 값. 예: 이전 State Root, 새 State Root, 블록 헤더 정보
-    - **Secret Witness:** 증명에 공개되지 않는 값. 예: 트랜잭션, 각 트랜잭션의 Merkle Proof, 서명
+    - **Public Input:** 이전 State Root, 새 State Root, 블록 헤더 정보
+    - **Secret Input:** 트랜잭션, 각 트랜잭션의 Merkle Proof, 서명
 
     ```go
     type CubicCircuit struct {
-        // X는 Secret Witness (태그의 "x"는 이름이며, 공개 지정이 없으므로 Secret)
+        // X는 Secret Input (태그의 "x"는 이름이며, 공개 지정이 없으므로 Secret)
         X frontend.Variable `gnark:"x"`
-        // Y는 Public Witness (Verifier도 아는 Public Input)
+        // Y는 Public Input (Verifier도 아는 값)
         Y frontend.Variable `gnark:",public"`
     }
     ```
@@ -64,111 +156,148 @@ gnark는 특정 연산의 증명부터 EVM 전체 State Transition까지 표현�
     }
     ```
 
-3. **컴파일**
+    Circuit은 실행 경로를 바꿀 수 없으므로, 조건문과 반복문은 다음과 같이 작성한다.
 
-    `frontend.Compile()`이 Go 코드를 R1CS나 Plonkish 형식으로 변환한다. Ethereum Precompile과 호환하기 위해 주로 BN254 곡선을 쓰며, Circuit의 산술은 BN254의 스칼라체 $$\mathbb{F}_r$$(약 254bit 소수 $$r$$) 위에서 이루어진다. 곡선 방정식 $$y^2 = x^3 + 3$$은 기저체 $$\mathbb{F}_p$$ 위의 식으로, Circuit 산술이 이루어지는 스칼라체와는 다른 체다.
-
-    컴파일은 **Flattening(평탄화)**을 거친다. 복잡한 수식을 곱셈 하나씩만 포함한 식들로 분해하는 작업이다. R1CS에서는 각 식이 $$A \times B = C$$ 형식의 제약이 된다. $$A, B, C$$는 Circuit의 모든 변수 $$v_i$$(입력, 중간값, 상수 $$v_0 = 1$$ 포함)의 Linear Combination(선형 결합)이다.
-
-    $$
-    \begin{aligned}
-    A &= \alpha_0 v_0 + \alpha_1 v_1 + \cdots + \alpha_n v_n \\
-    B &= \beta_0 v_0 + \beta_1 v_1 + \cdots + \beta_n v_n \\
-    C &= \gamma_0 v_0 + \gamma_1 v_1 + \cdots + \gamma_n v_n
-    \end{aligned}
-    $$
-
-    R1CS에서 $$A, B, C$$ 안의 덧셈은 별도 제약을 만들지 않는다. 그래서 **덧셈을 최대한 곱셈 제약의 괄호 안으로 합쳐 곱셈 수를 줄이는 것**이 R1CS 최적화의 핵심이다. PLONK의 Plonkish 제약은 게이트 입력 수가 제한되어 있어 덧셈에도 게이트가 필요하다.
-
-    산술 Circuit은 입력에 따라 실행 경로를 바꿀 수 없으므로, 조건문과 반복문을 제약으로 바꿔야 한다.
-
-    - **조건문:** `api.Select(condition, a, b)`로 대체한다. `condition`이 1이면 `a`, 0이면 `b`를 고르며, 내부적으로 `b + condition × (a − b)`로 계산해 곱셈 1개로 삽입된다. 현재 gnark는 R1CS와 SCS 빌더 모두 Select 안에서 `condition`이 0 또는 1이라는 Boolean 제약을 함께 추가한다.
-    - **반복문:** 컴파일 시점에 Unrolling(펼치기)된다. `Define()` 안의 Go for 문은 Circuit을 컴파일할 때 실행되어 반복마다 제약을 생성한다. 반복 횟수가 컴파일 시점에 정해져 있으면 for 문을 그대로 쓰면 된다.
+    - **조건문:** `api.Select(condition, a, b)`로 대체한다. `condition`이 1이면 `a`, 0이면 `b`를 고르며, 내부적으로 `b + condition × (a − b)`로 계산해 곱셈 1개로 삽입된다. gnark v0.11.0(2024년 9월)부터 R1CS와 SCS 빌더 모두 Select 안에서 `condition`이 0 또는 1이라는 Boolean 제약을 함께 추가한다. 따라서 `condition`이 이미 Boolean으로 확인된 값이 아니면 Boolean 제약이 1개 더 붙는다.
+    - **반복문:** `Define()` 안의 Go for 문은 Circuit을 컴파일할 때 실행되어 반복마다 제약을 생성한다. 이를 Unrolling(펼치기)이라고 한다. 반복 횟수가 컴파일 시점에 정해져 있으면 for 문을 그대로 쓰면 된다. 입력에 따라 길이가 바뀌는 반복은 고정 상한과 Selector(선택자)로 바꾼다([Circuit-Based Proof](#circuit-based-proof-gnark-zokrates) 참고).
     - **입력 개수:** 입력 개수가 정해진 경우에는 고정 크기 배열을 struct 필드로 정의한다.
 
-    이는 **컴파일 시점에 모든 제약 수가 정적으로 확정되어야 한다**는 Circuit 기반 SNARK의 특성 때문이다. 결과적으로 Prover는 이 방정식 시스템을 만족하는 Witness를 알고 있음을 증명한다. Verifier는 로직을 다시 실행하지 않고, 증명과 Verifying Key(검증 키)로 페어링 등식을 확인한다.
+3. **컴파일**
+
+    `frontend.Compile()`이 Go 코드를 R1CS나 Plonkish 형식으로 변환한다. Ethereum Precompile과 호환하기 위해 주로 BN254 곡선을 쓰며, Circuit의 산술은 BN254의 스칼라체 $$\mathbb{F}_r$$(약 254비트 소수 $$r$$) 위에서 이루어진다. 곡선 방정식 $$y^2 = x^3 + 3$$은 기저체 $$\mathbb{F}_p$$ 위의 식으로, Circuit 산술이 이루어지는 스칼라체와는 다른 체다.
+
+    gnark에는 수식을 평탄화하는 별도 단계가 없다. `Define`이 실행되는 동안 `api.Mul`은 바로 R1CS 제약을 추가하고, `api.Add`는 제약을 만들지 않고 선형식으로만 남는다. 위 예제에서 두 번의 덧셈은 `AssertIsEqual`이 추가하는 등식 제약의 선형식 안에 들어간다.
 
 4. **Setup**
 
-    - **Groth16:** `groth16.Setup(cs)`로 Circuit별 Proving Key(pk)와 Verifying Key(vk)를 만든다.
-        - 이 과정에서 Toxic Waste(비밀 난수 $$\alpha, \beta, \gamma, \delta, \tau$$ 등)로 SRS(Structured Reference String)를 만든다.
-        - Toxic Waste를 아는 사람은 증명을 위조할 수 있으므로 반드시 파기해야 한다.
-        - 대규모 프로젝트에서는 MPC(Multi-Party Computation) 세레머니로 수행하며, 참여자 중 한 명만 정직하게 파기해도 안전하다.
+    - **Groth16:** `groth16.Setup(ccs)`로 Circuit별 Proving Key(pk)와 Verifying Key(vk)를 만든다. Circuit별 Trusted Setup이다.
+    - **PLONK:** `plonk.Setup(ccs, srs, srsLagrange)`처럼 Universal SRS를 인자로 넘기고, 이 Circuit의 Proving Key와 Verifying Key를 만든다. Circuit 크기가 SRS가 지원하는 최대 크기 이하이면 새 세레머니 없이 같은 SRS를 재사용한다. Circuit을 바꾸면 키는 다시 생성해야 한다.
 
-    - **PLONK:** KZG(Kate-Zaverucha-Goldberg) Polynomial Commitment 기반의 Universal SRS를 쓴다.
-        - gnark에서는 `plonk.Setup(ccs, srs, srsLagrange)`처럼 SRS를 인자로 넘긴다.
-        - Circuit마다 새 세레머니를 하지 않고 공통 SRS를 재사용한다.
-        - 다만 Circuit마다 Proving Key와 Verifying Key를 만드는 전처리는 필요하다. Circuit을 바꾸면 키를 다시 생성해야 하지만, 새 세레머니는 필요 없다.
+    두 방식의 차이는 다음과 같다(BN254 기준).
 
-    두 방식의 차이는 다음과 같다.
-
-    | 구분 | Groth16 | PLONK (gnark, BN254) |
+    | 구분 | Groth16 | PLONK |
     |---|---|---|
-    | Setup | Circuit별 | 공통 SRS 재사용 |
-    | 증명 크기 | $$\mathbb{G}_1$$ 점 2개 + $$\mathbb{G}_2$$ 점 1개 (비압축 256byte, 압축 128byte) | Solidity 직렬화 기준 768byte ($$\mathbb{G}_1$$ 점 9개 + 스칼라 6개). Commitment 커스텀 게이트를 쓰면 게이트당 96byte 추가 |
-    | 검증 | $$e(\alpha, \beta)$$를 미리 계산하면 페어링 3번 | KZG 확인 (페어링 2번 + 여러 번의 $$\mathbb{G}_1$$ 스칼라 곱) |
+    | Setup | Circuit별 Trusted Setup | Universal SRS 재사용 |
+    | 증명 크기 | $$\mathbb{G}_1$$ 점 2개 + $$\mathbb{G}_2$$ 점 1개 (비압축 256바이트, 압축 128바이트) | Solidity 직렬화 기준 768바이트 ($$\mathbb{G}_1$$ 점 9개 + 스칼라 6개). Commitment 커스텀 게이트를 쓰면 게이트당 96바이트 추가 |
+    | 검증 | Off-chain은 $$e(\alpha, \beta)$$를 미리 계산해 Pairing 3번, EVM에서는 4쌍 | KZG 확인 (Pairing 2번 + 여러 번의 $$\mathbb{G}_1$$ 스칼라 곱) |
 
 5. **증명 생성**
 
-    Prover는 실제 데이터(Assignment)로 Witness를 만들고, Proving Key와 함께 Backend에 넘긴다. gnark에서는 `frontend.NewWitness(&assignment, field)`로 Witness를 만든 뒤 `groth16.Prove(cs, pk, witness)`나 `plonk.Prove(cs, pk, witness)`를 호출한다. 이 단계의 핵심 연산은 두 가지다.
-
-    - **MSM(Multi-Scalar Multiplication):** 타원곡선 점들의 Linear Combination $$P = \sum_{i} r_i G_i$$를 계산한다. 증명 생성에서 가장 무거운 연산 중 하나이며, gnark-crypto는 Pippenger의 Bucket Method와 멀티코어 병렬화로 계산한다.
-    - **FFT(Fast Fourier Transform):** 다항식의 계수 표현과 점 표현을 변환한다. 유한체 위에서는 NTT로 계산한다.
-
-    gnark의 강점은 CPU 병렬화와 Memory 최적화를 통한 빠른 증명 생성이다. Groth16에는 GPU 가속(ICICLE)도 실험적으로 지원된다.
+    Prover는 실제 데이터(Assignment)로 Witness를 만들고, Proving Key와 함께 Backend에 넘긴다. gnark에서는 `frontend.NewWitness(&assignment, field)`로 Witness를 만든 뒤 `groth16.Prove(cs, pk, witness)`나 `plonk.Prove(cs, pk, witness)`를 호출한다. 핵심 연산은 MSM과 FFT이며, gnark-crypto는 MSM을 Pippenger의 Bucket Method와 멀티코어 병렬화로 계산한다.
 
 6. **검증**
 
-    증명은 Verifying Key와 Public Witness로 `groth16.Verify(proof, vk, publicWitness)`나 `plonk.Verify(proof, vk, publicWitness)`를 호출해 확인한다.
+    Verifier는 Verifying Key와 Public Input으로 `groth16.Verify(proof, vk, publicWitness)`나 `plonk.Verify(proof, vk, publicWitness)`를 호출한다. 로직을 다시 실행하지 않고 Pairing 등식만 확인한다.
 
-    `vk.ExportSolidity(f)`는 Verifying Key를 Solidity 컨트랙트로 자동 변환한다. 생성된 `Verifier.sol`은 Ethereum의 `ecPairing` Precompile(주소 0x08)을 호출하며, 비용은 다음과 같다.
+    On-chain 검증에는 `vk.ExportSolidity(f)`로 Verifying Key를 Solidity 컨트랙트로 변환한다. 생성된 Groth16 `Verifier.sol`은 4쌍(768바이트 입력)을 `ecPairing`에 한 번에 넘기며, 비용은 [On-chain Verification](#on-chain-verification)에서 본 대로 181,000 Gas다. Circuit이 Commitment를 쓰면 Pedersen Commitment를 확인하는 2쌍 Pairing 검사가 별도로 한 번 더 호출되어, $$34{,}000 \times 2 + 45{,}000 = 113{,}000$$ Gas가 더 든다.
 
-    - 페어링 4쌍 확인: 181,000 Gas (EIP-1108 기준)
-    - Public Input 하나당: 약 6~7천 Gas 추가
-    - 일반적인 총비용: 20만~30만 Gas
+### Full Example
 
-    ```go
-    func main() {
-        // 예시를 위해 오류 처리를 생략했다
+1~6단계를 하나로 묶으면 다음과 같다.
 
-        // 컴파일: Circuit을 R1CS로 변환
-        var circuit CubicCircuit
-        ccs, _ := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
+```go
+func main() {
+    // 예시를 위해 오류 처리를 생략했다
 
-        // Setup: Groth16 Proving Key, Verifying Key 생성
-        pk, vk, _ := groth16.Setup(ccs)
+    // 컴파일: Circuit을 R1CS로 변환
+    var circuit CubicCircuit
+    ccs, _ := frontend.Compile(ecc.BN254.ScalarField(), r1cs.NewBuilder, &circuit)
 
-        // Witness 생성: x=3 일 때 y = 3³ + 3 + 5 = 35
-        assignment := CubicCircuit{X: 3, Y: 35}
-        witness, _ := frontend.NewWitness(&assignment, ecc.BN254.ScalarField())
-        publicWitness, _ := witness.Public()
+    // Setup: Groth16 Proving Key, Verifying Key 생성
+    pk, vk, _ := groth16.Setup(ccs)
 
-        // 증명
-        proof, _ := groth16.Prove(ccs, pk, witness)
+    // Witness 생성: x=3 일 때 y = 3³ + 3 + 5 = 35
+    assignment := CubicCircuit{X: 3, Y: 35}
+    witness, _ := frontend.NewWitness(&assignment, ecc.BN254.ScalarField())
+    publicWitness, _ := witness.Public()
 
-        // 검증
-        if err := groth16.Verify(proof, vk, publicWitness); err != nil {
-            panic("증명 검증 실패!")
-        }
-        // 검증 성공: Y=35를 만족하는 X를 Prover가 알고 있음을, X를 공개하지 않고 증명
+    // 증명
+    proof, _ := groth16.Prove(ccs, pk, witness)
+
+    // 검증
+    if err := groth16.Verify(proof, vk, publicWitness); err != nil {
+        panic("증명 검증 실패!")
     }
-    ```
+    // 검증 성공: Y=35를 만족하는 X를 Prover가 알고 있음을, X를 공개하지 않고 증명
+}
+```
 
-**장점**
+### Strengths and Limitations
 
-- **빠른 증명 생성:** 하부 라이브러리 gnark-crypto가 MSM과 FFT를 저수준에서 최적화하고 병렬 처리한다.
-- **익숙한 개발 환경:** Circom 같은 전용 문법 없이 Go struct와 API로 Circuit을 설계하며, Go 테스트 프레임워크와 CI/CD를 그대로 쓴다.
-- **Ethereum 검증 지원:** Ethereum Precompile에 맞는 BN254 곡선을 지원하고, Solidity Verifier 자동 생성을 기본 제공한다.
-- **증명 시스템 선택:** 하나의 Circuit 정의로 Groth16과 PLONK를 모두 쓸 수 있다(빌더만 바꾼다). 증명이 작은 Groth16과 Universal Setup이 가능한 PLONK 중 선택할 수 있다.
+**Strengths**
 
-**한계**
+- **빠른 증명 생성:** 하부 라이브러리 gnark-crypto가 MSM과 FFT를 저수준에서 최적화하고, CPU 병렬화와 Memory 최적화로 증명을 빠르게 만든다. Groth16에는 GPU(Graphics Processing Unit) 가속(ICICLE)도 실험적으로 지원된다.
+- **익숙한 개발 환경:** 별도 DSL 문법 없이 Go struct와 API로 Circuit을 설계한다. Go의 타입 시스템, 테스트 프레임워크, CI/CD(Continuous Integration/Continuous Deployment)를 그대로 쓸 수 있다.
+- **Ethereum 검증 지원:** Ethereum Precompile이 있는 곡선(BN254, BLS12-381)에 대해 Solidity Verifier를 자동 생성한다.
+- **증명 시스템 선택:** 하나의 Circuit 정의로 Groth16과 PLONK를 모두 쓸 수 있다(빌더만 바꾼다). 증명이 작은 Groth16과 Universal SRS를 쓰는 PLONK 중 선택할 수 있다.
 
-- **제어문 변환 필요:** 조건문은 `api.Select()`로, 입력에 따라 길이가 바뀌는 반복은 상한과 Selector(선택자) 방식으로 바꿔야 한다. 제약 수를 의식한 설계가 필수다.
-- **큰 개발 부담:** EVM 전체 State Transition도 표현할 수 있지만(Linea 사례), Circuit을 직접 설계해야 하므로 개발과 감사 부담이 크다.
-- **Groth16의 운영 부담:** Groth16은 Circuit마다 Trusted Setup이 필요하다. 로직이 조금만 바뀌어도 키를 다시 생성하고 관리해야 한다. PLONK를 쓰면 공통 SRS를 재사용하므로 이 부담이 줄어든다.
+**Limitations**
 
+- **제어문 변환 필요:** 조건문은 `api.Select()`로, 입력에 따라 길이가 바뀌는 반복은 상한과 Selector 방식으로 바꿔야 한다. 제약 수를 의식한 설계가 필수다.
+- **큰 개발 부담:** Circuit을 직접 설계해야 하므로 개발과 감사 부담이 크다.
+- **Groth16의 운영 부담:** Groth16은 Circuit마다 Trusted Setup이 필요하다. 로직이 조금만 바뀌어도 키를 다시 생성하고 관리해야 한다. PLONK를 쓰면 Universal SRS를 재사용하므로 이 부담이 줄어든다.
 
-### RISC Zero와 gnark 비교
+## ZoKrates
+
+[ZoKrates](https://zokrates.github.io/)는 Ethereum을 겨냥한 zk-SNARK 툴체인이다. 자체 DSL로 계산 로직을 작성하면, CLI(Command Line Interface) 하나로 컴파일부터 Solidity Verifier 생성까지 처리한다.
+
+### Compilation
+
+컴파일러는 다음 순서로 코드를 R1CS로 바꾼다.
+1. 코드를 AST(Abstract Syntax Tree, 추상 구문 트리)로 변환한다.
+2. **Flattening(평탄화)**을 수행한다. 조건문, 반복문, 중첩 수식을 곱셈 하나씩만 포함한 기본 연산 단위로 분해하는 작업이다. gnark와 달리 별도 단계로 존재한다.
+3. 분해된 연산을 $$A \times B = C$$ 형식의 R1CS 제약으로 변환한다. 이때 변수들은 행렬의 인덱스로 매핑된다.
+
+반복문은 `for u32 i in 0..10 { ... }`처럼 반복 범위가 컴파일 시점의 상수여야 하며, 컴파일 과정에서 Unrolling된다.
+
+### Proving Schemes and Setup
+
+지원하는 증명 체계는 다음과 같다. PLONK는 지원하지 않는다. ALTBN_128은 BN254와 같은 곡선이다.
+
+| Scheme | 지원 곡선 | Universal | Backend |
+|---|---|---|---|
+| G16(Groth16) | ALTBN_128, BLS12_381 | No | bellman, ark |
+| GM17(Groth-Maller 2017) | ALTBN_128, BLS12_381, BLS12_377, BW6_761 | No | ark |
+| Marlin | ALTBN_128, BLS12_381, BLS12_377, BW6_761 | Yes | ark |
+
+[ZoKrates 문서](https://zokrates.github.io/toolbox/proving_schemes.html) 기준으로 모든 Scheme에는 Circuit별 `setup` 단계가 있다.
+
+- **G16, GM17:** Universal이 아니므로 `setup` 자체가 Circuit별 Trusted Setup이다. Toxic Waste가 생성되며, 생성 직후 반드시 파기해야 한다.
+- **Marlin:** Circuit과 무관한 `universal-setup` 단계가 따로 있고, 신뢰가 필요한 것은 이 단계뿐이다. 한 번 실행해 그 SRS가 지원하는 최대 크기 이하의 여러 프로그램에 재사용한다. 이후 Circuit별 `setup`은 새로운 비밀 값 없이 키를 만든다.
+
+### CLI Workflow
+
+[ZoKrates 문서](https://zokrates.github.io/gettingstarted.html)의 예시는 Secret Input `a`의 제곱이 Public Input `b`임을 증명한다.
+
+```zokrates
+def main(private field a, field b) {
+    assert(a * a == b);
+    return;
+}
+```
+
+```bash
+zokrates compile -i root.zok             # 컴파일 (R1CS 생성)
+zokrates setup                           # Proving Key, Verifying Key 생성
+zokrates compute-witness -a 337 113569   # Witness 생성 (a = 337, b = 113569)
+zokrates generate-proof                  # 증명 생성
+zokrates export-verifier                 # Solidity Verifier 생성
+zokrates verify                          # Off-chain 검증
+```
+
+`compute-witness`는 입력값으로 Circuit의 모든 중간 계산값을 구하고, `generate-proof`는 Proving Key와 Witness로 MSM과 FFT를 거쳐 증명을 만든다. G16 증명 크기는 BN254 기준 256바이트로 gnark의 Groth16과 같다. `export-verifier`가 만든 컨트랙트의 비용 구조는 [On-chain Verification](#on-chain-verification)과 같다.
+
+### Strengths and Limitations
+
+- **Strengths:** 전용 문법이 간결하고, 암호학 세부 구현 없이 CLI만으로 On-chain 검증까지 구성할 수 있다.
+- **Limitations:** PLONK를 지원하지 않으며, G16과 GM17은 Circuit별 Trusted Setup이 필요하다. 또 2024년 4월 이후 develop 브랜치에 새 커밋이 없다.
+
+<br />
+<br />
+
+## Comparison
+
+### zkVM vs Circuit: RISC Zero and gnark
 
 두 도구 모두 "어떤 상태에 트랜잭션 집합을 적용했더니 새 상태가 나왔다"는 **State Transition의 정당성**을 증명하는 데 쓸 수 있다. 단, 그렇게 증명하도록 Guest 프로그램이나 Circuit을 설계해야 한다.
 
@@ -186,41 +315,21 @@ gnark는 특정 연산의 증명부터 EVM 전체 State Transition까지 표현�
 | 추상화 수준 | zkVM (RISC-V RV32IM 실행 증명) | Circuit DSL (Go struct + API) |
 | 증명 시스템 | STARK + Recursion + Groth16 Wrapping (On-chain용) | Groth16, PLONK (KZG) |
 | 프로그래밍 언어 | RISC-V로 컴파일 가능한 언어 (Rust, C/C++) | Go |
-| 용도 | 임의 프로그램의 실행 증명, zkVM 기반 Rollup | 특정 기능 Circuit (Rollup, Bridge, Light Client), zkEVM Prover (Linea) |
-| 검증 로직 표현 | RISC-V Guest 코드 (반복문, 조건문 자유) | Circuit 제약 (`frontend.API`, 평탄화된 산술식) |
+| 용도 | 임의 프로그램의 실행 증명, zkVM 기반 Rollup | 특정 기능 Circuit (Rollup, Bridge, Light Client), zkEVM의 Outer Proof (Linea), zkVM 증명 Wrapping (SP1) |
+| 검증 로직 표현 | RISC-V Guest 코드 (반복문, 조건문 자유) | Circuit 제약 (`frontend.API`로 기록한 산술식) |
 | 증명 대상 | 프로그램 전체의 Execution Trace | 제약 시스템을 만족하는 Witness |
 | 암호 연산 | 가속 Circuit용 패치 크레이트 권장 | `gnark/std` 가젯 (ECDSA, EdDSA, Merkle, Keccak) |
 | On-chain 검증 | `verify(seal, imageId, journalDigest)` Solidity Verifier | `vk.ExportSolidity()`로 만든 Solidity Verifier |
 | 로직 변경 시 | Image ID 갱신 (On-chain 허용 목록 포함) | 키 재생성 (Groth16은 Circuit별 Trusted Setup도 다시) |
 | 성능 튜닝 | 명령어 수, Memory 접근, 가속 Circuit | 제약 수 최소화, 곡선과 Backend 선택 |
 
+### Loop Handling by Execution Model
 
-### ZoKrates
- 
-ZoKrates는 Ethereum을 겨냥한 zk-SNARK 툴체인으로, 자체 DSL로 산술 Circuit 설계를 추상화한다. 개발자가 ZoKrates 언어(예: `def main(private field a) -> field { return a * a; }`)로 계산 로직을 작성하면, 툴체인은 다음 순서로 처리한다.
-1. 코드를 AST(Abstract Syntax Tree, 추상 구문 트리)로 변환한다.
-2. 조건문, 반복문, 중첩 수식을 기본 연산 단위로 분해하는 Flattening을 수행한다.
-3. 분해된 연산을 $$A \times B = C$$ 형식의 R1CS 제약으로 변환한다. 이때 변수들은 행렬의 인덱스로 매핑된다.
+같은 Loop를 EVM, Trace 기반 증명, Circuit 기반 증명이 각각 어떻게 처리하는지 비교한다.
 
-**Setup** 단계에서는 R1CS Circuit으로 Proving Key와 Verifying Key를 생성한다. 지원하는 증명 체계는 다음과 같으며, Backend는 bellman과 ark다. PLONK는 지원하지 않는다.
-- **G16(Groth16):** Toxic Waste가 생성되며, 생성 직후 반드시 파기해야 한다.
-- **GM17(Groth-Maller 2017)**
-- **Marlin:** 공통 설정(`universal-setup`)을 재사용할 수 있는 범용 설정 방식이다. 다만 Circuit별 Setup 단계는 여전히 거친다.
+#### EVM
 
-**증명 생성** 단계에서는 먼저 입력값으로 Circuit의 모든 중간 계산값을 구하는 Witness 생성이 이루어진다. 이후 Proving Key와 Witness로 MSM과 FFT를 거쳐 증명을 만든다. 증명 크기는 G16 기준 수백 byte다. ZoKrates는 Verifying Key로 Solidity 검증 컨트랙트를 자동 생성하므로, 암호학 세부 구현 없이도 On-chain 검증을 구성할 수 있다.
-
-CLI(Command Line Interface) 기반 자동화로 개발은 편하지만, 제약 수는 연산 종류에 따라 크게 다르다. 해시나 비트 연산은 코드 한 줄이 많은 제약으로 늘어나고, 덧셈은 추가 제약이 거의 없다. 증명 생성의 CPU와 Memory 부담은 Prover가 지고, Verifier는 작은 증명만 확인한다. 따라서 **ZoKrates의 한계는 검증 성능이 아니라 증명 생성 비용과 Circuit을 직접 설계하는 방식에 있다.**
-
-<br />
-<br />
-
-## 실행 방식별 Loop 처리 비교
-
-같은 Loop를 EVM, Trace 기반 증명(zkEVM, zkVM), Circuit 기반 증명이 각각 어떻게 처리하는지 비교한다.
-
-### EVM
-
-EVM에서 Loop는 비교 Opcode(`LT`, `GT` 등)와 조건부 점프(`JUMPI`)의 조합이다. 아래는 `i`를 0부터 10까지 증가시키는 예시다. Stack은 오른쪽이 최상단이다.
+EVM에서 Loop는 비교 Opcode(`LT`, `GT` 등)와 조건부 점프(`JUMPI`)로 PC(Program Counter)를 옮겨 만든다. 아래는 `i`를 0부터 10까지 증가시키는 예시다. Stack은 오른쪽이 최상단이다.
 
 ```text
 0   PUSH1 0x00   [i]            i = 0
@@ -245,9 +354,9 @@ EVM에서 Loop는 비교 Opcode(`LT`, `GT` 등)와 조건부 점프(`JUMPI`)의 
 
 **Loop가 1번이든 100만 번이든, 노드는 그만큼 Opcode를 실행해야 한다.**
 
-### Trace 기반 증명 (zkEVM, zkVM)
+#### Trace-Based Proof (zkEVM)
 
-같은 Opcode를 실행하며 Execution Trace를 만든다.
+zkEVM은 같은 Opcode를 실행하며 Execution Trace를 만든다. zkVM도 같은 원리로 증명하지만, 같은 Loop를 EVM Opcode가 아니라 RISC-V 명령어 단위로 기록한다. 아래 Trace와 규칙은 zkEVM 기준이다.
 
 ```text
 trace[t]:   PC=6,  opcode=LT,     stack [i, 10, i] → [i, c]
@@ -292,25 +401,27 @@ trace[118]: PC=17, JUMPDEST                   stack=[10]
 
 - **장점:** 가변 Loop를 자연스럽게 처리한다.
 - **비용:** Trace 길이는 Loop 횟수 × Loop당 Opcode 수에 비례한다. Loop를 100만 번 돌면 Trace는 약 1,100만 행이 되어, **Prover의 증명 생성 시간이 늘어난다.**
-- **상한:** 증명 하나가 담을 수 있는 Trace 길이에는 상한이 있다. 그래서 zkVM은 긴 실행을 Segment로 나누고 Recursion으로 합친다.
+- **상한:** 증명 하나가 담을 수 있는 Trace 길이에는 상한이 있다. 그래서 긴 실행은 여러 조각으로 나누어 각각 증명하고 Recursion으로 합친다. zkVM에서는 이 조각을 RISC Zero는 Segment, SP1은 Shard라고 부른다.
 
-### Circuit 기반 증명 (gnark, ZoKrates, Circom)
+#### Circuit-Based Proof (gnark, ZoKrates)
 
-Circuit은 **고정 크기의 산술식**이다. 프로그램 전체를 컴파일 시점에 고정 크기의 R1CS나 PLONK 제약 집합으로 만들기 때문에, Loop 횟수나 리스트 길이가 바뀌면 Circuit 모양 자체가 바뀐다. 따라서 Secret Input에 따라 Loop 길이가 달라지면 Circuit 크기를 미리 정할 수 없다.
+Circuit은 **고정 크기의 산술식**이다. 프로그램 전체를 컴파일 시점에 고정 크기의 R1CS나 Plonkish 제약 집합으로 만들기 때문에, Loop 횟수나 리스트 길이가 바뀌면 Circuit 모양 자체가 바뀐다. 따라서 Secret Input에 따라 Loop 길이가 달라지면 Circuit 크기를 미리 정할 수 없다.
 
 이는 **고정 상한과 Padding**으로 우회한다. 최대 횟수(MAX)를 정해 두고, 남는 단계는 Selector로 비활성화한다.
 
 ```text
-1. 고정 Loop (Circom):
-for (var i = 0; i < 10; i++) { ... }  // 반복 횟수는 컴파일 시 상수
+1. 고정 Loop (ZoKrates):
+for u32 i in 0..10 { ... }           // 반복 횟수는 컴파일 시 상수
 
-2. 가변 Loop (Padding):
+2. 가변 Loop (Padding, 의사 코드):
 for (i = 0; i < MAX; i++) {          // MAX = 1000 (컴파일 시 상수)
-  s_i = (i < secret_N)               // Selector: 비교 Circuit으로 계산하고 Boolean 제약
+  s_i = (i < secret_N)               // Selector: 비교 Circuit으로 계산 (결과는 Boolean)
   state = s_i × 실제작업(state) + (1 − s_i) × state
 }
 ```
 
-- **필요한 제약:** 빈 자리에 0을 넣는 것만으로는 부족하다. Selector가 0 또는 1인지, 활성 단계가 앞쪽에 연속하는지, 활성 단계 수가 $$N$$인지를 함께 제약해야 한다.
+- **필요한 제약:** Selector를 만드는 방식에 따라 다르다.
+    - 위처럼 $$s_i$$를 비교 Circuit으로 계산하면, $$s_i$$는 $$i < N$$인 앞쪽 단계에서만 1이다. 그래서 "활성 단계가 앞쪽에 연속한다"와 "활성 단계 수가 $$N$$이다"라는 조건이 자동으로 성립한다.
+    - Selector를 Witness로 직접 받으면 이 조건을 따로 제약해야 한다. 빈 자리에 0을 넣는 것만으로는 부족하다. $$s_i$$가 0 또는 1인지($$s_i(1 - s_i) = 0$$), 활성 단계가 앞쪽에 연속하는지($$s_{i+1}(1 - s_i) = 0$$), 활성 단계 수가 $$N$$인지($$\sum_i s_i = N$$)를 함께 제약한다.
 - **비용:** 실제 $$N = 10$$이고 $$\text{MAX} = 1000$$이면 Circuit은 항상 1000단계 분량이다. 단계 수 기준으로 100배이며, 990단계가 무의미하게 계산된다. 증명 시간이 정확히 100배가 되는 것은 아니다.
 - **대안:** Recursion이나 Folding 기법으로 단계별 증명을 이어 붙이면 단일 고정 Circuit의 제약을 피할 수 있다.
