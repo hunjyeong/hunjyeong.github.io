@@ -1,6 +1,7 @@
 ---
 title: "RISC Zero zkVM: Architecture and Proving Process"
 date: 2026-03-27 00:01:00 +0900
+last_modified_at: 2026-11-16
 categories: [Blockchain]
 tags: [Blockchain, ZKP, zkVM, RISC Zero]
 math: true
@@ -14,11 +15,10 @@ media_subpath: /assets/img/posts/zkevm/
 > 4. [Circuit-Based SNARK Tools: gnark and ZoKrates]({% post_url Blockchain/2026-03-27-gnark-ZoKrates %})
 >
 
-이 글은 RISC Zero zkVM 2.0 이후 구조를 기준으로 하며, 수치는 2026년 11월 10일(UTC) 공개된 risc0 3.1.0 릴리스와 그 시점의 공식 문서, 소스를 확인한 값이다. 버전에 따라 달라지는 항목은 본문에 표시했다. 3.1.0 릴리스에 포함된 크레이트는 버전이 따로 매겨진다. SDK(Software Development Kit) 크레이트 `risc0-zkvm`은 3.1.0, 증명 시스템 크레이트 `risc0-zkp`와 바이너리 형식 크레이트 `risc0-binfmt`은 3.0.6, RV32IM Circuit 크레이트 `risc0-circuit-rv32im`은 4.1.0이며, 본문의 docs.rs 링크는 이 버전을 가리킨다. Solidity 컨트랙트는 별도 저장소(risc0-ethereum)의 `v3.1.0` 태그를 링크했다. dev.risczero.com 문서는 버전 경로가 없는 최신판 주소를 링크했으므로, 확인 시점(2026년 11월)의 내용을 기준으로 했다.
+이 글은 RISC Zero zkVM 2.0 이후 구조를 기준으로 하며, 수치는 2026년 11월 10일(UTC) 공개된 risc0 3.1.0 릴리스와 그 시점의 공식 문서, 소스를 확인한 값이다. 버전에 따라 달라지는 항목은 본문에 표시했다. 3.1.0 릴리스에 포함된 크레이트는 버전이 따로 매겨진다. SDK(Software Development Kit) 크레이트 `risc0-zkvm`은 3.1.0, 증명 시스템 크레이트 `risc0-zkp`와 바이너리 형식 크레이트 `risc0-binfmt`은 3.0.6, RV32IM Circuit 크레이트 `risc0-circuit-rv32im`은 4.1.0이며, 본문의 docs.rs 링크는 이 버전을 가리킨다. Solidity 컨트랙트는 별도 저장소(risc0-ethereum)의 `v3.1.0` 태그를 링크했다. dev.risczero.com 문서는 버전 경로가 없는 최신판 주소를 링크했으므로, 확인 시점(2026년 11월 16일)의 내용을 기준으로 했다. 이 시점의 최신판은 3.1 스냅샷이며, 2026년 11월 11일 문서 수정([PR #3839](https://github.com/risc0/risc0/pull/3839))으로 Bonsai와 Boundless 관련 내용이 제거된 상태다.
 
-## RISC Zero zkVM
 
-### What is RISC Zero?
+## What is RISC Zero?
 
 RISC Zero는 범용 프로그램의 실행을 ZKP(Zero-Knowledge Proof, 영지식 증명)로 검증할 수 있게 만든 zkVM(Zero-Knowledge Virtual Machine, 영지식 가상 머신)이다. 특정 연산마다 Circuit(회로)을 설계하는 대신, **RISC-V(RV32IM) CPU 자체를 증명 가능한 가상 머신으로 구현한다.** 따라서 RISC Zero가 증명하는 것은 다음 사실이다.
 
@@ -49,7 +49,7 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
 
 2.0부터 zkVM은 User 모드와 Machine 모드를 구분한다. Guest 쪽 코드는 Kernel(커널)과 User 프로그램으로 나뉘며, 둘 다 RV32IM 명령어로 실행된다. User 프로그램이 입출력이나 가속 Circuit 호출을 위해 ECALL(Environment Call)을 실행하면 zkVM이 이를 가로채 Kernel로 제어를 넘기고, Kernel이 해당 시스템 콜 핸들러로 분기한다. 핸들러는 필요하면 Host에 계산을 위임하고, 결과를 User 프로그램에 돌려준다. 명세는 zkVM이 RISC-V의 CSR(Control and Status Register) 명령을 구현하지 않으므로 일반적인 특권 모드와 User 모드가 없다고 쓰고, 다음 절에서 User 모드와 Machine 모드를 구현한다고 쓴다. 두 문장을 함께 읽으면, 이 User와 Kernel 분리는 RISC-V 표준의 CSR 기반 특권 구조가 아니라 zkVM이 따로 구현한 것으로 해석할 수 있다. 메모리는 User 영역(`0x00010000`부터 약 3GB)과 Kernel 영역(`0xC0000000`부터 약 1GB)으로 나뉘며, 그 앞의 `0x00000000~0x0000FFFF` 구간은 사용할 수 없다. 3.1.0 소스(`risc0-circuit-rv32im`의 `platform.rs`)에서 Kernel 영역은 `0xFF000000`에서 끝나며(`KERNEL_END_ADDR`), 그 뒤 구간에 레지스터가 매핑된 주소(`0xFFFF0000`부터)와 ECALL 분기 주소(`0xFFFF1000`) 등이 있다. 자세한 내용은 [zkVM Technical Specification](https://dev.risczero.com/api/zkvm/zkvm-specification)에 있다.
 
-### End-to-End Proving Process
+## End-to-End Proving Process
 
 1. **Guest 프로그램 작성**
 
@@ -127,11 +127,11 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
     | 3     | 0x0001000c | sw   x7, 0(x10) | -             | 0x00020000 | 8        |
     ```
 
-    RV32IM 명령어는 4byte이므로 분기가 없으면 PC는 4씩 증가한다. zkVM은 비정렬 주소 접근을 지원하지 않는다. 명령 코드는 4의 배수 주소에 있어야 하고, 워드(LW, SW) 접근은 4byte 정렬, 하프워드(LH, LHU, SH) 접근은 2byte 정렬이 필요하며, 바이트(LB, LBU, SB) 접근에는 정렬 제한이 없다(`risc0-circuit-rv32im`의 실행기 소스 기준). 정렬을 어기면 예외 핸들러 없이 실행이 종료된다.
+    RV32IM 명령어는 4byte이므로 분기가 없으면 PC는 4씩 증가한다. zkVM은 비정렬 주소 접근을 지원하지 않는다. 명령 코드는 4의 배수 주소에 있어야 하고, 워드(LW, SW) 접근은 4byte 정렬, 하프워드(LH, LHU, SH) 접근은 2byte 정렬이 필요하며, 바이트(LB, LBU, SB) 접근에는 정렬 제한이 없다(`risc0-circuit-rv32im`의 실행기 소스 기준). 명세는 정렬 위반 같은 예외가 발생하면 예외 핸들러를 실행하지 않고 종료한다고 쓴다. 3.1.0 소스의 동작은 조금 다르다. 실행기는 트랩 디스패치 테이블(`TRAP_DISPATCH_ADDR = 0xFFFF2000`)에서 원인별 핸들러 주소를 읽어, 그 값이 정렬된 Kernel 영역 주소이면 Machine 모드로 전환해 분기하고, 아니면 "Invalid trap address" 오류로 실행을 끝낸다. 기본 Kernel(`risc0/zkos/v1compat`. `risc0-build`의 `GuestOptions::kernel()`은 따로 지정하지 않으면 `V1COMPAT_ELF`를 쓴다)은 ECALL 분기 주소만 초기화하고 트랩 디스패치 테이블은 채우지 않으므로, 기본 Kernel에서는 결과적으로 정렬 위반 시 실행이 오류로 종료된다. 참고로 Rust 컴파일러가 비정렬 접근을 바이트 단위 명령으로 풀어 내보내는 경우는 예외가 아니며, Optimization Guide는 비정렬 `u32` 읽기가 정렬된 읽기(1 Cycle)의 12배인 12 Cycle이 든다고 적는다.
 
     **Continuations:** 실행이 길면 Trace 하나로 처리하기 어렵다. RISC Zero는 실행을 여러 **Segment**로 나누어 Trace를 만든다. Segment 크기는 `segment_limit_po2`로 정한다. po2(Power of Two)는 크기를 $$2^{n}$$ Cycle로 나타낼 때의 지수 $$n$$이다. 기본값은 $$2^{20}$$(1,048,576) Cycle이다([`risc0-circuit-rv32im`](https://docs.rs/risc0-circuit-rv32im/4.1.0/risc0_circuit_rv32im/)의 `execute::DEFAULT_SEGMENT_LIMIT_PO2 = 20`). 허용 범위는 [`risc0-zkp`](https://docs.rs/risc0-zkp/3.0.6/src/risc0_zkp/lib.rs.html)의 `MIN_CYCLES_PO2`(13)부터 `MAX_CYCLES_PO2`(24)까지다. 기본 Verifier 설정이 받아들이는 최대 Segment 크기는 이와 별도로 `risc0-zkvm`의 [`DEFAULT_MAX_PO2`](https://docs.rs/risc0-zkvm/3.1.0/risc0_zkvm/constant.DEFAULT_MAX_PO2.html)로 정해져 있으며, 3.1.0 기준 값은 22다. 각 Segment는 독립적으로 증명된 뒤 Recursion으로 합쳐진다.
 
-    실제 Cycle 수는 명령 수와 정확히 같지 않다. [Guest Optimization Guide](https://dev.risczero.com/api/zkvm/optimization) 기준으로 덧셈, 비교, 점프, 왼쪽 시프트, Load, Store는 한 Cycle이고, 비트 연산(AND, OR, XOR), 나눗셈, 나머지, 오른쪽 시프트는 두 Cycle이다. 부동소수점 명령은 구현되어 있지 않아 소프트웨어로 에뮬레이션되며 60~140 Cycle이 든다. 또한 Segment 안에서 Page를 처음 읽을 때의 Page-In, 수정한 Page를 Segment 끝에 내보내는 Page-Out에도 Cycle이 든다. Page-In은 Image ID에 대한 Merkle 포함 증명을 확인하는 해시 연산이므로 비용이 크며, 구체적인 Cycle 수는 버전에 따라 다르다.
+    실제 Cycle 수는 명령 수와 정확히 같지 않다. [Guest Optimization Guide](https://dev.risczero.com/api/zkvm/optimization) 기준으로 덧셈, 비교, 점프, 왼쪽 시프트, Load, Store는 한 Cycle이고, 비트 연산(AND, OR, XOR), 나눗셈, 나머지, 오른쪽 시프트는 두 Cycle이다. 부동소수점 명령은 구현되어 있지 않아 소프트웨어로 에뮬레이션되며 60~140 Cycle이 든다. 또한 Segment 안에서 Page를 처음 읽을 때의 Page-In, 수정한 Page를 Segment 끝에 내보내는 Page-Out에도 Cycle이 든다. Page-In은 Image ID에 대한 Merkle 포함 증명을 확인하는 해시 연산이므로 비용이 크다. 확인 시점의 Optimization Guide는 Page-In과 Page-Out 한 번에 1,094~5,130 Cycle, 평균 1,130 Cycle이 든다고 적는다. Segment의 첫 Page-In은 Merkle Root(Image ID)까지 경로를 모두 해시하므로 5,130 Cycle이 들고, 한 번 검증된 경로는 다시 해시하지 않으므로 이후에는 대부분 Page 하나만 해시한다. 마지막 Segment는 이어질 실행이 없어 Page-Out을 하지 않는다. 이 문서는 버전 경로가 없으므로 수치는 확인 시점 기준이다.
 
 4. **Arithmetization**
 
@@ -149,7 +149,7 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
     - **Memory 제약:** 어떤 주소에서 읽은 값은 그 주소에 마지막으로 쓴 값과 같아야 한다. Memory 접근 기록을 주소와 시각 순으로 정렬한 기록이 원래 기록의 Permutation(순열)임을 위의 Permutation 논증으로 확인한다.
     - **디코딩과 범위 제약:** 명령 워드가 유효한 RV32IM 명령으로 디코딩되어야 한다. BabyBear Field의 원소는 $$2^{31}$$보다 작아 32bit 값 하나를 담을 수 없으므로, RISC Zero는 32bit 워드를 16bit 하프워드 두 개로 나누어 표현하고 각 하프워드가 16bit 범위 안에 있는지 제약한다. [3.1.0](https://github.com/risc0/risc0/releases/tag/v3.1.0)에서 고친 결함 중에는 Host가 `sys_read`로 넘긴 워드에 이 범위 검사가 빠져 있던 문제도 있다.
 
-    실행 시작 위치에 대한 제약이 부족하면 어떤 일이 생기는지 보여주는 사례가 있다. [3.1.0](https://github.com/risc0/risc0/releases/tag/v3.1.0) 이전의 RV32IM Circuit은 Trace 안에 실행 시작 행(`isFirstCycle`)이 몇 개 있어도 되도록 두었다. Memory 논증은 주소, 시각, 값만으로 접근을 식별하므로, 악의적인 Prover가 한 Trace에 두 실행을 넣고 한 실행의 읽기가 다른 실행의 쓰기 값을 돌려받게 만들 수 있었다. 3.1.0은 Trace 길이를 공개 값(`totalCycles`)으로 두고, 모든 시작 행 직전 행이 Trace의 마지막 행이어야 한다는 제약을 추가해 Trace가 정확히 하나의 실행만 담도록 고쳤다.
+    실행 시작 위치에 대한 제약이 부족하면 어떤 일이 생기는지 보여주는 사례가 있다. [3.1.0](https://github.com/risc0/risc0/releases/tag/v3.1.0) 이전의 RV32IM Circuit은 Trace 안에 실행 시작 행(`isFirstCycle`)이 몇 개 있어도 되도록 두었다. Memory 논증은 주소, 시각, 값만으로 접근을 식별하므로, 악의적인 Prover가 한 Trace에 두 실행을 넣고 한 실행의 읽기가 다른 실행의 쓰기 값을 돌려받게 만들 수 있었다. 3.1.0은 Trace 길이를 공개 값(`totalCycles`)으로 두고, 모든 시작 행 직전 행이 Trace의 마지막 행이어야 한다는 제약을 추가해 Trace가 정확히 하나의 실행만 담도록 고쳤다. Verifier는 이 공개 값을 증명 크기($$2^{po2}$$)와 대조한다. 이 수정으로 RV32IM Seal 형식 버전(`RV32IM_SEAL_VERSION`)은 3이 되었다(`totalCycles`와 Seal 버전은 릴리스 페이지가 아니라 릴리스 PR #3831에 적혀 있다).
 
 5. **STARK 증명, Recursion, Wrapping**
 
@@ -157,9 +157,9 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
 
     - **Fiat-Shamir 변환:** STARK의 바탕인 IOP(Interactive Oracle Proof)는 Verifier가 무작위 값을 보내는 대화형 프로토콜이다. RISC Zero는 Fiat-Shamir 변환으로 지금까지의 커밋(Merkle Root)을 해시해 무작위 값을 만든다. 따라서 Prover 혼자 증명을 만들 수 있고, Verifier는 같은 해시를 다시 계산해 Permutation 논증의 무작위 값과 아래 FRI의 조회 위치를 재현한다.
 
-    - **FRI:** Prover는 FRI(Fast Reed-Solomon Interactive Oracle Proof of Proximity)로 커밋한 값이 낮은 차수의 다항식에 가깝다는 것을 증명한다. FRI는 다항식을 반복해서 Folding(접기)하여 차수를 줄인다. 일반적인 설명에서는 한 번에 차수를 절반으로 줄이며, RISC Zero는 한 번에 16배씩 접어(`FRI_FOLD = 16`) 차수가 `FRI_MIN_DEGREE`(256)에 도달할 때까지 반복한다. Verifier는 Fiat-Shamir로 정해진 무작위 위치 50곳(`QUERIES`)에서 커밋된 값을 Merkle 경로와 함께 확인한다. 상수는 [risc0-zkp 소스](https://docs.rs/risc0-zkp/3.0.6/src/risc0_zkp/lib.rs.html)에서 확인할 수 있으며, 소스 주석은 이 설정이 97bit의 Conjectured(추정) 보안 수준을 목표로 한다고 밝힌다. 이 수치는 Segment 크기에 따라 달라진다. [`DEFAULT_MAX_PO2` 문서](https://docs.rs/risc0-zkvm/3.1.0/risc0_zkvm/constant.DEFAULT_MAX_PO2.html)는 po2 21까지 97bit이고, 21을 넘으면 po2당 1bit씩 낮아져 24에서 94bit라고 설명한다. 같은 문서는 기본값으로 21을 골랐다고 쓰지만, 3.1.0 코드의 실제 값은 22다. 문서의 설명대로라면 기본 설정이 받아들이는 최대 크기(po2 22)의 보안 수준은 96bit가 된다.
+    - **FRI:** Prover는 FRI(Fast Reed-Solomon Interactive Oracle Proof of Proximity)로 커밋한 값이 낮은 차수의 다항식에 가깝다는 것을 증명한다. FRI는 다항식을 반복해서 Folding(접기)하여 차수를 줄인다. 일반적인 설명에서는 한 번에 차수를 절반으로 줄이며, RISC Zero는 한 번에 16배씩 접어(`FRI_FOLD = 16`) 차수가 `FRI_MIN_DEGREE`(256)에 도달할 때까지 반복한다. Verifier는 Fiat-Shamir로 정해진 무작위 위치 50곳(`QUERIES`)에서 커밋된 값을 Merkle 경로와 함께 확인한다. 상수는 [risc0-zkp 소스](https://docs.rs/risc0-zkp/3.0.6/src/risc0_zkp/lib.rs.html)에서 확인할 수 있으며, 소스 주석은 이 설정이 97bit의 Conjectured(추정) 보안 수준을 목표로 한다고 밝힌다. 이 수치는 Segment 크기에 따라 달라진다. [`DEFAULT_MAX_PO2` 문서](https://docs.rs/risc0-zkvm/3.1.0/risc0_zkvm/constant.DEFAULT_MAX_PO2.html)는 po2 21까지 97bit이고, 21을 넘으면 po2당 1bit씩 낮아져 24에서 94bit라고 설명한다. 같은 문서는 기본값으로 21을 골랐다고 쓰지만, 3.1.0 코드의 실제 값은 22다. 문서의 설명대로라면 기본 설정이 받아들이는 최대 크기(po2 22)의 보안 수준은 96bit가 된다. [ETHBEAT의 ZK Catalog](https://ethbeat.org/zk-catalog/risc0)도 RISC Zero On-chain Verifier의 보안 목표를 96bit로 적고 있어 이 계산과 일치한다.
 
-    - **병렬 증명:** 각 Segment의 STARK 증명은 독립적이므로 GPU 가속이나 Boundless 같은 분산 증명 시장에서 병렬로 생성할 수 있다. [Boundless 문서](https://docs.boundless.network/developers/tutorials/bonsai)에 따르면 RISC Zero가 운영하던 중앙화된 증명 서비스 Bonsai는 2025년 12월 기준으로 종료되었고, 원격 증명은 Boundless로 대체되었다.
+    - **병렬 증명:** 각 Segment의 STARK 증명은 독립적이므로 여러 GPU나 여러 장비에서 병렬로 생성할 수 있다. 원격 증명 서비스는 2026년 11월 기준으로 공식 경로가 없다. [Boundless 문서](https://docs.boundless.network/developers/tutorials/bonsai)에 따르면 RISC Zero가 운영하던 중앙화된 증명 서비스 Bonsai는 2025년 12월에 종료되었고 Boundless가 그 대체로 안내되었다. 그러나 Boundless Foundation은 2026년 11월 3일 [공지](https://boundless.network/blog/zkc-introducing-tokenized-ai-inference)에서 ZK 증명 운영을 무기한 중단한다고 밝혔고, 2026년 11월 5일부터 새 증명 요청 접수와 증명 보상 청구를 끝냈다. RISC Zero 문서 저장소는 2026년 11월 11일 [PR #3839](https://github.com/risc0/risc0/pull/3839)에서 Boundless 증명이 종료되었다고 적고, Remote Proving 페이지를 삭제하고 Proving options와 Local proving 문서를 dev-mode와 로컬 증명만 다루도록 바꿨다. 같은 날 risc0-ethereum [PR #748](https://github.com/risc0/risc0-ethereum/pull/748)은 Boundless 문서가 증명 집계에 쓴다고 설명하는 `RiscZeroSetVerifier`의 0.9.0을 Emergency Stop 처리하고 Set aggregation이 deprecated라고 적었다.
 
     - **Recursion:** RISC Zero zkVM은 세 가지 Circuit으로 구성된다. RISC-V 실행을 증명하는 RISC-V Circuit, STARK 증명 검증에 특화된 별도의 STARK Circuit인 Recursion Circuit, 그리고 Recursion Circuit의 증명을 검증하는 **STARK-to-SNARK Circuit**이다. SNARK는 Succinct Non-interactive Argument of Knowledge의 줄임말이다. STARK-to-SNARK Circuit은 R1CS(Rank-1 Constraint System) Circuit 작성 언어인 Circom으로 작성되어 있다. 문서에 따라 Groth16 Circuit이라고도 부르며 소스 파일은 `stark_verify.circom`이다. 이 글에서는 STARK-to-SNARK Circuit으로 부른다. 공식 순서는 다음과 같다. 각 Segment 증명을 `lift`로 Recursion Circuit용 증명인 Succinct Receipt로 변환하고, `join`으로 둘씩 합치는 과정을 하나가 남을 때까지 반복한다. 마지막 Succinct Receipt는 `identity_p254`를 거친다. `identity_p254`는 Poseidon254 해시 함수를 쓰는 Recursion Prover로 증명을 다시 검증하는 단계로, Groth16 Prover 실행 직전에 수행된다. Succinct Receipt는 실행 길이와 무관한 상수 크기이며 약 200kB다. 자세한 내용은 [Recursive Proving 문서](https://dev.risczero.com/api/recursion)에 있다.
 
@@ -167,7 +167,7 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
 
         모든 Recursion 프로그램은 출력의 첫 칸에 허용된 Recursion 프로그램 목록의 Merkle Root인 **Control Root**를 기록한다. 그중 Recursion 증명을 입력으로 받는 프로그램(`join`, `resolve`, `identity_p254` 등)은 입력 증명을 만든 프로그램이 이 목록에 속하는지 확인한다. STARK-to-SNARK Circuit은 마지막 `identity_p254` 증명을 검증하고, 그 출력의 Control Root와 Claim Digest를 공개 입력으로 내놓는다. `identity_p254` 프로그램을 식별하는 **BN254 Control ID**도 공개 입력이다. On-chain Verifier는 배포할 때 고정한 Control Root와 BN254 Control ID를 공개 입력으로 넣어 검증하므로, 다른 목록으로 만든 증명은 통과하지 못한다.
 
-        STARK-to-SNARK Circuit에는 Trusted Setup이 필요하다. 3.1.0 이전 Circuit에 대해서는 PSE(Privacy and Scaling Explorations)의 p0tion 도구로 공개 세레머니를 진행했다. 진행 시기는 문서에 날짜가 없어, 기여 증명 Gist의 날짜로 보아 2024년 4월경으로 추정된다. [ETHBEAT(구 L2BEAT)의 ZK Catalog](https://ethbeat.org/zk-catalog/risc0)는 이 기존 세레머니의 Phase 2 참여자를 238명으로 집계한다. 검증 절차는 [Trusted Setup Security 문서](https://dev.risczero.com/api/trusted-setup-ceremony)에 있지만, 2026년 11월 16일 기준으로 이 문서는 기존 세레머니(Circom v2.2.2)만 설명한다. 3.1.0에서는 Circuit 수정에 따라 새 Trusted Setup(2026-10-20.1)과 새 Verifying Key를 적용했다. 릴리스 노트에는 새 Setup의 절차나 참여자 수가 적혀 있지 않다.
+        STARK-to-SNARK Circuit에는 Trusted Setup이 필요하다. 3.1.0 이전 Circuit에 대해서는 PSE(Privacy and Scaling Explorations)의 p0tion 도구로 공개 세레머니를 진행했다. 진행 시기는 문서에 날짜가 없어, 기여 증명 Gist의 날짜로 보아 2024년 4월경으로 추정된다. [ETHBEAT(구 L2BEAT)의 ZK Catalog](https://ethbeat.org/zk-catalog/risc0)는 이 기존 세레머니의 Phase 2 참여자를 238명으로 집계한다. 검증 절차는 [Trusted Setup Security 문서](https://dev.risczero.com/api/trusted-setup-ceremony)에 있지만, 2026년 11월 16일 기준으로 이 문서는 기존 세레머니(Circom v2.2.2)만 설명한다. 3.1.0에서는 Circuit 수정(출력 limb의 범위 검사 추가, Poseidon254 S-box 수정)에 따라 새 Trusted Setup(2026-10-20.1)과 새 Verifying Key(`risc0-groth16` 3.0.6)를 적용했다. 릴리스 페이지에는 새 Setup의 절차가 없지만, 릴리스 PR [#3831](https://github.com/risc0/risc0/pull/3831)은 새 Setup이 PSE의 `ppot_0080_23` Powers of Tau 위에서 수행한 **단일 참여자(single-party) Phase 2**이며, `snarkjs zkey verify`로 검증했고 transcript를 `groth16_proof/groth16/zkey_verify_2026-10-20.1.txt`에 두었다고 적는다. 즉 기존 세레머니는 참여자 238명의 공개 Phase 2였지만, 3.1.0 Verifier가 쓰는 Setup은 Phase 2 참여자가 RISC Zero 한 곳이다. Phase 2 참여자가 하나이면 그 참여자가 toxic waste를 폐기했다는 것을 외부에서 검증할 수 없으므로, 3.1.0 Groth16 Receipt의 건전성은 이 점에서 RISC Zero를 신뢰하는 데 기댄다.
 
     최종 [Receipt](https://docs.rs/risc0-zkvm/3.1.0/risc0_zkvm/struct.Receipt.html)는 다음 구조다. Seal은 최상위 필드가 아니라 `inner` 안에 들어 있다.
 
@@ -204,7 +204,7 @@ RISC Zero zkVM은 증명 대상과 실행 관리자를 분리한다.
         2. `ReceiptClaimLib.ok(imageId, journalDigest)`로 검증할 Claim을 재구성한다. `ok`는 종료 상태를 정상 종료(`Halted(0)`)로 고정한 Claim을 만든다. 따라서 On-chain `verify`도 Off-chain `receipt.verify`처럼 정상 종료한 실행의 증명만 받아들인다.
         3. Groth16 증명을 검증한다. 공개 입력은 Control Root, Claim Digest, BN254 Control ID다.
 
-    On-chain Verifier는 STARK를 직접 검증하지 않고 Groth16으로 감싼 증명을 검증한다. 따라서 **검증 비용은 원래 계산의 크기와 관계없이 일정하다.** 이 글에서 확인한 Verifier Contracts 문서와 3.1.0 릴리스 노트에는 구체적인 Gas 수치가 없으며, 실제 비용은 배포 버전과 체인에 따라 다르다. RISC Zero는 여러 버전의 Verifier를 하나의 주소 뒤에 두고 Selector로 분기하는 `RiscZeroVerifierRouter`를 운영한다. Router를 거쳐 호출하면 Selector가 등록되지 않았거나 제거된 경우 `SelectorMismatch` 대신 `SelectorUnknown` 또는 `SelectorRemoved`로 revert한다. 3.1.0에서는 새 `RiscZeroGroth16Verifier`(Selector `0xe71e6620`)가 Router에 추가되었고, 이전 Verifier(2.2.0, 3.0.0)는 유예 기간 뒤 Emergency Stop 처리될 예정이다. 컨트랙트 사용법은 [Verifier Contracts 문서](https://dev.risczero.com/api/blockchain-integration/contracts/verifier)에 있다.
+    On-chain Verifier는 STARK를 직접 검증하지 않고 Groth16으로 감싼 증명을 검증한다. 따라서 **검증 비용은 원래 계산의 크기와 관계없이 일정하다.** 이 글에서 확인한 Verifier Contracts 문서와 3.1.0 릴리스 노트에는 구체적인 Gas 수치가 없으며, 실제 비용은 배포 버전과 체인에 따라 다르다. RISC Zero는 여러 버전의 Verifier를 하나의 주소 뒤에 두고 Selector로 분기하는 `RiscZeroVerifierRouter`를 운영한다. Router를 거쳐 호출하면 Selector가 등록되지 않았거나 제거된 경우 `SelectorMismatch` 대신 `SelectorUnknown` 또는 `SelectorRemoved`로 revert한다. 3.1.0에서는 새 `RiscZeroGroth16Verifier`(Selector `0xe71e6620`)가 Router에 추가되었고, 이전 Verifier(2.2.0, 3.0.0)는 유예 기간 뒤 Emergency Stop 처리될 예정이다. 버전 이름이 3.1.0인 Groth16 Verifier는 두 개가 배포되었다는 점에 주의해야 한다. risc0-ethereum v3.1.0의 [`deployment.toml`](https://github.com/risc0/risc0-ethereum/blob/v3.1.0/contracts/deployment.toml)에는 Selector `0x8b38038c`와 `0xe71e6620`이 모두 `version = "3.1.0"`으로 기록되어 있다. [PR #748](https://github.com/risc0/risc0-ethereum/pull/748)에 따르면 `0x8b38038c`는 Trace에 실행이 하나만 담기도록 고치기 전의 첫 3.1 Circuit용으로 14개 체인에 배포된 것으로, `0xe71e6620`으로 대체되어 Emergency Stop 처리되었고, 릴리스된 어떤 `risc0-zkvm` 버전도 이 Selector용 Receipt를 만들지 않는다. 유효한 3.1.0 Verifier는 `0xe71e6620` 하나다. 컨트랙트 사용법은 [Verifier Contracts 문서](https://dev.risczero.com/api/blockchain-integration/contracts/verifier)에 있다.
 
 ### 트랜잭션 검증 로직의 동작 원리
 
@@ -227,12 +227,12 @@ Revert된 트랜잭션까지 `panic!`으로 처리하면 유효한 블록을 증
 - **규칙 변경에 강함:** 트랜잭션 형식이나 수수료 규칙이 바뀌어도 Guest 코드만 수정해 다시 컴파일하면 된다. 이때 Image ID가 바뀌므로 On-chain 컨트랙트 등 검증 쪽의 허용 Image ID도 갱신해야 업그레이드가 끝난다.
 - **일반 제어문 사용:** 반복문과 조건문을 일반 코드처럼 쓸 수 있다. 증명 비용은 실제 실행한 Cycle 수와 Segment 수에 비례한다. 다만 각 Segment는 2의 거듭제곱 크기로 맞춰지므로, 비용은 Cycle 수에 정확히 비례하기보다 계단식으로 늘어난다.
 - **일정한 On-chain 검증 비용:** On-chain에서는 `verify(seal, imageId, journalDigest)` 하나로, 계산 크기와 관계없이 일정한 비용으로 배치 실행 결과를 확정할 수 있다. 배치 데이터를 L1(Layer 1, 예: Ethereum)에 게시하는 비용은 별도다.
-- **Trusted Setup 부담이 작음:** STARK 단계에는 Trusted Setup이 필요 없다. STARK-to-SNARK Circuit에는 필요하지만, Guest를 바꿀 때마다 다시 할 필요는 없다. 이 Circuit은 허용된 Recursion 프로그램 목록을 Control Root라는 공개 입력으로 받으므로, RISC-V Circuit이나 Recursion 프로그램이 바뀌어도 Control Root만 갱신하면 되고 새 Trusted Setup은 필요 없다. 다만 STARK-to-SNARK Circuit 자체가 바뀌면 새 Setup이 필요하다. 3.1.0에서 이 Circuit의 범위 검사와 Poseidon254 S-box를 수정하면서 새 Setup을 수행한 것이 그 예다.
+- **Trusted Setup 부담이 작음:** STARK 단계에는 Trusted Setup이 필요 없다. STARK-to-SNARK Circuit에는 필요하지만, Guest를 바꿀 때마다 다시 할 필요는 없다. 이 Circuit은 허용된 Recursion 프로그램 목록을 Control Root라는 공개 입력으로 받으므로, RISC-V Circuit이나 Recursion 프로그램이 바뀌어도 Control Root만 갱신하면 되고 새 Trusted Setup은 필요 없다. 다만 STARK-to-SNARK Circuit 자체가 바뀌면 새 Setup이 필요하다. 3.1.0에서 이 Circuit의 범위 검사와 Poseidon254 S-box를 수정하면서 새 Setup을 수행한 것이 그 예이며, 앞서 본 대로 이 새 Setup은 단일 참여자 Phase 2다.
 
 **한계**
 
 - **명령어 단위 오버헤드:** 명령어 단위로 증명하므로 특정 연산에 맞춘 전용 Circuit보다 증명 오버헤드가 크다.
-- **높은 증명 비용:** 네이티브 실행보다 증명 비용이 크게 늘어난다. 그 배수는 작업량, 가속 Circuit 사용 여부, 장비에 따라 다르다. 블록 시간 안에 증명하려면 GPU 같은 고성능 장비나 Boundless 같은 증명 시장이 필요하다.
+- **높은 증명 비용:** 네이티브 실행보다 증명 비용이 크게 늘어난다. 그 배수는 작업량, 가속 Circuit 사용 여부, 장비에 따라 다르다. 블록 시간 안에 증명하려면 GPU 같은 고성능 장비를 직접 운영해야 한다. 2026년 11월 기준으로 Bonsai는 종료되고 Boundless는 증명 운영을 무기한 중단해, RISC Zero가 안내하는 원격 증명 경로는 없다.
 - **작은 연산에서의 고정 비용:** 단순 송금처럼 연산량이 매우 적은 경우, Segment 최소 크기, Recursion, Wrapping 같은 고정 비용 때문에 해당 연산에 특화된 작은 Circuit보다 비용이 더 들 수 있다.
 - **짧은 블록 시간에서의 한계:** 블록 시간이 매우 짧은 체인에서는 블록 시간 안에 증명을 생성하기 어렵다.
-- **증명 시스템 자체의 취약점:** [3.1.0](https://github.com/risc0/risc0/releases/tag/v3.1.0)은 Groth16 Receipt의 Claim을 바꿔치기할 수 있는 결함을 포함해 여러 건전성 문제를 고쳤고, 이전 버전으로 만든 Receipt는 3.1.0에서 검증되지 않는다. zkVM을 쓰는 시스템은 Verifier 버전 관리와 Receipt 재생성 계획을 갖춰야 한다.
+- **증명 시스템 자체의 취약점:** [3.1.0](https://github.com/risc0/risc0/releases/tag/v3.1.0)은 Groth16 Receipt의 Claim을 바꿔치기할 수 있는 결함을 포함해 여러 건전성 문제를 고쳤다. Poseidon254의 S-box가 $$x^8$$이어서 $$\gcd(8, r-1) \neq 1$$이라 순열이 아니었던 문제도 그중 하나로, $$x^7$$로 바뀌었다. RV32IM과 Recursion Circuit이 모두 재생성되어 Seal 형식, Circuit 식별자, Control Root가 바뀌었으므로, 이전 버전으로 만든 Receipt는 3.1.0에서 검증되지 않고 3.1.0 Receipt도 이전 버전에서 검증되지 않는다. 영향받는 크레이트의 이전 버전은 유예 후 crates.io에서 yank될 예정이다. zkVM을 쓰는 시스템은 Verifier 버전 관리와 Receipt 재생성 계획을 갖춰야 한다.

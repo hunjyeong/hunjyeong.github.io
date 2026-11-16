@@ -1,6 +1,7 @@
 ---
 title: "EVM, zkEVM, zkVM: Execution and Verification"
 date: 2026-03-27 00:00:00 +0900
+last_modified_at: 2026-11-16
 categories: [Blockchain]
 tags: [Blockchain, Ethereum, EVM, zkEVM, zkVM]
 math: true
@@ -382,7 +383,7 @@ Prover는 실제 실행 과정을 기록한 Execution Trace(실행 기록)를 �
 
     - **Recursion(재귀 증명)과 Aggregation(집계):** 증명을 검증하는 계산을 다시 증명하거나, 여러 증명을 하나로 합친다.
 
-    - **Wrapping:** 최종적으로는 L1에서 적은 비용으로 검증할 수 있도록, 작은 크기의 SNARK(Succinct Non-interactive Argument of Knowledge, 예: Groth16)로 감싸는 구성이 흔하다.
+    - **Wrapping:** 최종적으로는 L1 Verifier 컨트랙트에서 적은 비용으로 검증할 수 있도록, 작은 크기의 SNARK(Succinct Non-interactive Argument of Knowledge, 예: Groth16)로 감싸는 구성이 흔하다. 이는 L2 Rollup 기준이며, EF의 L1 zkEVM 기준은 Trusted Setup을 배제한다(Cost Structure and Constraints 참고).
 
     증명이 보장하는 내용은 다음과 같다.
 
@@ -427,7 +428,7 @@ Re-execution 방식에서는 검증하는 모든 노드가 같은 계산을 반�
 
 **같은 연산이라도 증명 생성은 Re-execution보다 훨씬 느리고 비싸다.** EVM 로직을 제약식으로 표현하면 Execution Trace가 커지고, Trace의 행 수는 실행 스텝 수에 비례해 늘어난다. 증명 생성이 실행보다 몇 배 비싼지는 증명 시스템, 하드웨어, 작업량에 따라 크게 다르다.
 
-Ethereum Foundation(EF)은 2025년 7월 L1용 Real-Time Proving(실시간 증명) 기준을 [제시했다](https://blog.ethereum.org/2025/07/10/realtime-proving). 기준은 Mainnet 블록의 99%(P99)를 10초 안에 증명하고, 장비 비용(On-prem CAPEX) 10만 달러 이하와 전력 10kW 이하를 지키는 것이다. 보안 수준(128bit), 증명 크기(300KiB 이하), 코드 공개도 기준에 포함된다. EF는 2025년 12월 18일 이 기준의 성능 목표가 달성되었다고 발표했다. 다만 이는 Ethproofs의 Off-chain 벤치마크 결과이며, Mainnet 검증에 쓰이는 것은 아니다.
+Ethereum Foundation(EF)은 2025년 7월 L1용 Real-Time Proving(실시간 증명) 기준을 [제시했다](https://blog.ethereum.org/2025/07/10/realtime-proving). 기준은 Mainnet 블록의 99%(P99)를 10초 안에 증명하고, 장비 비용(On-prem CAPEX) 10만 달러 이하와 전력 10kW 이하를 지키는 것이다. 보안 수준(128bit, 초기에는 100bit 허용), 증명 크기(300KiB 이하, Trusted Setup 없이), 코드 공개도 기준에 포함된다. EF는 2025년 12월 18일 이 기준의 성능 목표가 달성되었다고 발표했다. 다만 이는 Ethproofs의 Off-chain 벤치마크 결과이며, Mainnet 검증에 쓰이는 것은 아니다.
 
 Gas 비용과 증명 비용은 일치하지 않는다. Keccak-256 해시나 ECDSA 서명 검증(`ecrecover`)처럼 제약식으로 표현하기 무거운 연산이 많은 트랜잭션은 **Gas는 싸지만 증명은 매우 비싸다.** 이런 트랜잭션을 Prover Killer라고 부른다.
 
@@ -454,7 +455,7 @@ _출처: [https://zkevm.ethereum.foundation/blog/zkevm-security-overview](https:
 
 첫 단계로 제안된 [EIP-8025(Optional Execution Proofs)](https://eips.ethereum.org/EIPS/eip-8025)는 Draft 상태다. 이 제안은 Beacon Node가 Execution Client를 실행하지 않고 증명을 검증해 Execution Payload의 유효성을 판단하게 한다. 증명은 Consensus Layer의 P2P(Peer-to-Peer) 네트워크로 전달된다. 참여를 원하는 노드만 증명을 만들거나 검증하는 선택 사항이므로, 이 기능을 전제로 한 Protocol 변경(예: 증명을 전제로 한 Gas Limit 상향)은 할 수 없다.
 
-EIP-8025는 Glamsterdam 다음 Hard Fork인 Hegotá의 포함 대상으로 제안되었다. 그러나 2026년 10월 15일 ACDC(All Core Devs Consensus) #189에서 Consensus Layer 쪽 합의가 충분히 모이지 않아 DFI(Declined for Inclusion, 포함 거절)로 결정되었다.
+EIP-8025는 2026년 5월 14일 ACDC(All Core Devs Consensus) #178에서 Glamsterdam 다음 Hard Fork인 Hegotá의 포함 대상(PFI, Proposed for Inclusion)으로 제안되었다. 그러나 2026년 10월 15일 ACDC #189에서 Consensus Layer 쪽 합의가 충분히 모이지 않아 DFI(Declined for Inclusion, 포함 거절)로 결정되었다.
 
 **Multiproofs 전략**
 
@@ -462,7 +463,7 @@ EIP-8025는 Glamsterdam 다음 Hard Fork인 Hegotá의 포함 대상으로 제�
 
 단일 증명 시스템이나 단일 신뢰 기반에 의존할 때의 위험은 L2에서 실제로 드러났다.
 - **Scroll:** OpenVM 전환 직후 OpenVM v1.0.0의 `auipc` Opcode Circuit에서 Soundness(건전성) 버그가 발견되어, 2025년 4월 25일 긴급 업그레이드를 했다. 당시 Sequencer와 Prover를 모두 Scroll이 운영하고 있어 제3자가 악용할 수는 없었다.
-- **Taiko:** SGX Enclave 서명 개인키가 공개 GitHub 저장소에 올라가 있었다. 공격자는 이 키로 DEBUG 모드 Enclave에 서명한 뒤 위조 증명을 만들었고, 2026년 6월 21~22일 Bridge에서 약 170만 달러를 탈취했다. 이 사고는 zkVM이 아니라 TEE 증명 쪽에서 일어났다. 증명 종류가 여러 개여도 모든 SGX 증명이 같은 서명 키에 의존하면 다양성이 없다는 사례다.
+- **Taiko:** SGX Enclave 서명 개인키가 공개 GitHub 저장소에 올라가 있었다. 공격자는 이 키로 DEBUG 모드 Enclave에 서명한 뒤 위조 증명을 만들었고, 2026년 6월 21~22일 Bridge에서 약 170만 달러를 탈취했다. 이 사고는 zkVM이 아니라 TEE 증명 쪽에서 일어났다. 증명 종류가 여러 개여도 모든 SGX 증명이 같은 서명 키에 의존하면 다양성이 없다는 사례다. Taiko는 2026년 8월 6일 Unzen 업그레이드로 모든 블록에 ZK 증명(SP1 또는 RISC Zero) 하나 이상을 필수로 바꿨다.
 
 **L1에서의 추가 위험**
 
@@ -529,16 +530,16 @@ Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 
 
     - **STARK 증명:** 각 Segment에 대해 STARK 기반 증명을 생성한다. STARK는 Trusted Setup이 필요 없고 대형 Trace 처리에 유리하다.
     - **Recursion:** Segment별 증명을 Recursion으로 결합해 하나의 증명으로 합친다.
-    - **Wrapping:** L1 On-chain 검증 비용을 줄이기 위해, 크기가 작고 고정된 SNARK 증명(예: Groth16)으로 감싼다.
+    - **Wrapping:** L2 Rollup처럼 L1 Verifier 컨트랙트에서 검증할 때는 On-chain 검증 비용을 줄이기 위해, 크기가 작고 고정된 SNARK 증명(예: Groth16)으로 감싼다. EF의 L1 zkEVM 기준은 Trusted Setup을 배제하므로 이 단계가 없고, 최종 증명 자체가 300KiB 이하여야 한다.
 
 3. **Verification**
 
     Verifier(Off-chain 프로그램 또는 스마트 컨트랙트)는 프로그램을 다시 실행하지 않고 증명의 타당성만 수학적으로 확인한다.
-    RISC Zero를 예로 들면 증명 결과물은 Receipt라고 부르며, 세 요소로 이루어진다. 이 Receipt는 Ethereum의 트랜잭션 Receipt와 이름만 같고 다른 개념이다.
+    RISC Zero를 예로 들면 증명 결과물은 Receipt라고 부르며, Journal과 Seal로 이루어진다. 이 Receipt는 Ethereum의 트랜잭션 Receipt와 이름만 같고 다른 개념이다.
 
-    - **Image ID:** 실행한 프로그램을 식별하는 값
     - **Journal:** 프로그램이 공개한 출력
     - **Seal:** 증명
+    - **Image ID:** 실행한 프로그램을 식별하는 값. Receipt에 들어 있지 않고 Verifier가 외부에서 제공한다(`receipt.verify(IMAGE_ID)`). Verifier는 제공된 Image ID와 Journal의 Hash로 기대 Claim을 구성해, Seal이 증명하는 Claim과 일치하는지 대조한다.
 
     Verifier는 Seal이 "Image ID에 해당하는 프로그램을 실행해 이 Journal을 출력했다"는 사실을 증명하는지 확인한다. **입력은 기본적으로 비공개다.** 공개하려는 입력은 프로그램이 Journal에 직접 기록해야 한다.
 
@@ -657,7 +658,7 @@ $$
 - **프로그램 고정:** CPU Table이 읽는 명령어 열은 증명 대상 프로그램의 바이트코드와 일치해야 한다. 구현에 따라 프로그램을 고정 Table로 Commit해 Lookup으로 연결하거나(SP1), 프로그램을 초기 Memory 이미지로 고정한다(RISC Zero의 Image ID는 이 초기 Memory 이미지에서 계산한 값이다). 어느 쪽이든 증명은 특정 프로그램에 묶인다.
 - **Segment와 Continuation:** Trace를 Segment로 나누면 Segment마다 위 절차를 독립적으로 수행한다. 앞 Segment의 마지막 레지스터와 Memory 상태(Merkle Root)가 다음 Segment의 첫 상태와 같다는 조건을 경계 제약으로 건다.
 - **Recursion:** "STARK 증명을 검증하는 계산"을 다시 증명한다. 범용 RISC-V zkVM을 그대로 쓰기보다 검증에 특화된 Recursion 전용 Circuit이나 VM을 쓰는 구현이 많다(RISC Zero의 Recursion Circuit 등). 검증 비용이 $\mathrm{polylog}\,N$이므로, 이 계산의 Trace는 Segment 하나를 증명하는 것보다 짧다. Segment 증명들을 Tree 형태로 합쳐 하나의 증명으로 만든다.
-- **Wrapping:** 마지막 STARK 증명은 수십에서 수백 KiB다. L1에서 검증하기에는 크므로, "STARK 증명을 검증한다"는 계산을 BN254 곡선 위의 Groth16이나 PLONK Circuit으로 만들어 증명한다. Groth16 증명은 곡선 점 세 개로 크기가 고정되고, 검증은 Pairing 등식 $e(A, B) = e(\alpha, \beta) \cdot e(L, \gamma) \cdot e(C, \delta)$ 하나다. 이 식의 $\alpha, \beta, \gamma, \delta$는 Trusted Setup에서 정해진 곡선 점이며, 앞 절의 무작위 값과는 관계없다. Ethereum에서는 `ecPairing` Precompile로 계산하며, 비용은 EIP-1108 이후 $45{,}000 + 34{,}000 \times k$ Gas($k$는 Pairing 쌍의 수, Groth16은 4)다.
+- **Wrapping:** 마지막 STARK 증명은 수십에서 수백 KiB다. L2 Rollup처럼 L1 Verifier 컨트랙트에서 검증하기에는 크므로, "STARK 증명을 검증한다"는 계산을 BN254 곡선 위의 Groth16이나 PLONK Circuit으로 만들어 증명한다. EF의 L1 zkEVM 기준은 Trusted Setup을 쓰는 Recursive Wrapper에 의존하지 않는 300KiB 이하 증명을 요구하므로 이 단계를 쓸 수 없고, Validator가 증명을 직접 검증한다. Groth16 증명은 곡선 점 세 개로 크기가 고정되고, 검증은 Pairing 등식 $e(A, B) = e(\alpha, \beta) \cdot e(L, \gamma) \cdot e(C, \delta)$ 하나다. 이 식의 $\alpha, \beta, \gamma, \delta$는 Trusted Setup에서 정해진 곡선 점이며, 앞 절의 무작위 값과는 관계없다. Ethereum에서는 `ecPairing` Precompile로 계산하며, 비용은 EIP-1108 이후 $45{,}000 + 34{,}000 \times k$ Gas($k$는 Pairing 쌍의 수, Groth16은 4)다.
 
 #### What the Verifier Actually Computes
 
@@ -669,14 +670,14 @@ $$
 
 어느 경우든 Verifier는 프로그램을 실행하지 않고, Trace를 보지도 않는다. 확인하는 것은 "Commit된 값이 낮은 차수 다항식이고, 그 다항식들이 제약식을 만족하며, 경계값이 Public Values와 일치한다"는 사실뿐이다. 이 세 조건이 함께 성립하면, 무시할 수 있는 확률(Soundness Error)을 제외하면 그 값들을 만든 Execution Trace가 존재하고 그 Trace가 ISA 규칙대로 프로그램을 실행한 기록이라는 결론이 따라온다.
 
-증명의 안전성은 체의 크기, Blowup Factor, FRI의 질의 횟수 같은 파라미터에 달려 있다. 128bit 보안은 2025년 7월 Real-Time Proving 기준에 포함되었고, EF는 2025년 12월 이를 Provable Security(증명된 보안)로 구체화해 2026년 12월 Milestone으로 정했다. 증명되지 않은 수학적 추측에 기대지 않고 이 파라미터로 계산한 Soundness Error가 $2^{-128}$ 이하여야 한다는 뜻이다.
+증명의 안전성은 체의 크기, Blowup Factor, FRI의 질의 횟수 같은 파라미터에 달려 있다. 128bit 보안은 2025년 7월 Real-Time Proving 기준에 포함되었고(초기 100bit 허용), EF는 2025년 12월 18일 이를 Provable Security(증명된 보안) 기준으로 구체화해 세 Milestone을 정했다. 2026년 2월까지 soundcalc(EF의 보안 수준 계산 도구) 통합, 2026년 5월까지 100bit Provable Security와 600KiB 이하 증명, 2026년 12월까지 128bit Provable Security와 300KiB 이하 증명, 그리고 Recursion 구조에 대한 형식적 Soundness 논증이다. 128bit Provable Security는 증명되지 않은 수학적 추측에 기대지 않고 이 파라미터로 계산한 Soundness Error가 $2^{-128}$ 이하여야 한다는 뜻이다.
 
 ### Use Cases
 
 L2 Rollup은 zkVM 기반으로 옮겨가고 있고, Ethereum L1 실행 증명도 zkVM 기반으로 연구되고 있다.
 
 - **Scroll:** 2025년 4월 Euclid 업그레이드에서 기존 halo2 Circuit을 폐기하고 OpenVM 기반 Prover로 전환했다.
-- **Taiko:** 다중 증명(Multi-proof)을 사용한다. 2026년 11월 기준 SGX(Geth), SGX(Reth), SP1, RISC Zero 네 가지 증명 중 정확히 두 개가 필요하며, 그중 최소 하나는 SP1이나 RISC Zero여야 한다. SGX는 Intel SGX(Software Guard Extensions)를 쓰는 TEE(Trusted Execution Environment, 신뢰 실행 환경) 증명으로, 암호학적 증명이 아니라 하드웨어 신뢰에 기반한다.
+- **Taiko:** 다중 증명(Multi-proof)을 사용한다. 2026년 11월 L2BEAT 기준 SGX(Geth), SGX(Reth), SP1, RISC Zero 네 가지 증명 중 정확히 두 개가 필요하며, 그중 최소 하나는 SP1이나 RISC Zero여야 한다. 이 규칙은 2026년 8월 6일 Unzen 업그레이드에서 활성화된 ZkRequiredVerifier의 것이다. Taiko 공식 문서의 조합표(SGX(Geth)+SGX(Reth) 허용, SP1+RISC Zero 없음)는 Unzen 이전 MainnetVerifier 규칙이다. SGX는 Intel SGX(Software Guard Extensions)를 쓰는 TEE(Trusted Execution Environment, 신뢰 실행 환경) 증명으로, 암호학적 증명이 아니라 하드웨어 신뢰에 기반한다.
 - **Ethereum L1:** EIP-8025(Optional Execution Proofs) 설계에서는 Execution Client의 블록 실행 프로그램을 zkVM으로 증명한다. 이 제안은 2026년 10월 Hegotá 포함 대상에서 DFI로 결정되었다(zkEVM 장의 Adoption Status on Ethereum L1 참고).
 
 ### Dedicated Circuit vs zkVM
