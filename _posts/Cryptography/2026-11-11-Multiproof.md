@@ -147,6 +147,8 @@ $$
 \boxed{E=\sum_{i=0}^{m-1}\frac{r^i}{t-z_i}\,C_i=\operatorname{Commit}(h)}
 $$
 
+$E$의 계산은 Multi-Exponentiation(다중 지수 연산) 한 번이고, Verifier 작업의 대부분을 차지한다.
+
 이제 확인할 것을 다시 쓰면 $g(t)=h(t)-y$, 즉
 
 $$
@@ -157,7 +159,7 @@ $$
 
 Prover가 보내는 것은 **$D$와 $\pi$, 두 개뿐이다.** $E$와 $y$는 Verifier가 계산한다.
 
-$t$가 어떤 $z_i$와 같으면 분모가 0이 된다. $t$는 $\mathbb{F}_p$ 전체에서 뽑히고 서로 다른 $z_i$는 많아야 $m$개이므로 그럴 확률은 $m/p$ 이하다. 이더리움의 Verkle Tree 설계에서는 $z_i$가 0부터 255까지의 정수이고, $p$는 이 설계가 쓰는 Scalar Field의 크기인 253비트 소수이므로 무시할 수 있다([Verkle tree structure](https://blog.ethereum.org/2021/12/02/verkle-tree-structure)). 원문은 KZG를 기준으로 쓰여서 $z_i$를 $d$차 Root of Unity(단위근) $\omega$의 거듭제곱 $\omega^i$로 둔다.
+$t$가 어떤 $z_i$와 같으면 분모가 0이 된다. $t$는 $\mathbb{F}_p$ 전체에서 뽑히고 서로 다른 $z_i$는 많아야 $m$개이므로 그럴 확률은 $m/p$ 이하다. 이더리움의 Verkle Tree 설계에서는 $z_i$가 0부터 255까지의 정수이고, $p$는 이 설계가 쓰는 Scalar Field의 크기인 253비트 소수이므로 무시할 수 있다([Verkle tree structure](https://blog.ethereum.org/2021/12/02/verkle-tree-structure)). 원문은 KZG를 기준으로 쓰여서 $z_i$를 $d$차 Root of Unity(단위근) $\omega$의 거듭제곱 $\omega^i$로 둔다. $t$가 $z_i$와 같아지는 경우는 원문이 다루지 않으며, 위 확률은 직접 계산한 것이다.
 
 ### Final Verification with KZG
 
@@ -187,6 +189,8 @@ $[s-t]_2$는 공개 매개변수 $[s]_2$에서 $t[1]_2$를 빼서 얻는다. 등
 
 KZG에서 $D$와 $\pi$는 각각 군 원소 하나다. 따라서 **Opening이 몇 개든 증명 $(D,\pi)$의 크기는 같다.** BLS12-381 곡선이면 군 원소 하나가 48바이트이므로 96바이트다.
 
+[Vitalik Buterin의 글](https://vitalik.eth.limo/general/2021/06/18/verkle.html)은 이 증명의 구성을 다르게 적는다. Polynomial Commitment 하나, 숫자 하나, 증명 두 개로 세고, 크기 표에서 트리 크기 256인 행의 값은 176바이트다. 176은 48바이트 원소 세 개와 32바이트 숫자 하나의 합과 같다. 이 글은 원문의 구성인 $D$와 $\pi$를 따른다. 두 글 모두 이 차이의 이유를 적지 않는다.
+
 ## Why It Works
 
 **모든 주장이 참인 경우.** $g(X)$는 다항식이고, 식을 그대로 정리하면
@@ -209,6 +213,8 @@ $$
 $g(X)$에서 같은 점 $z$에 해당하는 나머지들을 모으면 $\dfrac{P_z(r)}{X-z}$, $P_z(r)=\sum_{i:\,z_i=z}\delta_i r^i$가 된다. 거짓 주장이 있으면 $P_z$는 $r$에 대한 0이 아닌 다항식이고 차수는 $m-1$ 이하다. $r$을 뽑은 뒤 $P_z(r)=0$이 될 확률은 최대 $(m-1)/p$다. 서로 다른 점의 나머지는 분모가 다르므로 상쇄되지 않는다. 즉 $r$은 **상쇄를 막는다.**
 
 그래도 Prover는 다항식이 아닌 $g$ 대신 아무 다항식 $\tilde g$를 Commit해 $D$로 보낼 수 있다. $\tilde g$의 차수도 $d$ 미만이다. 이때 Checking $D$ with $t$의 검증은 $g(t)=\tilde g(t)$를 확인하는 것과 같다. $g-\tilde g$는 0이 아닌 유리함수이고, 분모를 곱하면 차수 $d+m$ 이하의 0이 아닌 다항식이 된다. 무작위 $t$에서 이것이 0이 될 확률은 최대 $(d+m)/p$다. 0이 아닌 다항식이 무작위 점에서 0이 될 확률은 차수를 $p$로 나눈 값을 넘지 않는다는 사실을 Schwartz-Zippel Lemma(슈바르츠-지펠 보조정리)라고 한다. 변수가 하나일 때는 차수 $n$인 다항식의 근이 $n$개 이하라는 사실과 같다. 즉 $t$는 **$D$가 진짜 $g$의 Commitment인지 검사한다.**
+
+원문은 이 논리를 Schwartz-Zippel Lemma로 설명할 뿐 확률을 수치로 적지 않는다. 위의 $(m-1)/p$와 $(d+m)/p$는 식에서 직접 유도한 한계다.
 
 이 확률 논리에 더해, 실제 Soundness(건전성)는 PCS의 Binding, 마지막 Opening Proof의 안전성, Fiat-Shamir Transform의 안전한 구현을 전제로 한다.
 
