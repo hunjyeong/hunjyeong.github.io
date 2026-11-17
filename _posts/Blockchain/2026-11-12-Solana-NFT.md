@@ -1,10 +1,16 @@
 ---
 title: "Solana NFT"
-date: 2026-11-11
-last_modified_at: 2026-11-11
+date: 2026-11-12 02:00:00 +0900
+last_modified_at: 2026-11-18
 categories: [Blockchain]
 tags: [Blockchain, NFT]
 ---
+
+>
+> 1. [NFT]({% post_url Blockchain/2026-11-12-NFT %})
+> 2. [Ethereum NFT]({% post_url Blockchain/2026-11-12-Ethereum-NFT %})
+> 3. **Solana NFT**
+>
 
 # Solana NFT 표준 정리: Token Metadata, Core, Compressed NFT
 

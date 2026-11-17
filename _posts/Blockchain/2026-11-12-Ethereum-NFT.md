@@ -1,10 +1,16 @@
 ---
-title: "ERC-721"
-date: 2026-11-11
-last_modified_at: 2026-11-11
+title: "Ethereum NFT"
+date: 2026-11-12 01:00:00 +0900
+last_modified_at: 2026-11-18
 categories: [Blockchain]
 tags: [Blockchain, NFT]
 ---
+
+>
+> 1. [NFT]({% post_url Blockchain/2026-11-12-NFT %})
+> 2. **Ethereum NFT**
+> 3. [Solana NFT]({% post_url Blockchain/2026-11-12-Solana-NFT %})
+>
 
 # ERC-721: Ethereum의 Non-Fungible Token(대체 불가능 토큰) 표준
 
