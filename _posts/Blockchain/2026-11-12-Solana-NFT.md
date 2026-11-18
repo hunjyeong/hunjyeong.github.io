@@ -86,7 +86,7 @@ PDA는 곡선 밖에 있어 Private Key가 없으므로 누구도 서명을 만�
 
 ## Token Metadata
 
-### What is Token Metadata?
+### What is a Token Metadata?
 
 Token Metadata Program의 목적은 Solana의 Fungible Token 또는 Non-Fungible Token에 추가 데이터를 붙이는 것이다. NFT 전용 Program이 아니며, NFT는 가장 큰 사용처다.
 
@@ -107,6 +107,19 @@ Token Metadata Program은 Mint Account의 주소에서 유도한 Program Derived
 | `ProgrammableNonFungible` | A special NonFungible token that is frozen at all times to enforce custom authorization rules |
 
 이 글에서 일반 NFT는 `NonFungible`을 말한다. `NonFungibleEdition`과 `ProgrammableNonFungible`은 아래 "확장"에서 설명한다.
+
+**장점**
+- 2021년부터 쓰인 표준이라 대부분의 Wallet, Marketplace, 도구가 지원한다.
+- NFT가 SPL Token이므로 SPL Token을 다루는 Wallet과 Program에서 그대로 다룰 수 있다.
+- 하나의 Program으로 NFT뿐 아니라 Fungible Token, Semi-Fungible Token(Fungible Asset), Print Edition에도 같은 방식으로 Metadata를 붙일 수 있다.
+
+**단점**
+- NFT 하나에 Mint, Token, Metadata, Master Edition Account가 필요해 구조가 복잡하고, Mint 비용이 약 0.022 SOL로 Core(약 0.003 SOL)보다 크다.
+- 받는 Wallet에 해당 Mint의 Token Account가 없으면 Transfer할 때 새로 만들어야 하고, 그 최소 Balance(약 0.002 SOL)가 든다.
+- 누구나 SPL Token Program으로 직접 Transfer할 수 있어 일반 NFT는 Royalty를 강제할 수 없다. 이를 보완한 pNFT는 Token Record Account와 Rule Set이 더해져 구조가 더 복잡하다.
+- Collection도 NFT와 같은 Account 구조로 표현되어, Royalty 같은 설정을 Collection 단위로 한 번에 바꿀 수 없고 NFT마다 수정해야 한다.
+- On-Chain Attribute를 지원하지 않는다.
+- Metaplex는 Token Metadata를 Legacy Program으로 분류하고, 새 프로젝트에는 Core를 권장한다.
 
 ### Token Metadata의 On-Chain 구성 요소
 
@@ -267,11 +280,202 @@ Token Metadata Program은 SPL Token Program 위에 만들어져 있다. 그래�
 
 위 그림에서 Token Account에는 "State = Frozen"이 적혀 있고, Metadata Account의 Programmable Configs가 RuleSet Account로 이어진다. Token Record Account는 이 그림에 나오지 않는다.
 
-### 특징과 한계
+<br />
 
-- 장점: 가장 오래 쓰인 표준이라 Wallet, Marketplace, 도구 지원이 가장 넓다. SPL Token 기반이므로 SPL Token을 다루는 도구와 호환된다. NFT뿐 아니라 Fungible Token에도 같은 방식으로 Metadata를 붙일 수 있다.
+## Core
 
-- 단점: NFT당 Account가 4개 이상이라 구조가 복잡하고 비용이 크다. 대량으로 Mint하면 비용이 Mint한 수에 비례해 커진다. 일반 NFT는 Royalty를 강제할 수 없고, 이를 보완한 pNFT는 Account와 규칙 구조가 더 복잡하다. Metaplex가 NFT 용도로는 Legacy로 분류한다.
+### What is a Core?
+
+[Metaplex Core](https://www.metaplex.com/docs/smart-contracts/core)는 기존의 Token Metadata를 대체하는 차세대 Solana NFT 표준이다. NFT 데이터를 Account 하나에 담는 구조로, NFT 하나를 Mint하는 비용을 Token Metadata의 약 0.022 SOL에서 약 0.003 SOL로 80% 이상 줄였다. 또한 Royalty 강제, Collection 단위 작업(Collection 전체의 Freeze, Royalty 변경, Asset 일괄 수정), 기능을 골라 붙이는 Plugin 시스템을 제공한다.
+
+Token Metadata의 기능이 Core에서 대응되는 방식은 다음과 같다.
+
+| Token Metadata	| Core Equivalent |
+| --- | --- |
+| Mint account | Asset account |
+| Metadata account | Asset account (combined) |
+| Associated Token Account | Not needed |
+| Freeze authority | Freeze Delegate plugin |
+| Update authority | Update authority (same) |
+| Delegate | Transfer/Burn/Update Delegate plugins |
+| Collection verified | Collection membership (automatic) |
+| Creators array | Verified Creators plugin |
+| Uses/utility | Plugins (custom logic) |
+
+[출처: https://www.metaplex.com/docs/smart-contracts/core/tm-differences#tm-concept-core-equivalent](https://www.metaplex.com/docs/smart-contracts/core/tm-differences#tm-concept-core-equivalent)
+
+ 
+**장점**
+- NFT 하나가 Asset Account 하나라 구조가 단순하고, Mint 비용이 약 0.003 SOL로 Token Metadata(약 0.022 SOL)보다 80% 이상 낮다. 연산량(Compute Unit)도 약 17,000 CU로 Token Metadata(약 205,000 CU)보다 적다.
+- Token Account가 없어 Transfer할 때 새 Account를 만들지 않고, Transaction 수수료만 든다.
+- Freeze, Delegate, Royalty, Attributes 같은 기능을 Plugin으로 필요한 것만 붙인다. Royalties Plugin은 Allowlist/Denylist로 Royalty를 강제하고, Attributes Plugin으로 On-Chain Attribute를 저장할 수 있다.
+- Collection이 전용 Account라 Royalty 변경이나 Freeze를 Collection 단위로 한 번에 할 수 있다. 같은 Plugin을 Asset에 붙이면 Asset의 설정이 우선한다.
+
+**단점**
+- SPL Token이 아니므로 Token Account를 전제로 한 Wallet, Marketplace, Program은 Core를 따로 지원해야 쓸 수 있다.
+- 기존 Token Metadata NFT를 Core로 바로 바꿀 수 없다. 기존 NFT를 Burn하고 Core Asset을 새로 Mint해야 한다.
+- Plugin은 Metaplex가 제공하는 것만 쓸 수 있고 직접 만들 수 없다. 사용자 정의 검증은 Oracle 같은 External Plugin으로 처리해야 한다.
+- Plugin을 붙일수록 Account 크기가 커져 Rent가 늘어난다(대부분 Plugin당 약 0.001 SOL).
+- NFT용 표준이라 Fungible Token에는 쓸 수 없고, Fungible Token은 SPL Token을 써야 한다.
+
+### Core의 On-Chain 구성 요소
+
+**Asset Account**
+
+[Core Asset](https://www.metaplex.com/docs/smart-contracts/core/what-is-an-asset)은 NFT 하나를 나타내는 단일 Solana Account이다. Core는 SPL Token Program을 쓰지 않고 소유권을 Asset Account의 `owner` 필드에 직접 기록하므로, Mint Account, Token Account, ATA가 필요 없다.
+
+![solana-nft-05-core-overview.png](solana-nft-05-core-overview.png)
+
+Owner, Name, URI, Update Authority 같은 핵심 데이터와 Plugin 데이터를 모두 이 Account에 저장한다. Freeze, Delegate, Royalty 같은 기능은 기본 구조에 넣지 않고, 필요한 것만 Plugin(Asset에 붙이는 확장 모듈)으로 붙인다.
+
+Asset Account의 기본 구조인 [`AssetV1`](https://github.com/metaplex-foundation/mpl-core/blob/main/programs/mpl-core/src/state/asset.rs)은 다음과 같다. 주석의 숫자는 각 필드가 차지하는 기본 Byte 크기이며, `name`과 `uri`는 길이 정보 4 Byte 뒤에 실제 문자열이 붙는다.
+
+```rust
+pub struct AssetV1 {
+    /// The account discriminator.
+    pub key: Key, //1
+    /// The owner of the asset.
+    pub owner: Pubkey, //32
+    /// The update authority of the asset.
+    pub update_authority: UpdateAuthority, //33
+    /// The name of the asset.
+    pub name: String, //4
+    /// The URI of the asset that points to the off-chain data.
+    pub uri: String, //4
+    /// The sequence number used for indexing with compression.
+    pub seq: Option<u64>, //1
+}
+```
+
+여기서 `update_authority`는 Asset의 데이터를 수정할 수 있는 주체다. `update_authority`의 타입인 [`UpdateAuthority`](https://github.com/metaplex-foundation/mpl-core/blob/main/programs/mpl-core/src/state/update_authority.rs)는 다음 세 가지 중 하나다.
+
+```rust
+pub enum UpdateAuthority {
+    None,               /// No update authority, used for immutability.
+    Address(Pubkey),    /// A standard address or PDA.
+    Collection(Pubkey), /// Authority delegated to a collection.
+}
+```
+
+- `None`: Update Authority가 없다. `name`과 `uri`를 다시는 바꿀 수 없다.
+- `Address`: 지정한 Address(일반 Address 또는 PDA)가 Update Authority다. 이 Asset은 Collection에 속하지 않는다.
+- `Collection`: 값이 Collection Account의 Address이며, Asset이 그 Collection에 속한다는 뜻이다. 이때 Asset의 수정 권한은 Collection에 위임된다.
+
+Collection에 속한 Asset을 `fetchAssetV1`로 조회하고, `collectionAddress`로 Collection Address를 구하면 다음과 같다.
+
+```json
+collection: '2222222222222222222222222222222'
+asset: {
+    key: AssetV1,
+    owner: "11111111111111111111111111111111",
+    updateAuthority: {
+      type: 'Collection',
+      address: '2222222222222222222222222222222'
+    },
+    name: "My Core Asset",
+    uri: "https://example.com/metadata.json",
+    ...
+}
+```
+
+### Core의 Off-Chain 구성 요소
+
+[Off-Chain Metadata](https://www.metaplex.com/docs/smart-contracts/core/what-is-an-asset#off-chain-metadata)의 구성은 Token Metadata와 같다. Asset Account의 `uri`가 Off-Chain JSON 파일을 가리키고, 이 JSON 파일은 Token Metadata의 [Non-Fungible Standard](https://www.metaplex.com/docs/smart-contracts/token-metadata/token-standard#the-non-fungible-standard) 형식을 따른다.
+
+![solana-nft-06-core-off-chain-metadata.png](solana-nft-06-core-off-chain-metadata.png)
+
+### Core의 Transfer 구조 예시
+
+Alice가 Core Asset 하나를 가지고 있고, Asset Account의 `owner`에는 Alice의 Address가 기록되어 있다. Alice가 서명해 이 Asset을 Bob에게 Transfer하면, MPL Core Program이 같은 Asset Account의 `owner`를 Alice의 Address에서 Bob의 Address로 바꾼다.
+ 
+![solana-nft-core-transfer-ex.png](solana-nft-core-transfer-ex.png)
+
+새로 만들어지는 Account가 없으므로 Transaction 수수료 외에 추가 비용이 들지 않는다. Token Metadata에서는 Bob의 Token Account가 없으면 새로 만들어야 하고, Alice의 Token Account는 닫지 않으면 빈 채로 남는다.
+
+Transfer되면 Owner Managed Plugin(Transfer, Freeze, Burn Delegate)의 Delegate 권한은 자동으로 회수되고, Authority Managed Plugin과 Permanent Plugin은 그대로 유지된다. Freeze된 Asset은 Freeze가 풀릴 때까지 Transfer할 수 없다.
+
+### Core Plugin System
+
+[Plugin](https://www.metaplex.com/docs/smart-contracts/core/plugins)은 Core Asset 또는 Collection에 기능을 추가하는 On-Chain 확장이다. 데이터를 저장하거나(예: Attributes), 규칙을 강제하거나(예: Royalties), 권한을 Delegate한다(예: Freeze, Transfer).
+
+Plugin 데이터는 별도 Account가 아니라 같은 Asset Account 안에서 기본 필드 뒤에 붙는다. 저장 순서는 기본 데이터, Plugin Header, 각 Plugin, Plugin Registry(각 Plugin의 종류와 위치를 기록한 목록)다([`plugin_header.rs`](https://github.com/metaplex-foundation/mpl-core/blob/main/programs/mpl-core/src/plugins/plugin_header.rs)). Plugin을 추가하면 Account 크기와 Rent가 늘어난다.
+
+Plugin 데이터는 별도 Account가 아니라 같은 Asset Account 안에서 기본 필드 뒤에 붙는다. 저장 순서는 기본 데이터, Plugin Header, 각 Plugin, Plugin Registry(각 Plugin의 종류와 위치를 기록한 목록)다. Plugin Header(9 Byte)는 Key와, Account 끝에 있는 Plugin Registry의 위치(Offset)를 담는다. Plugin을 추가하면 Account 크기와 Rent가 늘어난다.
+
+```rust
+pub struct PluginHeaderV1 {
+    /// The Discriminator of the header which doubles as a Plugin metadata version.
+    pub key: Key, // 1
+    /// The offset to the plugin registry stored at the end of the account.
+    pub plugin_registry_offset: usize, // 8
+}
+```
+[출처: `plugin_header.rs`](https://github.com/metaplex-foundation/mpl-core/blob/main/programs/mpl-core/src/plugins/plugin_header.rs)
+
+Plugin은 Create, Transfer, Burn, Plugin 추가·제거 같은 Lifecycle Event에 개입해 동작을 승인하거나 거부한다. Permanent Plugin은 강제 승인(Force Approve)도 할 수 있어, 다른 Plugin의 거부보다 우선한다. Plugin은 누가, 언제 추가할 수 있는지에 따라 세 종류로 나뉜다.
+
+**Types of Plugins**
+
+- Owner Managed Plugins: Asset Owner가 Transaction에 서명해야만 추가할 수 있는 플러그인
+  - Transfer, Freeze, Burn Delegate
+
+- Authority Managed Plugins: Core Asset 또는 Core Collection의 Update Authority(권한자)가 언제든지 추가하고 수정할 수 있는 플러그인
+  - Royalties, Attributes, Update Delegate
+
+- Permanent Plugins: Core Asset을 생성할 때만 추가할 수 있는 플러그인
+  - Asset이 이미 존재하는 경우 Permanent 플러그인을 추가할 수 없음
+  - Permanent Transfer/Freeze/Burn Delegate
+
+
+Collection에는 Authority Managed Plugin과 Permanent Plugin만 붙일 수 있다.
+
+이외에 [External Plugin](https://www.metaplex.com/docs/smart-contracts/core/external-plugins/overview)도 있다. 외부 Account의 상태에 따라 Lifecycle Event를 거부할 수 있는 Oracle, Data Authority만 쓸 수 있는 데이터 영역을 Asset에 두는 AppData가 여기에 속하며, 둘 다 Authority Managed다.
+
+### Core Collections
+
+[Core Collection](https://www.metaplex.com/docs/smart-contracts/core/collections)은 같은 시리즈나 세트에 속하는 Asset을 묶는 Account로, Asset과는 다른 별도의 Account 종류다. Collection Account는 Collection 이름과 이미지 URI 같은 공유 Metadata를 저장하는 표지 역할을 하며, Collection 전체에 적용할 Plugin도 가질 수 있다. Asset은 Collection 없이 단독으로 존재할 수도 있다.
+
+Assets의 Collection 표현인 [`CollectionV1`](https://github.com/metaplex-foundation/mpl-core/blob/main/programs/mpl-core/src/state/collection.rs)은 다음과 같다.
+
+```rust
+pub struct CollectionV1 {
+    /// The account discriminator.
+    pub key: Key, //1
+    /// The update authority of the collection.
+    pub update_authority: Pubkey, //32
+    /// The name of the collection.
+    pub name: String, //4
+    /// The URI that links to what data to show for the collection.
+    pub uri: String, //4
+    /// The number of assets minted in the collection.
+    pub num_minted: u32, //4
+    /// The number of assets currently in the collection.
+    pub current_size: u32, //4
+}
+```
+
+Asset Account와 달리 `owner` 필드가 없어, Collection은 Asset처럼 소유하거나 Transfer할 수 없다. `update_authority`도 Asset처럼 Type을 고르는 값이 아니라 Address(Pubkey) 하나다. `num_minted`는 지금까지 이 Collection에 Mint된 Asset의 누적 수, `current_size`는 현재 Collection에 속한 Asset 수이고, `uri`는 Collection의 Off-Chain JSON 파일을 가리킨다.
+
+Asset과 Collection의 관계는 다음 규칙을 따른다.
+
+- Asset은 `update_authority`를 `Collection(Collection Account Address)`로 두어 Collection을 참조한다.
+- 생성 이후에도 Asset의 Update Instruction으로 Asset을 Collection에 추가, 이동, 제거할 수 있다. 제거할 때는 `update_authority`를 `Address`로 바꾼다.
+- 소속을 바꾸려면 Collection의 Update Authority여야 하고, Collection에 속하지 않은 Asset을 추가할 때는 그 Asset의 Update Authority이기도 해야 한다. Collection 사이에서 옮길 때는 두 Collection 모두에 대한 권한이 필요하다. Collection에 등록된 Update Delegate도 Asset을 제거하거나, 자신이 권한을 가진 Asset을 추가할 수 있다.
+- Asset이 남아 있는 Collection은 닫을 수 없다. 모든 Asset을 먼저 제거해야 한다.
+- Collection에 붙인 Plugin은 소속된 모든 Asset에 적용되며, Asset이 같은 종류의 Plugin을 직접 가지고 있으면 Asset의 Plugin이 우선한다.
+- Collection에는 Owner가 없으므로 Authority Managed Plugin과 Permanent Plugin만 붙일 수 있다.
+
+Collection Account 하나에 Asset 두 개를 만들고, 첫 번째는 Alice가, 두 번째는 Bob이 가진 상황을 예로 들면 다음과 같다. 두 Asset의 `update_authority`는 `Collection(Collection Account Address)`이고, Collection Account의 `num_minted`와 `current_size`는 모두 2다.
+
+예시는 다음과 같다.
+
+![solana-nft-core-collection.png](solana-nft-core-collection.png)
+
+- [Plugin Priority](https://www.metaplex.com/docs/smart-contracts/core/plugins#plugin-priority): Collection에 Royalties Plugin을 2%로 설정하면 두 Asset 모두에 2%가 적용된다. 특정 Asset에 5% Royalties Plugin을 따로 붙이면 그 Asset만 5%가 된다.
+
+- [Updating a Core Collection](https://www.metaplex.com/docs/smart-contracts/core/collections/update): Collection Account 하나만 수정해 소속 Asset 전체에 반영되는 것은 Collection에 붙인 Plugin(Royalties, Permanent Freeze Delegate 등)과 Update Authority다. Asset의 `update_authority`가 `Collection`이면 그 Asset의 수정 권한은 Collection의 Update Authority가 가지기 때문이다. 반면 개별 Asset의 `name`과 `uri`는 각 Asset Account에 따로 저장되므로, Collection의 `name`이나 `uri`를 바꿔도 Asset의 값은 바뀌지 않는다.
 
 <br />
+
+## Compressed NFT (cNFT)
 
