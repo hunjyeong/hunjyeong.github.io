@@ -18,18 +18,9 @@ tags: [Blockchain, NFT]
 
 Ethereum은 모든 상태를 [Account](https://ethereum.org/developers/docs/accounts/)에 저장하고, 각 Account는 20 Byte Address(주소)로 구분된다. Account는 두 종류다.
 
-- Externally Owned Account (EOA): Private Key(개인키)로 제어하는 Account다. Address는 Public Key(공개키)를 Keccak-256으로 Hash한 값의 마지막 20 Byte다.
+- **Externally Owned Account (EOA)**: Private Key(개인키)로 제어하는 Account다. Address는 Public Key(공개키)를 Keccak-256으로 Hash한 값의 마지막 20 Byte다.
 
-- Contract Account (CA): Blockchain에 배포된 Smart Contract다. Private Key가 없고 Code(배포된 실행 코드)가 동작을 결정한다. 이하 Contract라고 줄여 쓴다.
-
-두 종류 모두 네 개의 필드를 가진다.
-
-| 필드 | 내용 |
-| --- | --- |
-| `nonce` | EOA는 보낸 Transaction 수, Contract는 Contract 생성 횟수를 세는 Counter |
-| `balance` | Account가 가진 ETH. 단위는 Wei이고 1 ETH는 10^18 Wei다 |
-| `codeHash` | Account의 Code를 Hash한 값. Contract의 Code는 배포 후 바뀌지 않는다 |
-| `storageRoot` | Account의 Storage(저장 공간) 전체를 대표하는 Hash |
+- **Contract Account (CA)**: Blockchain에 배포된 Smart Contract다. Private Key가 없고 Code(배포된 실행 코드)가 동작을 결정한다. 이하 Contract라고 줄여 쓴다.
 
 Contract는 Code와 Storage를 같은 Account 안에 가진다. [Solana]({% post_url Blockchain/2026-11-12-Solana-NFT %})에서는 Program이 상태를 갖지 않고 별도의 Data Account에 상태를 두지만, Ethereum에서는 Contract 하나가 로직과 상태를 모두 가진다. 그래서 Ethereum의 NFT(Non-Fungible Token, 대체 불가능 토큰)는 NFT마다 Account가 생기지 않고, Contract 하나의 Storage 안에 Collection 전체의 소유 기록이 들어간다.
 
@@ -49,7 +40,7 @@ Ethereum에는 Solana의 Rent-Exempt Minimum 같은 저장 예치금이 없다. 
 
 ### Storage and Events
 
-Contract의 Storage는 256 Bit Key와 256 Bit 값의 쌍으로 이루어진 저장 공간이다. 한 칸을 Slot이라고 한다. Solidity의 `mapping`은 Key마다 Slot 하나를 쓰며, 위치는 `keccak256(h(k) . p)`로 정해진다([Layout of State Variables in Storage](https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html)). `k`는 Key, `p`는 `mapping` 변수의 Slot 번호, `.`은 이어 붙이기다. 예를 들어 `mapping(uint256 tokenId => address)`는 TokenID마다 Slot 하나에 주소를 저장한다.
+Contract의 Storage는 256 Bit Key와 256 Bit 값의 쌍으로 이루어진 저장 공간이다. 한 칸을 Slot이라고 한다. Solidity의 `mapping`은 Key마다 Slot 하나를 쓴다([Layout of State Variables in Storage](https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html)). 예를 들어 `mapping(uint256 tokenId => address)`는 TokenID마다 Slot 하나에 주소를 저장한다.
 
 Event는 Contract가 실행 중에 남기는 기록이다. Storage와 달리 Contract가 다시 읽을 수 없고, 외부 프로그램이 상태 변화를 추적하는 데 쓴다. Event를 모아 조회용 데이터를 만드는 프로그램을 Indexer(인덱서)라고 한다.
 
@@ -77,12 +68,14 @@ ERC가 정하는 것은 구현 코드가 아니라 Interface다. Interface는 Co
 
 Ethereum에서 NFT를 만드는 표준은 ERC-721과 ERC-1155 두 가지다. 둘의 차이는 Contract가 장부에 무엇을 기록하는지에 있다. ERC-721은 "TokenID → Owner"를, ERC-1155는 "(ID, 주소) → 수량"을 기록한다.
 
+표준은 Interface만 정하고 저장 구조는 정하지 않는다. 이 글에서 저장 구조와 동작은 널리 쓰이는 Smart Contract Library(라이브러리)인 [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/api/token/erc721) 5.6.1의 구현을 기준으로 적는다.
+
 | 표준 | 제안일(Created) | 다루는 Token | NFT 상태를 저장하는 곳(OpenZeppelin 5.6.1 기준) | NFT 식별자 | 승인 단위 | Mint Gas(이 글의 측정) |
 |---|---|---|---|---|---|---|
 | ERC-721 | [2018-01-24](https://eips.ethereum.org/EIPS/eip-721) | NFT | Contract Storage의 `mapping` 4개. `_owners[tokenId]`가 Owner를 직접 기록한다 | (Contract 주소, TokenID) | TokenID 1개(`approve`) 또는 전체(`setApprovalForAll`) | 62,164 ~ 96,364 |
 | ERC-1155 | [2018-06-17](https://eips.ethereum.org/EIPS/eip-1155) | Fungible Token, NFT, Semi-Fungible Token | Contract Storage의 `mapping` 2개. `_balances[id][account]`가 수량을 기록한다. Owner를 직접 기록하는 곳은 없다 | (Contract 주소, ID). 그 ID의 총 공급량이 1일 때 NFT다 | 전체(`setApprovalForAll`)만 | 54,010 |
 
-Mint(발행)는 Token을 새로 만드는 동작이다. Gas 값은 이 글의 예시 Contract를 "작성 기준"의 환경에서 실행한 Transaction 전체 사용량이며, 기본 21,000 Gas를 포함한다. 측정 조건은 각 표준의 예시 절에 적었다. ETH로 환산한 비용은 Gas 가격에 따라 달라지므로 적지 않았다.
+Mint(발행)는 Token을 새로 만드는 동작이다. Gas 값은 이 글의 예시 Contract를 실행해 측정한 Transaction 전체 사용량이며, 기본 21,000 Gas를 포함한다. 측정 환경은 OpenZeppelin Contracts 5.6.1, Solidity 0.8.38(Optimizer 끔, EVM Version `cancun`), `@ethereumjs/vm` 10.1.3(Cancun Hardfork(하드포크) 설정)이다. ERC-721의 값은 조건에 따라 달라진다. Contract의 첫 Mint는 96,364, 받는 주소의 첫 NFT는 79,264, 받는 주소가 이미 NFT를 가졌으면 62,164였다. ERC-1155의 값은 받는 주소가 그 ID를 처음 가질 때의 값이다. ETH로 환산한 비용은 Gas 가격에 따라 달라지므로 적지 않았다.
 
 <br />
 
@@ -90,14 +83,7 @@ Mint(발행)는 Token을 새로 만드는 동작이다. Gas 값은 이 글의 �
 
 ### What is ERC-721?
 
-ERC-721은 Ethereum에서 NFT를 다루는 방법을 정한 표준이다. 사양 문서는 [EIP-721](https://eips.ethereum.org/EIPS/eip-721)이다.
-
-| 항목 | 내용 |
-| --- | --- |
-| 작성자 | William Entriken, Dieter Shirley, Jacob Evans, Nastassia Sachs |
-| 작성일(Created) | 2018-01-24 |
-| 상태 | Final |
-| 선행 표준 | [EIP-165](https://eips.ethereum.org/EIPS/eip-165) |
+ERC-721은 Ethereum에서 NFT를 다루는 방법을 정한 표준이다. 사양 문서는 [EIP-721](https://eips.ethereum.org/EIPS/eip-721)이고 상태는 Final이다.
 
 ERC-721 Contract 하나가 NFT Collection 하나다. Collection에 속한 NFT는 모두 같은 Contract의 Storage에 기록되고, TokenID로 구분된다. Solana Token Metadata처럼 Collection 소속을 따로 검증하는 절차가 없다. 어떤 NFT가 어느 Collection에 속하는지는 Contract 주소로 정해진다.
 
@@ -118,8 +104,8 @@ ERC-721 Contract 하나가 NFT Collection 하나다. Collection에 속한 NFT는
 - 표준 전송 함수는 한 번에 NFT 하나만 옮긴다. 여러 개를 옮기려면 Transaction을 여러 번 보내거나 별도 Contract를 써야 한다.
 - Mint마다 Storage 쓰기가 필요해 NFT 수에 비례해 Gas가 든다. 이 글의 예시에서 Mint 한 번은 62,164 ~ 96,364 Gas였다.
 - `transferFrom`은 수신자가 NFT를 다룰 수 있는지 확인하지 않는다. NFT를 내보낼 기능이 없는 Contract로 보내면 꺼낼 수 없게 될 수 있다.
-- Royalty(로열티, NFT가 다시 팔릴 때 원 창작자에게 가는 수수료)를 강제할 수 없다. 표준 전송 함수에는 판매 대금이라는 개념이 없다.
-- 필수 Interface만으로는 "이 주소가 가진 TokenID 전체"를 조회할 수 없다. `balanceOf`는 개수만 반환한다.
+- Royalty(로열티, NFT가 다시 팔릴 때 원 창작자에게 가는 수수료)를 강제할 수 없다.
+- 필수 Interface만으로는 "이 주소가 가진 TokenID 전체"를 조회할 수 없다.
 - Contract 하나에 Fungible Token을 함께 담을 수 없다.
 - Metadata가 바뀌지 않는다는 것을 표준이 보장하지 않는다.
 
@@ -180,32 +166,11 @@ TokenID마다 완전한 URI를 저장하지 않고, 공통 접두사인 Base URI
 - TokenID: `100`
 - TokenURI: `https://mycollection.com/metadata/100`
 
-OpenZeppelin 5.6.1의 `ERC721.tokenURI`가 이렇게 구현되어 있다.
-
-```solidity
-function tokenURI(uint256 tokenId) public view virtual returns (string memory) {
-    _requireOwned(tokenId);
-
-    string memory baseURI = _baseURI();
-    return bytes(baseURI).length > 0 ? string.concat(baseURI, tokenId.toString()) : "";
-}
-```
-
-- `_requireOwned(tokenId)`는 존재하지 않는 TokenID이면 Revert한다.
-- `_baseURI()`는 기본값으로 빈 문자열을 반환한다. 상속한 Contract에서 Override(재정의)해 Base URI를 지정한다.
-- Base URI가 빈 문자열이면 `tokenURI`도 빈 문자열을 반환한다.
-- 구분자를 자동으로 넣지 않는다. Base URI가 `/`로 끝나지 않으면 `.../metadata100`처럼 붙는다.
-- `string.concat`은 [Solidity 0.8.12](https://blog.soliditylang.org/2022/02/16/solidity-0.8.12-release-announcement/)부터 문자열을 인자로 받아 `string memory`를 반환한다. 직접 구현할 때는 0.8.12 이상에서 쓴다.
+OpenZeppelin 5.6.1의 기본 `ERC721`이 이 방식이다. 구분자를 자동으로 넣지 않으므로 Base URI가 `/`로 끝나야 한다.
 
 *TokenID별로 URI를 저장하는 방식*
 
-TokenID마다 다른 URI를 Contract Storage에 기록한다. OpenZeppelin의 [`ERC721URIStorage`](https://docs.openzeppelin.com/contracts/api/token/erc721) 확장이 이 방식이다. `_setTokenURI(tokenId, uri)`로 값을 저장한다. `ERC721URIStorage.tokenURI`의 반환 규칙은 다음과 같다.
-
-| Base URI | 저장된 URI | 반환값 |
-| --- | --- | --- |
-| 없음 | 있음 또는 없음 | 저장된 URI |
-| 있음 | 있음 | Base URI + 저장된 URI |
-| 있음 | 없음 | Base URI + TokenID |
+TokenID마다 다른 URI를 Contract Storage에 기록한다. OpenZeppelin의 [`ERC721URIStorage`](https://docs.openzeppelin.com/contracts/api/token/erc721) 확장이 이 방식이다. `_setTokenURI(tokenId, uri)`로 값을 저장한다.
 
 두 방식의 차이는 비용과 유연성이다. 이어 붙이는 방식은 TokenID마다 저장할 값이 없으므로 Mint 비용이 작지만 URI 형태가 규칙에 묶인다. 저장하는 방식은 TokenID마다 임의의 URI를 줄 수 있지만 문자열 저장 비용이 든다. [OpenZeppelin 문서](https://docs.openzeppelin.com/contracts/api/token/erc721)도 `ERC721URIStorage`를 더 유연하지만 더 비싼 방식으로 설명한다.
 
@@ -221,35 +186,13 @@ TokenID마다 다른 URI를 Contract Storage에 기록한다. OpenZeppelin의 [`
 | ERC721Enumerable | 선택 | `0x780e9d63` | 전체 NFT 목록 열거 |
 | ERC721TokenReceiver | Safe Transfer를 받는 Contract에 필요 | `0x150b7a02` | NFT 수신 가능 여부 응답 |
 
-아래는 EIP-721이 정의한 ERC721 Interface에서 주석을 뺀 것이다. 사양 문서의 코드는 Solidity `^0.4.20` 문법으로 작성되어 있다.
-
-```solidity
-interface ERC721 /* is ERC165 */ {
-    event Transfer(address indexed _from, address indexed _to, uint256 indexed _tokenId);
-    event Approval(address indexed _owner, address indexed _approved, uint256 indexed _tokenId);
-    event ApprovalForAll(address indexed _owner, address indexed _operator, bool _approved);
-
-    function balanceOf(address _owner) external view returns (uint256);
-    function ownerOf(uint256 _tokenId) external view returns (address);
-
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId, bytes data) external payable;
-    function safeTransferFrom(address _from, address _to, uint256 _tokenId) external payable;
-    function transferFrom(address _from, address _to, uint256 _tokenId) external payable;
-
-    function approve(address _approved, uint256 _tokenId) external payable;
-    function setApprovalForAll(address _operator, bool _approved) external;
-    function getApproved(uint256 _tokenId) external view returns (address);
-    function isApprovedForAll(address _owner, address _operator) external view returns (bool);
-}
-```
-
-함수는 역할에 따라 세 묶음으로 나뉜다. 표의 Zero Address(영 주소)는 `0x0000...0000` 주소를 뜻한다.
+ERC721 Interface의 Event는 `Transfer`, `Approval`, `ApprovalForAll` 세 가지다. 함수는 역할에 따라 세 묶음으로 나뉜다. 표의 Zero Address(영 주소)는 `0x0000...0000` 주소를 뜻한다.
 
 | 묶음 | 함수 | 동작 |
 | --- | --- | --- |
 | 조회 | `balanceOf` | 주소가 소유한 NFT 개수를 반환한다. Zero Address를 조회하면 실패한다. |
 | 조회 | `ownerOf` | TokenID의 Owner를 반환한다. 유효하지 않은 TokenID면 실패한다. |
-| 전송 | `transferFrom` | NFT를 `_from`에서 `_to`로 옮긴다. 수신자가 NFT를 다룰 수 있는지 확인하지 않는다. |
+| 전송 | `transferFrom` | NFT를 `_from`에서 `_to`로 옮긴다. |
 | 전송 | `safeTransferFrom` | `transferFrom`과 같되, 수신자가 Contract이면 수신 가능 여부를 확인한다. |
 | 승인 | `approve` | TokenID 하나의 Approved Address를 지정한다. |
 | 승인 | `setApprovalForAll` | 호출자의 모든 NFT에 대한 Operator를 지정하거나 해제한다. |
@@ -357,14 +300,7 @@ Mint는 존재하지 않던 TokenID에 Owner를 처음 지정하는 동작이다
 
 **Transfer**
 
-EIP-721은 `transferFrom`이 다음 조건 중 하나라도 어기면 실패해야 한다고 정한다.
-
-- 호출자가 Owner, Approved Address, Operator 중 하나여야 한다.
-- `_from`이 현재 Owner여야 한다.
-- `_to`가 Zero Address가 아니어야 한다.
-- `_tokenId`가 유효한 NFT여야 한다.
-
-OpenZeppelin의 `transferFrom(from, to, tokenId)`는 다음 순서로 동작한다.
+EIP-721은 호출자가 Owner, Approved Address, Operator 중 하나가 아니거나, `_from`이 현재 Owner가 아니거나, `_to`가 Zero Address이거나, `_tokenId`가 유효한 NFT가 아니면 `transferFrom`이 실패해야 한다고 정한다. OpenZeppelin의 `transferFrom(from, to, tokenId)`는 다음 순서로 동작한다.
 
 1. `to`가 Zero Address이면 `ERC721InvalidReceiver`로 Revert한다.
 2. 현재 Owner를 읽고, 호출자가 Owner, Operator, Approved Address 중 하나인지 확인한다. 아니면 TokenID가 존재하지 않을 때는 `ERC721NonexistentToken`으로, 존재할 때는 `ERC721InsufficientApproval`로 Revert한다.
@@ -378,7 +314,7 @@ OpenZeppelin의 `transferFrom(from, to, tokenId)`는 다음 순서로 동작한�
 
 **Safe Transfer**
 
-`transferFrom`은 수신자가 NFT를 다룰 수 있는지 확인하지 않는다. EIP-721은 `transferFrom`을 쓸 때 수신 가능 여부를 확인할 책임이 호출자에게 있다고 명시한다. `safeTransferFrom`은 이 확인을 Contract 수준에서 수행한다.
+EIP-721은 `transferFrom`을 쓸 때 수신 가능 여부를 확인할 책임이 호출자에게 있다고 명시한다. `safeTransferFrom`은 이 확인을 Contract 수준에서 수행한다.
 
 1. `transferFrom`과 같은 방식으로 전송한다.
 2. `_to` 주소에 Code가 있는지 확인한다. Code 크기가 0보다 크면 Contract로 판단한다.
@@ -404,48 +340,11 @@ interface ERC721TokenReceiver {
 
 `safeTransferFrom`은 수신 Contract가 "받을 수 있다"고 응답했는지만 확인한다. 수신 Contract가 실제로 NFT를 다시 내보낼 수 있는지는 보장하지 않는다.
 
-버전 조건: [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702)가 적용된 Blockchain에서는 EOA도 다른 Contract의 Code를 쓰도록 위임할 수 있다. EIP-7702는 위임한 EOA의 Code 크기가 23 Byte로 조회된다고 정한다. 따라서 OpenZeppelin 구현은 이런 EOA에 3번과 4번을 수행하고, 위임된 Code가 `onERC721Received`에 올바르게 응답하지 않으면 전송이 실패한다. 이 문단의 뒷부분은 `to.code.length > 0` 조건에서 도출한 내용이며 직접 실행해 확인하지는 않았다.
-
 **Burn**
 
 Burn은 TokenID의 Owner 기록을 지우는 동작이다. OpenZeppelin의 `_burn(tokenId)`는 Approved Address를 초기화하고, Owner의 `_balances`를 1 줄이고, `_owners[tokenId]`를 Zero Address로 바꾼 뒤 `Transfer(이전 Owner, address(0), tokenId)` Event를 발생시킨다. 존재하지 않는 TokenID이면 `ERC721NonexistentToken`으로 Revert한다.
 
 `_burn`은 호출자의 권한을 확인하지 않는 내부 함수다. 외부에 Burn 기능을 열 때는 권한 확인을 직접 추가하거나 `ERC721Burnable` 확장을 사용한다.
-
-**`_update`: 소유권 변경의 단일 지점**
-
-```solidity
-function _update(address to, uint256 tokenId, address auth) internal virtual returns (address)
-```
-
-OpenZeppelin에서 Mint, Transfer, Burn은 모두 내부 함수 `_update`를 거친다. 현재 Owner와 `to`의 값에 따라 동작이 결정된다.
-
-| 현재 Owner | `to` | 동작 |
-| --- | --- | --- |
-| Zero Address | 일반 주소 | Mint |
-| 일반 주소 | 일반 주소 | Transfer |
-| 일반 주소 | Zero Address | Burn |
-
-- `auth`가 Zero Address가 아니면 `auth`가 Owner이거나 승인을 받았는지 확인한다. `transferFrom`은 호출자 주소를 `auth`로 넘긴다. `_mint`와 `_burn`은 Zero Address를 넘겨 확인을 생략한다.
-- 반환값은 변경 전의 Owner다.
-- 전송 규칙을 바꾸는 확장은 `_update`를 Override한다. `ERC721Enumerable`과 `ERC721Pausable`이 이 방식으로 구현되어 있다.
-
-버전 조건: [OpenZeppelin 4.9의 `ERC721.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/release-v4.9/contracts/token/ERC721/ERC721.sol)에는 `_beforeTokenTransfer`와 `_afterTokenTransfer` Hook(훅)이 있었고, 확장은 이 Hook을 Override했다. [5.0.0 Changelog](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/CHANGELOG.md)에 따르면 5.0.0에서 두 Hook이 삭제되고 `_update`가 추가되었다. 4.x 기준으로 Hook을 Override한 코드는 5.x에서 그대로 컴파일되지 않는다.
-
-**Custom Error**
-
-5.6.1의 `ERC721`은 실패 시 Custom Error(사용자 정의 오류)로 Revert한다. 4.9 버전은 `require`와 `"ERC721: invalid token ID"` 같은 문자열 메시지를 사용했고, [5.0.0 Changelog](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.0.0/CHANGELOG.md)에 따르면 5.0.0에서 Custom Error로 바뀌었다.
-
-| Custom Error | 발생 조건 |
-| --- | --- |
-| `ERC721InvalidOwner(owner)` | `balanceOf`에 Zero Address를 넘김 |
-| `ERC721NonexistentToken(tokenId)` | 존재하지 않는 TokenID를 조회, 전송, Burn함 |
-| `ERC721IncorrectOwner(sender, tokenId, owner)` | `transferFrom`의 `from`이 실제 Owner와 다름 |
-| `ERC721InvalidSender(sender)` | 이미 존재하는 TokenID를 Mint함 |
-| `ERC721InvalidReceiver(receiver)` | 수신자가 Zero Address이거나, 수신 Contract가 NFT를 거부함 |
-| `ERC721InsufficientApproval(operator, tokenId)` | 호출자에게 전송 권한이 없음 |
-| `ERC721InvalidApprover(approver)` | 호출자에게 `approve` 권한이 없음 |
-| `ERC721InvalidOperator(operator)` | Operator로 Zero Address를 지정함 |
 
 ### ERC-721의 Transfer 구조 예시
 
@@ -493,11 +392,11 @@ contract MyCollection is ERC721, Ownable {
 - `ERC721("MyCollection", "MYC")`: Name과 Symbol을 지정한다.
 - `Ownable`: Contract 관리자를 한 명 두는 OpenZeppelin Contract다. `onlyOwner`가 붙은 함수는 관리자만 호출할 수 있다. 여기서의 관리자는 NFT의 Owner와 다른 개념이다.
 - `_baseURI`: Base URI를 지정한다. `tokenURI`는 여기에 TokenID를 이어 붙인다.
-- `safeMint`: TokenID를 0부터 1씩 늘려가며 Mint한다. Mint와 Burn은 표준에 없으므로 함수 이름과 권한은 이 Contract가 정한 것이다.
+- `safeMint`: TokenID를 0부터 1씩 늘려가며 Mint한다. 함수 이름과 권한은 이 Contract가 정한 것이다.
 
 **호출 흐름**
 
-Deployer(배포자), Alice, Bob, Carol 네 주소가 있고 모두 EOA다. Deployer가 `initialOwner`로 자신을 지정해 Contract를 배포했다. 아래 결과는 "작성 기준"의 환경에서 실행해 확인한 것이다.
+Deployer(배포자), Alice, Bob, Carol 네 주소가 있고 모두 EOA다. Deployer가 `initialOwner`로 자신을 지정해 Contract를 배포했다. 아래 결과는 ERC NFT Standards 절에 적은 측정 환경에서 실행해 확인한 것이다.
 
 | 순서 | 호출자 | 호출 | 결과 |
 | --- | --- | --- | --- |
@@ -511,26 +410,11 @@ Deployer(배포자), Alice, Bob, Carol 네 주소가 있고 모두 EOA다. Deplo
 
 5번에서 Bob은 Owner가 아니지만 Approved Address이므로 전송할 수 있다. 전송과 함께 승인이 초기화되므로 7번에서 Bob은 같은 NFT를 다시 옮길 수 없다. 4번에서 Alice가 `approve` 대신 `setApprovalForAll(Bob, true)`를 호출했더라도 7번은 실패한다. Operator 권한은 Alice의 NFT에 대한 것이고, 전송 후의 Owner는 Carol이기 때문이다.
 
-**Gas 측정**
-
-같은 환경에서 측정한 Transaction 전체 Gas 사용량이다.
-
-| 호출 | 조건 | Gas |
-| --- | --- | --- |
-| `safeMint` | Contract의 첫 Mint이고, 받는 주소의 첫 NFT | 96,364 |
-| `safeMint` | 받는 주소의 첫 NFT | 79,264 |
-| `safeMint` | 받는 주소가 이미 NFT를 가짐 | 62,164 |
-| `approve` | Approved Address를 처음 지정 | 49,066 |
-| `transferFrom` | 보내는 주소의 개수 2 → 1, 받는 주소의 개수 0 → 1 | 60,385 |
-| `transferFrom` | 보내는 주소의 개수 1 → 0, 받는 주소의 개수 1 → 2 | 38,485 |
-
-세 `safeMint` 값은 17,100 Gas씩 차이 난다. 값이 0이던 Slot에 처음 쓰는 횟수가 하나씩 줄기 때문이다. 첫 번째는 `_nextTokenId`, `_balances[to]`, `_owners[tokenId]` 세 Slot을 모두 0에서 처음 쓰고, 두 번째는 `_nextTokenId`가, 세 번째는 `_balances[to]`도 이미 0이 아니다. Optimizer를 켜면(runs 200) 위 값은 1% 안팎으로 줄었다.
-
 ### 확장: Enumerable, Metadata Update, Royalty, Batch Mint
 
 #### Enumerable
 
-필수 Interface만으로는 "이 주소가 가진 TokenID 전체"를 조회할 수 없다. EIP-721의 선택 확장인 ERC721Enumerable이 이 조회를 On-Chain에서 가능하게 한다.
+필수 Interface의 `balanceOf`는 개수만 반환한다. EIP-721의 선택 확장인 ERC721Enumerable은 Owner가 가진 TokenID 목록과 전체 NFT 목록을 On-Chain에서 조회할 수 있게 한다.
 
 ```solidity
 interface ERC721Enumerable /* is ERC721 */ {
@@ -558,39 +442,13 @@ ERC-721의 전송 함수는 NFT의 Owner만 바꾸고 판매 대금을 다루지
 
 ERC-721은 NFT마다 `Transfer` Event를 요구하므로 대량 Mint에서 Event 비용이 NFT 수에 비례한다. [ERC-2309](https://eips.ethereum.org/EIPS/eip-2309)는 `ConsecutiveTransfer` Event 하나로 연속된 TokenID의 생성을 알리는 방법을 정의한다. OpenZeppelin의 `ERC721Consecutive`가 이를 구현하며, Contract 생성 시의 일괄 Mint에만 쓸 수 있다.
 
-#### OpenZeppelin 확장 목록
-
-[OpenZeppelin 5.6.1의 ERC721 디렉터리](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/v5.6.1/contracts/token/ERC721)는 기본 `ERC721` Contract와 아래 확장을 제공한다.
-
-| 확장 | 기능 |
-| --- | --- |
-| `ERC721Enumerable` | 전체 NFT와 Owner별 NFT 열거 |
-| `ERC721URIStorage` | TokenID별 URI 저장 |
-| `ERC721Burnable` | Owner 또는 전송 권한을 받은 주소(Approved Address, Operator)가 NFT를 Burn |
-| `ERC721Pausable` | 전송, Mint, Burn 일시 정지 |
-| `ERC721Consecutive` | Contract 생성 시 일괄 Mint |
-| `ERC721Royalty` | Royalty 정보 제공 |
-| `ERC721Votes` | NFT 1개당 1표의 투표와 위임 |
-| `ERC721Wrapper` | 다른 ERC-721 NFT를 예치받아 감싸기 |
-
-NFT를 받는 Contract를 위한 `ERC721Holder`도 제공된다. `onERC721Received`의 기본 구현을 담고 있다.
-
-버전 조건: 5.7.0에는 [ERC-7786](https://eips.ethereum.org/EIPS/eip-7786) Gateway(게이트웨이)를 거쳐 NFT를 여러 Blockchain에서 쓰게 하는 `ERC721Crosschain` 확장이 추가되어 있다([5.7.0 README](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.7.0/contracts/token/ERC721/README.adoc)).
-
 <br />
 
 ## ERC-1155
 
 ### What is ERC-1155?
 
-[ERC-1155](https://eips.ethereum.org/EIPS/eip-1155)는 Contract 하나로 여러 종류의 Token을 다루는 Multi Token Standard다. Contract 하나에 Fungible Token, NFT, Semi-Fungible Token(준대체 가능 토큰, 같은 ID끼리만 서로 대체되는 Token)을 함께 담을 수 있다.
-
-| 항목 | 내용 |
-| --- | --- |
-| 작성자 | Witek Radomski, Andrew Cooke, Philippe Castonguay, James Therien, Eric Binet, Ronan Sandford |
-| 작성일(Created) | 2018-06-17 |
-| 상태 | Final |
-| 선행 표준 | [EIP-165](https://eips.ethereum.org/EIPS/eip-165) |
+[ERC-1155](https://eips.ethereum.org/EIPS/eip-1155)는 Contract 하나로 여러 종류의 Token을 다루는 Multi Token Standard다. Contract 하나에 Fungible Token, NFT, Semi-Fungible Token(준대체 가능 토큰, 같은 ID끼리만 서로 대체되는 Token)을 함께 담을 수 있다. 상태는 Final이다.
 
 ERC-721의 TokenID는 NFT 하나를 가리킨다. ERC-1155의 ID는 Token 종류 하나를 가리키고, 주소마다 그 ID를 몇 개 가졌는지를 기록한다. ID마다 Metadata와 공급량을 따로 가질 수 있다.
 
@@ -755,26 +613,3 @@ ERC-721 예시와 같은 주소와 환경에서 실행해 확인한 결과다. I
 | 7 | Deployer | `mint(Alice, 1, 1)` | 성공. ID 1의 총 공급량이 2가 된다 |
 
 7번 이후 ID 1은 Alice와 Bob이 1개씩 가진 Token이 되어 더 이상 NFT가 아니다. ID를 NFT로 쓰려면 같은 ID를 다시 Mint하지 못하게 Contract에서 막아야 한다. OpenZeppelin의 `ERC1155Supply` 확장은 ID별 `totalSupply(id)`와 `exists(id)`를 제공하므로 이 확인에 쓸 수 있다.
-
-**Gas 측정**
-
-| 호출 | 조건 | Gas |
-| --- | --- | --- |
-| `mint` | 받는 주소가 그 ID를 처음 가짐 | 54,010 |
-| `safeTransferFrom` | ID 1을 1개. 보내는 주소 1 → 0, 받는 주소 0 → 1 | 54,013 |
-| `safeTransferFrom` | ID 2를 30개. 보내는 주소 100 → 70, 받는 주소 0 → 30 | 58,813 |
-| `mintBatch` | ID 5개를 1개씩 | 152,919 |
-| `safeBatchTransferFrom` | ID 5개를 1개씩 | 157,987 |
-
-### 확장: Supply, URI Storage
-
-[OpenZeppelin 5.6.1의 ERC1155 디렉터리](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/v5.6.1/contracts/token/ERC1155)는 기본 `ERC1155` Contract와 아래 확장을 제공한다.
-
-| 확장 | 기능 |
-| --- | --- |
-| `ERC1155Supply` | ID별 총 공급량과 존재 여부 추적 |
-| `ERC1155URIStorage` | ID별 URI 저장 |
-| `ERC1155Burnable` | Owner 또는 Operator가 Token을 Burn |
-| `ERC1155Pausable` | 전송, Mint, Burn 일시 정지 |
-
-버전 조건: 5.7.0에는 `ERC1155Crosschain` 확장이 추가되어 있다.
