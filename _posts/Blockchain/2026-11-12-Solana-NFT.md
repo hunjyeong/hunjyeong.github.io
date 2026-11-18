@@ -4,6 +4,7 @@ date: 2026-11-12 02:00:00 +0900
 last_modified_at: 2026-11-18
 categories: [Blockchain]
 tags: [Blockchain, NFT]
+media_subpath: /assets/img/posts/solana-nft/
 ---
 
 >
