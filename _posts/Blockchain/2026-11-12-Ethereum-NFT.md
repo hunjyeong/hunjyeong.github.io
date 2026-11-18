@@ -12,28 +12,28 @@ tags: [Blockchain, NFT]
 > 3. [Solana NFT]({% post_url Blockchain/2026-11-12-Solana-NFT %})
 >
 
-# ERC-721: Ethereum의 Non-Fungible Token(대체 불가능 토큰) 표준
+이 글은 Ethereum(이더리움)의 NFT(Non-Fungible Token, 대체 불가능 토큰) 표준인 ERC-721을 다룬다. ERC는 Ethereum Request for Comments의 줄임말이고, 사양은 EIP(Ethereum Improvement Proposal, 이더리움 개선 제안) 문서로 관리된다. NFT가 필요한 배경과 Blockchain(블록체인)에 공통인 개념은 [NFT]({% post_url Blockchain/2026-11-12-NFT %}) 글에서 설명했다.
 
 > 작성 기준
 > - 표준 사양: [EIP-721](https://eips.ethereum.org/EIPS/eip-721) (Status: Final)
-> - 구현 기준: [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/api/token/erc721) 5.6.1
-> - 예시 코드 컴파일과 실행 확인: Solidity 0.8.38, `@ethereumjs/vm`
+> - 구현 기준: [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/api/token/erc721) 5.6.1. 2026년 11월 기준 npm에 올라온 최신 버전은 5.7.0이다. 이 글이 인용하는 `ERC721.sol`, `ERC721URIStorage.sol`, `ERC721Burnable.sol`, `ERC721Utils.sol`은 5.7.0에서도 내용이 같고, 확장 목록의 차이는 5.3에 적었다.
+> - 예시 코드 컴파일과 실행 확인: Solidity 0.8.38, `@ethereumjs/vm` 10.1.3
 
 ## 1. ERC-721이란
 
-ERC-721은 Ethereum(이더리움)에서 Non-Fungible Token(대체 불가능 토큰, 이하 NFT)을 다루는 방법을 정한 표준이다. 사양 문서는 [EIP-721](https://eips.ethereum.org/EIPS/eip-721)이다.
+ERC-721은 Ethereum에서 NFT를 다루는 방법을 정한 표준이다. 사양 문서는 [EIP-721](https://eips.ethereum.org/EIPS/eip-721)이다.
 
 이 정의에 나오는 용어는 다음과 같다.
 
-- Smart Contract(스마트 컨트랙트): Blockchain(블록체인)에 배포되어 정해진 코드대로 실행되는 프로그램이다. 이하 Contract라고 줄여 쓴다.
+- Smart Contract(스마트 컨트랙트): Blockchain에 배포되어 정해진 코드대로 실행되는 프로그램이다. 이하 Contract라고 줄여 쓴다.
 - Token(토큰): Contract가 관리하는 장부 위의 기록이다. 누가 어떤 Token을 가졌는지는 Contract의 저장 공간에 기록된다.
-- NFT: Token 하나하나가 고유한 Token이다. 같은 Contract에서 발행된 Token이라도 서로 다른 Token으로 취급한다. 반대 개념은 Fungible Token(대체 가능 토큰)이다. Fungible Token은 같은 종류끼리 구분되지 않으며, [ERC-20](https://eips.ethereum.org/EIPS/eip-20) 표준이 이 방식이다.
-- ERC: Ethereum Request for Comments의 줄임말이다. Ethereum의 변경 제안 문서인 EIP(Ethereum Improvement Proposal, 이더리움 개선 제안) 가운데 Application 수준의 표준을 다루는 분류다.
+- NFT: Token 하나하나가 고유한 Token이다. 같은 Contract가 관리하는 Token이라도 서로 다른 Token으로 취급한다. 반대 개념은 Fungible Token(대체 가능 토큰)이다. Fungible Token은 같은 종류끼리 구분되지 않으며, [ERC-20](https://eips.ethereum.org/EIPS/eip-20) 표준이 이 방식이다.
+- ERC: Ethereum의 변경 제안 문서인 EIP 가운데 Application 수준의 표준을 다루는 분류다([EIP-1](https://eips.ethereum.org/EIPS/eip-1)).
 
 | 항목 | 내용 |
 | --- | --- |
 | 작성자 | William Entriken, Dieter Shirley, Jacob Evans, Nastassia Sachs |
-| 작성일 | 2018-01-24 |
+| 작성일(Created) | 2018-01-24 |
 | 상태 | Final |
 | 선행 표준 | [EIP-165](https://eips.ethereum.org/EIPS/eip-165) |
 
@@ -41,28 +41,28 @@ ERC-721이 정하는 것은 구현 코드가 아니라 Interface(인터페이스
 
 | 구분 | 내용 |
 | --- | --- |
-| 표준이 정하는 것 | NFT의 소유자 조회, 전송, 전송 권한 승인에 쓰는 함수와 Event |
+| 표준이 정하는 것 | NFT의 Owner(소유자) 조회, 전송, 전송 권한 승인에 쓰는 함수와 Event |
 | 표준이 정하지 않는 것 | NFT를 새로 만드는 Mint(발행)와 없애는 Burn(소각)의 방법, Contract 내부의 저장 구조, Metadata(메타데이터)의 저장 위치 |
 
-모든 ERC-721 Contract가 같은 Interface를 따르므로, Wallet(지갑)이나 Marketplace(거래소)는 Contract마다 내부 구현을 알지 못해도 같은 방법으로 소유자를 조회하고 전송을 요청할 수 있다.
+모든 ERC-721 Contract가 같은 Interface를 따르므로, Wallet(지갑)이나 Marketplace(마켓플레이스)는 Contract마다 내부 구현을 알지 못해도 같은 방법으로 Owner를 조회하고 전송을 요청할 수 있다.
 
-NFT는 [ERC-1155](https://eips.ethereum.org/EIPS/eip-1155) 표준으로도 발행할 수 있다. ERC-1155는 Contract 하나에 Fungible Token과 NFT를 함께 담을 수 있는 Multi Token Standard다. 이 문서는 ERC-721만 다룬다.
+NFT는 [ERC-1155](https://eips.ethereum.org/EIPS/eip-1155) 표준으로도 Mint할 수 있다. ERC-1155는 Contract 하나에 Fungible Token과 NFT를 함께 담을 수 있는 Multi Token Standard다. 이 문서는 ERC-721만 다룬다.
 
 ## 2. 구성 요소
 
 ### 2.1 전체 구성
 
-ERC-721 NFT 하나는 아래 요소로 이루어진다. On-Chain(온체인)은 Blockchain 위의 Contract 저장 공간 또는 Code에 있다는 뜻이고, Off-Chain(오프체인)은 Blockchain 밖에 있다는 뜻이다.
+ERC-721 NFT 하나는 아래 요소로 이루어진다. On-Chain(온체인)은 Blockchain 위의 Contract 저장 공간 또는 Code(Contract에 배포된 실행 코드)에 있다는 뜻이고, Off-Chain(오프체인)은 Blockchain 밖에 있다는 뜻이다.
 
 | 구성 요소 | 위치 | 표준에서의 지위 | 설명 |
 | --- | --- | --- | --- |
-| TokenID | On-Chain | 필수 | NFT를 식별하는 번호 |
+| TokenID(Token Identifier) | On-Chain | 필수 | NFT를 식별하는 번호 |
 | Owner | On-Chain | 필수 | NFT를 소유한 주소 |
-| Approved Address | On-Chain | 필수 | NFT 1개의 전송 권한을 받은 주소 |
-| Operator | On-Chain | 필수 | Owner의 모든 NFT의 전송 권한을 받은 주소 |
+| Approved Address(승인된 주소) | On-Chain | 필수 | NFT 1개의 전송 권한을 받은 주소 |
+| Operator(운영자) | On-Chain | 필수 | Owner의 모든 NFT의 전송 권한을 받은 주소 |
 | Name | On-Chain | 선택 | NFT Collection(컬렉션)의 이름 |
 | Symbol | On-Chain | 선택 | NFT Collection의 약칭 |
-| TokenURI | On-Chain | 선택 | Metadata 파일의 위치를 가리키는 문자열 |
+| TokenURI | On-Chain | 선택 | Metadata 파일의 위치를 가리키는 URI(Uniform Resource Identifier, 통합 자원 식별자) |
 | Metadata 파일 | 일반적으로 Off-Chain | 선택 | NFT의 이름, 설명, 이미지 주소를 담은 파일 |
 | 이미지 등 Content | 일반적으로 Off-Chain | 표준 밖 | Metadata 파일이 가리키는 대상 |
 
@@ -70,22 +70,22 @@ ERC-721 NFT 하나는 아래 요소로 이루어진다. On-Chain(온체인)은 B
 
 ### 2.2 TokenID
 
-ERC-721 Contract 안의 NFT는 각각 `uint256` 타입의 식별자를 가진다. 이 문서에서는 이 식별자를 TokenID(Token Identifier)라고 부른다.
+ERC-721 Contract 안의 NFT는 각각 `uint256` 타입의 식별자를 가진다. 이 문서에서는 이 식별자를 TokenID라고 부른다.
 
 - TokenID는 하나의 Contract 안에서 고유하다.
-- (Contract 주소, TokenID) 쌍은 하나의 Ethereum Chain 안에서 고유하다.
+- (Contract 주소, TokenID) 쌍은 하나의 Ethereum Blockchain 안에서 고유하다.
 - TokenID는 Contract가 존재하는 동안 바뀌면 안 된다.
 - 호출자는 TokenID에 특정 규칙이 있다고 가정하면 안 된다. 예를 들어 0부터 순서대로 증가한다고 가정할 수 없다.
 
-NFT의 Non-Fungibility(대체 불가능성)는 (Contract 주소, TokenID) 쌍에서 나온다. 예를 들어 [PudgyPenguins Contract](https://goto.etherscan.com/token/0xbd3531da5cf5857e7cfaa92426877b022e612cf8?a=3372)의 TokenID 777은 같은 Contract의 다른 TokenID와도, 다른 Contract의 TokenID 777과도 다른 NFT다.
+NFT의 Non-Fungibility(대체 불가능성)는 (Contract 주소, TokenID) 쌍에서 나온다. 예를 들어 [PudgyPenguins Contract](https://etherscan.io/token/0xbd3531da5cf5857e7cfaa92426877b022e612cf8?a=777)의 TokenID 777은 같은 Contract의 다른 TokenID와도, 다른 Contract의 TokenID 777과도 다른 NFT다.
 
 ### 2.3 Owner, Approved Address, Operator
 
 NFT 하나를 전송할 수 있는 주체는 세 종류다.
 
-- Owner(소유자): 해당 TokenID를 소유한 주소다.
-- Approved Address(승인된 주소): Owner가 특정 TokenID 하나에 대해 전송 권한을 준 주소다. TokenID 하나에 주소 하나만 지정된다.
-- Operator(운영자): Owner가 자신의 모든 NFT에 대해 전송 권한을 준 주소다. Owner 한 명이 여러 Operator를 둘 수 있다.
+- Owner: 해당 TokenID를 소유한 주소다.
+- Approved Address: Owner가 특정 TokenID 하나에 대해 전송 권한을 준 주소다. TokenID 하나에 주소 하나만 지정된다.
+- Operator: Owner가 자신의 모든 NFT에 대해 전송 권한을 준 주소다. Owner 한 명이 여러 Operator를 둘 수 있다.
 
 Approved Address와 Operator는 Owner가 직접 Transaction(트랜잭션)을 보내지 않아도 제3자 Contract가 NFT를 옮길 수 있게 한다. Marketplace가 판매자의 NFT를 구매자에게 넘기는 동작이 이 권한 위에서 이루어진다.
 
@@ -95,7 +95,7 @@ Name은 NFT Collection의 이름이고 Symbol은 약칭이다. Contract 하나�
 
 ### 2.5 TokenURI
 
-TokenURI는 TokenID에 대응하는 URI(Uniform Resource Identifier, 통합 자원 식별자)다. Contract의 `tokenURI(tokenId)` 함수가 반환하며, Metadata 파일의 위치를 가리킨다.
+TokenURI는 TokenID에 대응하는 URI다. Contract의 `tokenURI(tokenId)` 함수가 반환하며, Metadata 파일의 위치를 가리킨다.
 
 TokenURI 문자열 자체는 Contract가 저장하거나 계산해서 반환하는 On-Chain 값이다. Off-Chain에 있는 것은 그 URI가 가리키는 Metadata 파일이다. Blockchain이 보장하는 것은 소유권 기록과 URI 문자열까지다. URI가 가리키는 내용은 저장 위치의 성질을 따른다.
 
@@ -117,17 +117,16 @@ Metadata는 NFT의 이름, 설명, 이미지 주소 같은 부가 정보다. [EI
 | `description` | string | 자산의 설명 |
 | `image` | string | 이미지 자원을 가리키는 URI |
 
-실제 NFT Metadata에는 이 세 속성 외의 값이 자주 들어간다. 아래는 [OpenSea의 Metadata Standards 문서](https://docs.opensea.io/docs/metadata-standards)에 실린 예시의 일부다. `external_url`과 `attributes`는 EIP-721 Schema에 없는 속성이며, OpenSea가 화면 표시에 사용하려고 정의한 확장이다.
+실제 NFT Metadata에는 이 세 속성 외의 값이 자주 들어간다. 아래는 [OpenSea의 Media and traits 문서](https://docs.opensea.io/docs/media-and-traits)에 실린 예시다(2026년 11월 기준). `external_url`과 `attributes`는 EIP-721 Schema에 없는 속성이며, OpenSea가 화면 표시에 사용하는 확장이다.
 
 ```json
 {
-  "description": "Friendly OpenSea Creature that enjoys long swims in the ocean.",
-  "external_url": "https://openseacreatures.io/3",
-  "image": "https://storage.googleapis.com/opensea-prod.appspot.com/puffs/3.png",
   "name": "Dave Starbelly",
+  "description": "Friendly OpenSea Creature that enjoys long swims in the ocean.",
+  "image": "https://storage.googleapis.com/opensea-prod.appspot.com/puffs/3.png",
+  "external_url": "https://openseacreatures.io/3",
   "attributes": [
-    { "trait_type": "Mouth", "value": "Surprised" },
-    { "trait_type": "Level", "value": 5 }
+    { "trait_type": "Base", "value": "Starfish" }
   ]
 }
 ```
@@ -156,7 +155,7 @@ EIP-721은 URI가 변할 수 있다고 명시한다. 사양은 집을 나타내�
 | ERC721Enumerable | 선택 | `0x780e9d63` | 전체 NFT 목록 열거 |
 | ERC721TokenReceiver | Safe Transfer를 받는 Contract에 필요 | `0x150b7a02` | NFT 수신 가능 여부 응답 |
 
-Interface Identifier는 [EIP-165](https://eips.ethereum.org/EIPS/eip-165)가 정한 4바이트 값이다. Interface에 속한 모든 함수의 Function Selector(함수 선택자)를 XOR(Exclusive OR, 배타적 논리합)한 결과다. Function Selector는 함수 시그니처를 Keccak-256으로 해시한 값의 앞 4바이트다. 외부에서는 `supportsInterface(bytes4 interfaceID)`를 호출해 Contract가 특정 Interface를 구현하는지 확인한다.
+Interface Identifier는 [EIP-165](https://eips.ethereum.org/EIPS/eip-165)가 정한 4 Byte 값이다. Interface에 속한 모든 함수의 Function Selector(함수 선택자)를 XOR(Exclusive OR, 배타적 논리합)한 결과다. Function Selector는 함수 시그니처를 Keccak-256으로 해시한 값의 앞 4 Byte다. 외부에서는 `supportsInterface(bytes4 interfaceID)`를 호출해 Contract가 특정 Interface를 구현하는지 확인한다.
 
 ### 3.2 필수 Interface: ERC721
 
@@ -197,7 +196,7 @@ interface ERC721 /* is ERC165 */ {
 
 이 Interface에 대해 알아둘 조건은 다음과 같다.
 
-- Mint와 Burn 함수는 Interface에 없다. 다만 NFT가 생성될 때는 `_from`이 Zero Address인 `Transfer` Event를, 소각될 때는 `_to`가 Zero Address인 `Transfer` Event를 발생시킨다.
+- Mint와 Burn 함수는 Interface에 없다. 다만 NFT가 생성될 때는 `_from`이 Zero Address인 `Transfer` Event를, Burn될 때는 `_to`가 Zero Address인 `Transfer` Event를 발생시킨다.
 - Contract 생성 중에는 `Transfer` Event 없이 NFT를 생성하고 할당할 수 있다. 따라서 Event만으로 소유 현황을 복원하면 누락이 생길 수 있다.
 - 전송 함수와 `approve`는 사양에서 `payable`로 선언되어 있다. EIP-721은 구현이 Interface보다 엄격한 Mutability(상태 변경 가능성)를 가져도 된다고 명시한다. 그래서 `payable` 함수를 Non-Payable로 구현할 수 있다. OpenZeppelin 5.6.1은 이 함수들을 Non-Payable로 구현한다.
 - 표에 적은 실패 조건 외에도 구현은 추가 조건에서 실패할 수 있다.
@@ -253,7 +252,7 @@ interface ERC721TokenReceiver {
 
 ## 4. 동작 원리
 
-이 절은 EIP-721의 요구사항과, 그것을 구현한 [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/api/token/erc721) 5.6.1의 [`ERC721.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/token/ERC721/ERC721.sol)을 함께 설명한다. OpenZeppelin은 널리 쓰이는 Smart Contract Library(라이브러리)다. 어느 쪽 내용인지는 문장마다 구분해 적는다. 링크의 소스는 master Branch(브랜치)이므로 5.6.1과 다를 수 있다. 본문은 npm 패키지 `@openzeppelin/contracts` 5.6.1의 소스를 기준으로 확인했다.
+이 절은 EIP-721의 요구사항과, 그것을 구현한 [OpenZeppelin Contracts](https://docs.openzeppelin.com/contracts/api/token/erc721) 5.6.1의 [`ERC721.sol`](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.6.1/contracts/token/ERC721/ERC721.sol)을 함께 설명한다. OpenZeppelin은 널리 쓰이는 Smart Contract Library(라이브러리)다. 어느 쪽 내용인지는 문장마다 구분해 적는다. 링크는 v5.6.1 Tag(태그)의 소스이며, 본문은 npm 패키지 `@openzeppelin/contracts` 5.6.1의 소스와 대조해 확인했다.
 
 ### 4.1 저장 상태
 
@@ -334,7 +333,9 @@ OpenZeppelin의 `transferFrom(from, to, tokenId)`는 다음 순서로 동작한�
 3. Contract이면 `_to`의 `onERC721Received`(3.5)를 호출한다.
 4. 반환값이 `0x150b7a02`가 아니면 전체 전송을 실패 처리한다.
 
-수신자가 EOA(Externally Owned Account, 개인 키로 제어하는 계정)처럼 Code가 없는 주소이면 3번과 4번은 건너뛴다. `bytes data` 인자가 있는 `safeTransferFrom`은 그 값을 `onERC721Received`에 그대로 전달한다.
+수신자가 EOA(Externally Owned Account, Private Key(개인키)로 제어하는 계정)처럼 Code가 없는 주소이면 3번과 4번은 건너뛴다.
+
+버전 조건: [EIP-7702](https://eips.ethereum.org/EIPS/eip-7702)가 적용된 Blockchain에서는 EOA도 다른 Contract의 Code를 쓰도록 위임할 수 있다. EIP-7702는 위임한 EOA의 Code 크기가 23 Byte로 조회된다고 정한다. 따라서 OpenZeppelin 구현은 이런 EOA에 3번과 4번을 수행하고, 위임된 Code가 `onERC721Received`에 올바르게 응답하지 않으면 전송이 실패한다. 이 문단의 뒷부분은 `to.code.length > 0` 조건에서 도출한 내용이며 직접 실행해 확인하지는 않았다. `bytes data` 인자가 있는 `safeTransferFrom`은 그 값을 `onERC721Received`에 그대로 전달한다.
 
 `safeTransferFrom`은 수신 Contract가 "받을 수 있다"고 응답했는지만 확인한다. 수신 Contract가 실제로 NFT를 다시 내보낼 수 있는지는 보장하지 않는다.
 
@@ -375,7 +376,7 @@ function tokenURI(uint256 tokenId) public view override returns (string memory) 
 }
 ```
 
-- `string.concat`은 [Solidity 0.8.12](https://blog.soliditylang.org/2022/02/16/solidity-0.8.12-release-announcement/) 이상에서 사용할 수 있다.
+- `string.concat`은 [Solidity 0.8.12](https://blog.soliditylang.org/2022/02/16/solidity-0.8.12-release-announcement/)부터 문자열을 인자로 받아 `string memory`를 반환한다. 0.8.12의 Release 공지는 그 전 버전에 이 함수가 `bytes.concat`의 복사본으로 잘못 들어가 있었다고 적는다. 따라서 0.8.12 이상에서 쓴다.
 - Solidity 0.5.0 이상에서는 `string` 반환 타입에 Data Location(데이터 위치)을 명시해야 한다. 함수 안에서 만든 문자열을 반환하므로 `memory`를 쓴다.
 - 숫자를 문자열로 바꾸는 함수는 OpenZeppelin `Strings` Library의 `toString`이다.
 
@@ -435,18 +436,20 @@ Mint, 전송, Burn은 모두 `_update`를 거친다. 현재 Owner와 `to`의 값
 
 ### 5.3 확장 목록
 
-[OpenZeppelin의 ERC721 디렉터리](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/master/contracts/token/ERC721)는 기본 `ERC721` Contract와 아래 확장을 제공한다. 기본 `ERC721`은 Metadata 확장은 포함하지만 Enumerable 확장은 포함하지 않는다.
+[OpenZeppelin 5.6.1의 ERC721 디렉터리](https://github.com/OpenZeppelin/openzeppelin-contracts/tree/v5.6.1/contracts/token/ERC721)는 기본 `ERC721` Contract와 아래 확장을 제공한다. 기본 `ERC721`은 Metadata 확장은 포함하지만 Enumerable 확장은 포함하지 않는다.
 
 | 확장 | 기능 |
 | --- | --- |
 | `ERC721Enumerable` | 전체 NFT와 Owner별 NFT 열거 |
 | `ERC721URIStorage` | TokenID별 URI 저장 |
-| `ERC721Burnable` | Token 보유자가 자신의 NFT를 Burn |
+| `ERC721Burnable` | Owner 또는 전송 권한을 받은 주소(Approved Address, Operator)가 NFT를 Burn |
 | `ERC721Pausable` | 전송, Mint, Burn 일시 정지 |
 | `ERC721Consecutive` | Contract 생성 시 일괄 Mint. [ERC-2309](https://eips.ethereum.org/EIPS/eip-2309)가 정의한 `ConsecutiveTransfer` Event 하나로 연속된 TokenID의 생성을 알린다. |
 | `ERC721Royalty` | Royalty(로열티) 정보 제공. [ERC-2981](https://eips.ethereum.org/EIPS/eip-2981)의 `royaltyInfo` 함수로 수령 주소와 금액을 알려줄 뿐, 지급은 강제하지 않는다. ERC-2981은 지급이 자발적이어야 한다고 명시한다. |
 | `ERC721Votes` | NFT 1개당 1표의 투표와 위임 |
 | `ERC721Wrapper` | 다른 ERC-721 NFT를 예치받아 감싸기 |
+
+버전 조건: 5.7.0의 [README](https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v5.7.0/contracts/token/ERC721/README.adoc)에는 [ERC-7786](https://eips.ethereum.org/EIPS/eip-7786) Gateway(게이트웨이)를 거쳐 NFT를 여러 Blockchain에서 쓰게 하는 `ERC721Crosschain` 확장이 추가되어 있다.
 
 `ERC721Enumerable`은 전송, Mint, Burn마다 목록을 갱신하는 저장 공간 쓰기가 추가된다. [OpenZeppelin 문서](https://docs.openzeppelin.com/contracts/api/token/erc721)는 이 확장에 상당한 Gas(가스) 비용이 든다고 설명한다. Gas는 Ethereum에서 연산과 저장에 매기는 비용 단위다.
 
@@ -491,7 +494,7 @@ contract MyCollection is ERC721, Ownable {
 
 ### 6.2 호출 흐름
 
-Deployer(배포자), Alice, Bob, Carol 네 주소가 있고 모두 EOA라고 가정한다. Deployer가 `initialOwner`로 자신을 지정해 Contract를 배포했다. 아래 결과는 6.1의 Contract를 로컬 EVM(Ethereum Virtual Machine, 이더리움 가상 머신) 구현인 `@ethereumjs/vm`에서 Cancun Hardfork(하드포크) 설정으로 실행해 확인한 것이다.
+Deployer(배포자), Alice, Bob, Carol 네 주소가 있고 모두 EOA라고 가정한다. Deployer가 `initialOwner`로 자신을 지정해 Contract를 배포했다. 아래 결과는 6.1의 Contract를 로컬 EVM(Ethereum Virtual Machine, 이더리움 가상 머신) 구현인 `@ethereumjs/vm` 10.1.3에서 Cancun Hardfork(하드포크) 설정으로 실행해 확인한 것이다. Contract는 Compiler(컴파일러)의 EVM Version을 `cancun`으로 지정해 컴파일했다.
 
 | 순서 | 호출자 | 호출 | 결과 |
 | --- | --- | --- | --- |
