@@ -479,3 +479,63 @@ Collection Account 하나에 Asset 두 개를 만들고, 첫 번째는 Alice가,
 
 ## Compressed NFT (cNFT)
 
+### What is a Compressed NFT?
+
+Token Metadata와 Core는 NFT마다 Account를 만들어 Mint 수에 비례해 Rent가 든다. cNFT(Compressed NFT)는 NFT마다 Account를 만들지 않아 수백만 개 단위의 Mint에 적합하다. 이를 담당하는 Metaplex Program이 Bubblegum이며, 최신 버전은 [Bubblegum V2](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2)다.
+
+cNFT는 [Merkle Tree](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2#merkle-trees-leaves-and-proofs) 안에서만 존재한다. Merkle Tree는 각 부모 Node가 두 자식 Node의 Hash인 Binary Tree(이진 트리)다.
+
+- Leaf(리프): cNFT 하나의 데이터를 Hash한 값
+- Root(루트): Tree 전체를 대표하는 맨 위의 Hash
+- Proof(증명): Leaf에서 Root까지 경로의 형제 Node Hash 목록. 특정 Leaf가 Tree에 속함을 검증하는 데 쓴다
+
+![solana-nft-07-bubblegum-merkle-tree.png](solana-nft-07-bubblegum-merkle-tree.png)
+
+위 그림에서 Leaf 3의 Proof는 Leaf 4, Node 3, Node 2이며, 이들로 Root를 다시 계산해 On-Chain Root와 비교한다. cNFT가 수정되거나 Transfer되면 Leaf와 Root가 바뀐다. Merkle Tree는 NFT 데이터를 저장하지 않고도 cNFT의 존재를 검증할 수 있게 한다.
+
+[https://github.com/metaplex-foundation/mpl-bubblegum/tree/main](https://github.com/metaplex-foundation/mpl-bubblegum/tree/main)
+
+### Compressed NFT의 구성 요소
+
+cNFT를 Mint하려면 먼저 On-Chain Account 두 개로 이루어진 [Bubblegum Tree](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/create-trees)를 만들어야 한다.
+
+![solana-nft-cnft-accounts.png](solana-nft-cnft-accounts.png)
+
+- Merkle Tree Account: V2에서는 MPL Account Compression Program이 소유한다. Leaf를 모두 저장하지 않고 다음만 저장한다.
+
+  - Header
+  - 최근 Root와 변경 경로를 담은 ChangeLog Buffer. 같은 Block 안의 동시 변경으로 Proof가 오래되면 이 기록으로 보정한다
+  - 가장 오른쪽 Leaf의 Proof. Mint에 Proof가 필요 없는 이유다
+  - Canopy(상위 Node Cache). Transaction에 실을 Proof를 줄인다
+
+- TreeConfigV2 Account: Merkle Tree Address로 유도한 Bubblegum PDA다. Tree Creator와 Delegate, 최대 Mint 수, 지금까지 Mint된 수(Leaf의 Nonce로도 쓰임), Public 여부, Leaf Schema 버전을 저장한다.
+
+- Leaf: Leaf Schema를 Keccak-256으로 Hash한 32 Byte 값이다. Leaf Schema에는 Asset ID, Owner, Delegate, Nonce, Metadata Hash, Creator Hash가 들어가고, V2는 Collection Hash 등이 추가된다([Hashed NFT Data](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/hashed-nft-data)). Asset ID는 PDA 형식의 식별자이며, 그 Address에 Account는 없다.
+
+- Tree 파라미터: Max Depth(최대 Leaf 수 2^Max Depth), Max Buffer Size(Block당 동시 변경 수), Canopy Depth다. 셋 다 생성 후 바꿀 수 없다. 예를 들어 1,048,576개용 Tree(Depth 20, Canopy 13, Buffer 1024)의 비용은 약 8.5 SOL로, cNFT당 약 0.000013 SOL이다.
+
+Leaf에는 Hash만 있으므로 원본 데이터는 Account가 아니라 Mint와 수정 Transaction에 기록된다. Bubblegum은 Noop Program을 CPI로 호출하고, 그 Instruction Data에 데이터를 실어 Ledger에 남긴다. 현재 상태를 알려면 이 기록을 순서대로 읽어야 하므로, 실제로는 DAS API를 지원하는 RPC Provider가 Indexing해 데이터와 Proof를 제공한다([Stored NFT Data](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2/stored-nft-data)). Off-Chain Metadata(JSON, 미디어 파일)는 다른 표준과 같다.
+
+![solana-nft-08-bubblegum-transactions.png](solana-nft-08-bubblegum-transactions.png)
+
+![solana-nft-cnft-onoff.png](solana-nft-cnft-onoff.png)
+
+### 예시
+
+- Mint: Bubblegum이 Leaf Schema를 Hash해 Tree의 가장 오른쪽에 Leaf로 추가하고 Root를 갱신한다. Proof는 필요 없다.
+- Alice → Bob Transfer: Client가 DAS API에서 현재 Leaf 정보와 Proof를 받아 Instruction에 넣고, Alice가 서명한다. Program은 Proof로 On-Chain Root와 일치하는지 검증한 뒤, `owner`를 Bob으로 바꾼 Leaf로 교체한다. 바뀌는 On-Chain 데이터는 Merkle Tree Account뿐이며, Bob을 위한 Account는 만들어지지 않는다.
+
+### Bubblegum V1과 V2
+
+V2는 새 Leaf Schema(LeafSchemaV2)와 MPL Account Compression을 쓰고, Collection으로 MPL Core Collection(BubblegumV2 Plugin 필요)을 사용한다. 이를 통해 Freeze와 Thaw, Soulbound, Permanent Transfer/Burn Delegate, Royalty 강제를 지원한다([What's New in Bubblegum V2](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2#whats-new-in-bubblegum-v2)). 반면 V1에서 가능했던 Decompress(일반 NFT로 변환)는 V2에서 불가능하다. V1 Tree와 V2 Tree는 서로 호환되지 않는다. Protocol Fee는 V1의 Create가 무료이고, V2는 Create 0.00009 SOL, Transfer 0.000006 SOL이다.
+
+### 특징과 한계
+
+- 장점: NFT마다 Account가 없어 개당 비용이 매우 낮고(큰 Tree에서 약 0.00001 SOL), Tree 하나에 최대 2^30개를 담을 수 있다.
+
+- 단점
+  - 조회와 Proof 획득을 DAS API 지원 RPC에 의존한다.
+  - 변경마다 Proof를 실어야 해 Transaction 크기를 차지한다.
+  - Tree 파라미터를 바꿀 수 없다.
+  - 한 Block의 변경이 Max Buffer Size를 넘으면 일부 Transaction이 실패한다.
+  - 지원 범위가 좁다. [Ecosystem Compatibility](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2#ecosystem-compatibility)(2026-06-19 갱신) 기준으로 Phantom, Solflare, Backpack은 V2 cNFT의 조회만 지원하고, Magic Eden과 Tensor는 아직 지원하지 않는다.
