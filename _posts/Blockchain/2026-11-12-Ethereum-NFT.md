@@ -60,7 +60,7 @@ ERC가 정하는 것은 구현 코드가 아니라 Interface다. Interface는 Co
 
 [ERC-165](https://eips.ethereum.org/EIPS/eip-165)는 Contract가 어떤 Interface를 구현하는지 조회하는 표준이다. 외부에서 `supportsInterface(bytes4 interfaceID)`를 호출해 확인한다. Interface Identifier는 4 Byte 값으로, Interface에 속한 모든 함수의 Function Selector를 XOR(Exclusive OR)한 결과다. ERC-721과 ERC-1155 모두 ERC-165 구현을 요구한다.
 
-이 글에서 On-Chain은 Blockchain 위의 Contract Storage 또는 Code에 있다는 뜻이고, Off-Chain(오프체인)은 Blockchain 밖에 있다는 뜻이다.
+이 글에서 On-Chain은 Blockchain 위의 Contract Storage 또는 Code에 있다는 뜻이고, Off-Chain은 Blockchain 밖에 있다는 뜻이다.
 
 <br />
 
@@ -75,7 +75,7 @@ Ethereum에서 NFT를 만드는 표준은 ERC-721과 ERC-1155 두 가지다. 둘
 | ERC-721 | [2018-01-24](https://eips.ethereum.org/EIPS/eip-721) | NFT | Contract Storage의 `mapping` 4개. `_owners[tokenId]`가 Owner를 직접 기록한다 | (Contract 주소, TokenID) | TokenID 1개(`approve`) 또는 전체(`setApprovalForAll`) | 62,164 ~ 96,364 |
 | ERC-1155 | [2018-06-17](https://eips.ethereum.org/EIPS/eip-1155) | Fungible Token, NFT, Semi-Fungible Token | Contract Storage의 `mapping` 2개. `_balances[id][account]`가 수량을 기록한다. Owner를 직접 기록하는 곳은 없다 | (Contract 주소, ID). 그 ID의 총 공급량이 1일 때 NFT다 | 전체(`setApprovalForAll`)만 | 54,010 |
 
-Mint(발행)는 Token을 새로 만드는 동작이다. Gas 값은 이 글의 예시 Contract를 실행해 측정한 Transaction 전체 사용량이며, 기본 21,000 Gas를 포함한다. 측정 환경은 OpenZeppelin Contracts 5.6.1, Solidity 0.8.38(Optimizer 끔, EVM Version `cancun`), `@ethereumjs/vm` 10.1.3(Cancun Hardfork(하드포크) 설정)이다. ERC-721의 값은 조건에 따라 달라진다. Contract의 첫 Mint는 96,364, 받는 주소의 첫 NFT는 79,264, 받는 주소가 이미 NFT를 가졌으면 62,164였다. ERC-1155의 값은 받는 주소가 그 ID를 처음 가질 때의 값이다. ETH로 환산한 비용은 Gas 가격에 따라 달라지므로 적지 않았다.
+Mint(발행)는 Token을 새로 만드는 동작이다. Gas 값은 이 글의 예시 Contract를 실행해 측정한 Transaction 전체 사용량이며, 기본 21,000 Gas를 포함한다. 측정 환경은 OpenZeppelin Contracts 5.6.1, Solidity 0.8.38(Optimizer 끔, EVM Version `cancun`), `@ethereumjs/vm` 10.1.3(Cancun Hardfork 설정)이다. ERC-721의 값은 조건에 따라 달라진다. Contract의 첫 Mint는 96,364, 받는 주소의 첫 NFT는 79,264, 받는 주소가 이미 NFT를 가졌으면 62,164였다. ERC-1155의 값은 받는 주소가 그 ID를 처음 가 때의 값이다. ETH로 환산한 비용은 Gas 가격에 따라 달라지므로 적지 않았다.
 
 <br />
 
@@ -90,7 +90,7 @@ ERC-721 Contract 하나가 NFT Collection 하나다. Collection에 속한 NFT는
 | 구분 | 내용 |
 | --- | --- |
 | 표준이 정하는 것 | NFT의 Owner 조회, 전송, 전송 권한 승인에 쓰는 함수와 Event |
-| 표준이 정하지 않는 것 | NFT를 새로 만드는 Mint와 없애는 Burn(소각)의 방법, Contract 내부의 저장 구조, Metadata(메타데이터)의 저장 위치 |
+| 표준이 정하지 않는 것 | NFT를 새로 만드는 Mint와 없애는 Burn(소각)의 방법, Contract 내부의 저장 구조, Metadata의 저장 위치 |
 
 **장점**
 
