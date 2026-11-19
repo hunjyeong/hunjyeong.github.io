@@ -249,13 +249,13 @@ TokenURI는 Off-Chain의 Metadata 파일을 가리킨다. Metadata는 NFT의 이
 
 ```json
 {
-  "name": "Dave Starbelly",
-  "description": "Friendly OpenSea Creature that enjoys long swims in the ocean.",
-  "image": "https://storage.googleapis.com/opensea-prod.appspot.com/puffs/3.png",
-  "external_url": "https://openseacreatures.io/3",
-  "attributes": [
-    { "trait_type": "Base", "value": "Starfish" }
-  ]
+    "name": "Dave Starbelly",
+    "description": "Friendly OpenSea Creature that enjoys long swims in the ocean.",
+    "image": "https://storage.googleapis.com/opensea-prod.appspot.com/puffs/3.png",
+    "external_url": "https://openseacreatures.io/3",
+    "attributes": [
+        { "trait_type": "Base", "value": "Starfish" }
+    ]
 }
 ```
 

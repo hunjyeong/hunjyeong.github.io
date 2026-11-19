@@ -421,8 +421,8 @@ for u32 i in 0..10 { ... }           // 반복 횟수는 컴파일 시 상수
 
 2. 가변 Loop (Padding, 의사 코드):
 for (i = 0; i < MAX; i++) {          // MAX = 1000 (컴파일 시 상수)
-  s_i = (i < secret_N)               // Selector: 비교 Circuit으로 계산 (결과는 Boolean)
-  state = s_i × 실제작업(state) + (1 − s_i) × state
+    s_i = (i < secret_N)             // Selector: 비교 Circuit으로 계산 (결과는 Boolean)
+    state = s_i × 실제작업(state) + (1 − s_i) × state
 }
 ```
 

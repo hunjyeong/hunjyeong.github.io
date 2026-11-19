@@ -319,14 +319,14 @@ Prover는 실제 실행 과정을 기록한 Execution Trace(실행 기록)를 �
 
     Sequencer(또는 Executor)가 트랜잭션 배치를 실행해 State Transition을 계산한다. zkEVM은 최종 결과 상태만 계산하지 않고, **실행 과정 전체를 Execution Trace로 기록한다.** Execution Trace는 각 Opcode 실행 단계의 상태 변화를 시간 순서대로 저장한 것이다.
 
-   ```text
+    ```text
     trace[t] = {
-    PC_t:      Program Counter
-    opcode_t:  실행된 Opcode
-    stack_t:   이 스텝에서 읽고 쓴 Stack 값
-    memory_t:  이 스텝의 Memory 접근 (주소, 값, 읽기/쓰기)
-    storage_t: 이 스텝의 Storage 접근 (키, 이전 값, 새 값)
-    gas_t:     남은 Gas
+        PC_t:      Program Counter
+        opcode_t:  실행된 Opcode
+        stack_t:   이 스텝에서 읽고 쓴 Stack 값
+        memory_t:  이 스텝의 Memory 접근 (주소, 값, 읽기/쓰기)
+        storage_t: 이 스텝의 Storage 접근 (키, 이전 값, 새 값)
+        gas_t:     남은 Gas
     }
     ```
     

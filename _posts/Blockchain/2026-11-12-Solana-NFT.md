@@ -140,7 +140,7 @@ Mint Account의 주소가 NFT의 고유 식별자다. Solana의 NFT는 다음과
 - Supply = 1: 유통되는 Token이 하나뿐이다.
 - Decimals = 0: 0.5개 같은 단위가 없다.
 - Mint Authority 없음: 누구도 추가로 Mint할 수 없다. 
-  - Token Metadata는 이 조건을 Mint Authority를 없애는 대신 Master Edition Account로 넘기는 방식으로 구현한다(아래 4번). 그래서 그림에는 "Mint Authority = Edition"으로 적혀 있다.
+    - Token Metadata는 이 조건을 Mint Authority를 없애는 대신 Master Edition Account로 넘기는 방식으로 구현한다(아래 4번). 그래서 그림에는 "Mint Authority = Edition"으로 적혀 있다.
 
 Mint Account는 Supply 같은 몇 가지 값만 가지고 있어서, 앱과 Marketplace(NFT를 사고파는 서비스)가 공통으로 이해할 수 있는 표준화된 데이터를 담을 수 없다. 이 부분을 Metadata Account가 채운다.
 
@@ -208,22 +208,22 @@ NFT의 JSON 파일은 [Non-Fungible Standard](https://www.metaplex.com/docs/smar
 
 ```json
 {
-  "name": "Sample NFT #1",
-  "description": "Example NFT",
-  "image": "https://example.com/nft/1.png",
-  "animation_url": "https://example.com/nft/1.mp4",
-  "external_url": "https://example.com",
-  "attributes": [
-    { "trait_type": "Background", "value": "Blue" },
-    { "trait_type": "Rarity", "value": "Rare" }
-  ],
-  "properties": {
-    "files": [
-      { "uri": "https://example.com/nft/1.png", "type": "image/png" },
-      { "uri": "https://example.com/nft/1.mp4", "type": "video/mp4", "cdn": false }
+    "name": "Sample NFT #1",
+    "description": "Example NFT",
+    "image": "https://example.com/nft/1.png",
+    "animation_url": "https://example.com/nft/1.mp4",
+    "external_url": "https://example.com",
+    "attributes": [
+        { "trait_type": "Background", "value": "Blue" },
+        { "trait_type": "Rarity", "value": "Rare" }
     ],
-    "category": "video"
-  }
+    "properties": {
+        "files": [
+            { "uri": "https://example.com/nft/1.png", "type": "image/png" },
+            { "uri": "https://example.com/nft/1.mp4", "type": "video/mp4", "cdn": false }
+        ],
+        "category": "video"
+    }
 }
 ```
 
@@ -291,7 +291,7 @@ Token Metadata Program은 SPL Token Program 위에 만들어져 있다. 그래�
 
 Token Metadata의 기능이 Core에서 대응되는 방식은 다음과 같다.
 
-| Token Metadata	| Core Equivalent |
+| Token Metadata | Core Equivalent |
 | --- | --- |
 | Mint account | Asset account |
 | Metadata account | Asset account (combined) |
@@ -370,8 +370,8 @@ asset: {
     key: AssetV1,
     owner: "11111111111111111111111111111111",
     updateAuthority: {
-      type: 'Collection',
-      address: '2222222222222222222222222222222'
+        type: 'Collection',
+        address: '2222222222222222222222222222222'
     },
     name: "My Core Asset",
     uri: "https://example.com/metadata.json",
@@ -419,14 +419,14 @@ Plugin은 Create, Transfer, Burn, Plugin 추가·제거 같은 Lifecycle Event�
 **Types of Plugins**
 
 - Owner Managed Plugins: Asset Owner가 Transaction에 서명해야만 추가할 수 있는 플러그인
-  - Transfer, Freeze, Burn Delegate
+    - Transfer, Freeze, Burn Delegate
 
 - Authority Managed Plugins: Core Asset 또는 Core Collection의 Update Authority(권한자)가 언제든지 추가하고 수정할 수 있는 플러그인
-  - Royalties, Attributes, Update Delegate
+    - Royalties, Attributes, Update Delegate
 
 - Permanent Plugins: Core Asset을 생성할 때만 추가할 수 있는 플러그인
-  - Asset이 이미 존재하는 경우 Permanent 플러그인을 추가할 수 없음
-  - Permanent Transfer/Freeze/Burn Delegate
+    - Asset이 이미 존재하는 경우 Permanent 플러그인을 추가할 수 없음
+    - Permanent Transfer/Freeze/Burn Delegate
 
 
 Collection에는 Authority Managed Plugin과 Permanent Plugin만 붙일 수 있다.
@@ -505,10 +505,10 @@ cNFT를 Mint하려면 먼저 On-Chain Account 두 개로 이루어진 [Bubblegum
 
 - Merkle Tree Account: V2에서는 MPL Account Compression Program이 소유한다. Leaf를 모두 저장하지 않고 다음만 저장한다.
 
-  - Header
-  - 최근 Root와 변경 경로를 담은 ChangeLog Buffer. 같은 Block 안의 동시 변경으로 Proof가 오래되면 이 기록으로 보정한다
-  - 가장 오른쪽 Leaf의 Proof. Mint에 Proof가 필요 없는 이유다
-  - Canopy(상위 Node Cache). Transaction에 실을 Proof를 줄인다
+    - Header
+    - 최근 Root와 변경 경로를 담은 ChangeLog Buffer. 같은 Block 안의 동시 변경으로 Proof가 오래되면 이 기록으로 보정한다
+    - 가장 오른쪽 Leaf의 Proof. Mint에 Proof가 필요 없는 이유다
+    - Canopy(상위 Node Cache). Transaction에 실을 Proof를 줄인다
 
 - TreeConfigV2 Account: Merkle Tree Address로 유도한 Bubblegum PDA다. Tree Creator와 Delegate, 최대 Mint 수, 지금까지 Mint된 수(Leaf의 Nonce로도 쓰임), Public 여부, Leaf Schema 버전을 저장한다.
 
@@ -537,8 +537,8 @@ V2는 새 Leaf Schema(LeafSchemaV2)와 MPL Account Compression을 쓰고, Collec
 - 장점: NFT마다 Account가 없어 개당 비용이 매우 낮고(큰 Tree에서 약 0.00001 SOL), Tree 하나에 최대 2^30개를 담을 수 있다.
 
 - 단점
-  - 조회와 Proof 획득을 DAS API 지원 RPC에 의존한다.
-  - 변경마다 Proof를 실어야 해 Transaction 크기를 차지한다.
-  - Tree 파라미터를 바꿀 수 없다.
-  - 한 Block의 변경이 Max Buffer Size를 넘으면 일부 Transaction이 실패한다.
-  - 지원 범위가 좁다. [Ecosystem Compatibility](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2#ecosystem-compatibility)(2026-06-19 갱신) 기준으로 Phantom, Solflare, Backpack은 V2 cNFT의 조회만 지원하고, Magic Eden과 Tensor는 아직 지원하지 않는다.
+    - 조회와 Proof 획득을 DAS API 지원 RPC에 의존한다.
+    - 변경마다 Proof를 실어야 해 Transaction 크기를 차지한다.
+    - Tree 파라미터를 바꿀 수 없다.
+    - 한 Block의 변경이 Max Buffer Size를 넘으면 일부 Transaction이 실패한다.
+    - 지원 범위가 좁다. [Ecosystem Compatibility](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2#ecosystem-compatibility)(2026-06-19 갱신) 기준으로 Phantom, Solflare, Backpack은 V2 cNFT의 조회만 지원하고, Magic Eden과 Tensor는 아직 지원하지 않는다.

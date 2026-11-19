@@ -69,17 +69,17 @@ _출처: [https://ethereum.org/developers/docs/nodes-and-clients/node-architectu
  
 ```js
 {
-  from: "0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8", // 서명할 계정 (서명 대상 필드는 아님)
-  type: 2,                                          // EIP-1559 트랜잭션
-  chainId: 1,                                       // Ethereum 메인넷
-  nonce: 0,
-  to: "0xac03bb73b6a9e108530aff4df5077c2b3d481e5a",
-  value: 10000000000n,                              // wei 단위 (= 10 gwei)
-  data: "0x",                                       // 단순 송금이므로 비어 있음
-  gasLimit: 21000n,                                 // 단순 송금에 필요한 가스
-  maxFeePerGas: 30000000000n,                       // 30 gwei
-  maxPriorityFeePerGas: 1000000000n,                // 1 gwei
-  accessList: []
+    from: "0xEA674fdDe714fd979de3EdF0F56AA9716B898ec8", // 서명할 계정 (서명 대상 필드는 아님)
+    type: 2,                                          // EIP-1559 트랜잭션
+    chainId: 1,                                       // Ethereum 메인넷
+    nonce: 0,
+    to: "0xac03bb73b6a9e108530aff4df5077c2b3d481e5a",
+    value: 10000000000n,                              // wei 단위 (= 10 gwei)
+    data: "0x",                                       // 단순 송금이므로 비어 있음
+    gasLimit: 21000n,                                 // 단순 송금에 필요한 가스
+    maxFeePerGas: 30000000000n,                       // 30 gwei
+    maxPriorityFeePerGas: 1000000000n,                // 1 gwei
+    accessList: []
 }
 ```
  
@@ -207,28 +207,28 @@ Node는 [`eth_sendRawTransaction`](https://ethereum.org/developers/docs/apis/jso
 계정의 현재 nonce = 5, 수수료 단위는 gwei, TX는 트랜잭션(Transaction)의 줄임말
  
 초기 상태
-  Pending: []
-  Queued:  []
+    Pending: []
+    Queued:  []
  
 1. TX1 (nonce=5, maxFee=50, tip=20) 도착 → 1차 검증 통과
-  Pending: [TX1(5)]
-  Queued:  []
+    Pending: [TX1(5)]
+    Queued:  []
  
 2. TX2 (nonce=7, maxFee=50, tip=15) 도착 → nonce 6이 비어 있어 실행 불가
-  Pending: [TX1(5)]
-  Queued:  [TX2(7)]
+    Pending: [TX1(5)]
+    Queued:  [TX2(7)]
  
 3. TX3 (nonce=5, maxFee=60, tip=25) 도착 → TX1과 같은 nonce, 두 수수료 모두 10% 이상 인상 → Replacement
-  Pending: [TX3(5)]          ← TX1 삭제
-  Queued:  [TX2(7)]
+    Pending: [TX3(5)]          ← TX1 삭제
+    Queued:  [TX2(7)]
  
 4. TX4 (nonce=6, maxFee=50, tip=15) 도착 → 빈 nonce가 채워져 TX2가 Pending으로 승격
-  Pending: [TX3(5), TX4(6), TX2(7)]
-  Queued:  []
+    Pending: [TX3(5), TX4(6), TX2(7)]
+    Queued:  []
  
 5. TX3이 블록에 포함됨 → 계정 nonce = 6, TX3은 Mempool에서 제거
-  Pending: [TX4(6), TX2(7)]
-  Queued:  []
+    Pending: [TX4(6), TX2(7)]
+    Queued:  []
 ```
 
 - **Local TX**: 해당 Node의 RPC로 직접 제출된 트랜잭션이다. 아래 표의 다섯 개 EL Client 모두 Local TX를 다른 Node에서 전파받은 트랜잭션(Remote TX)과 구분하며, 기본 설정에서는 Local TX도 P2P 네트워크에 전파한다. 우대 방식은 Client마다 다르다(2026년 11월 각 저장소 소스 기준).
@@ -461,11 +461,11 @@ Slot의 각 Committee는 64개의 Attestation Gossip Subnet 중 하나에 매핑
 
 ```text
 slot
- ├ proposer (1)
- ├ committee 0
- ├ committee 1
- ├ committee 2
- └ ...
+    ├ proposer (1)
+    ├ committee 0
+    ├ committee 1
+    ├ committee 2
+    └ ...
 ```
 
 ### 4.2 블록 수신 및 검증 (Block Reception and Validation)
@@ -547,14 +547,14 @@ LMD-GHOST는 각 Validator의 가장 최근 Attestation(latest message) 만을 �
 
 ```text
 Slot N
- ├ 0초   Proposer가 Block N 전파
- ├ ~4초  Slot N Committee: Block N 검증 (CL 규칙 + EL 재실행) → Attestation 생성 및 subnet 전파
- │         ├ beacon_block_root → LMD-GHOST (Head) 투표
- │         └ source, target    → Casper FFG (Justify/Finalize) 투표
- └ 8초   Aggregator가 Aggregated Attestation 전파
+    ├ 0초   Proposer가 Block N 전파
+    ├ ~4초  Slot N Committee: Block N 검증 (CL 규칙 + EL 재실행) → Attestation 생성 및 subnet 전파
+    │         ├ beacon_block_root → LMD-GHOST (Head) 투표
+    │         └ source, target    → Casper FFG (Justify/Finalize) 투표
+    └ 8초   Aggregator가 Aggregated Attestation 전파
 
 Slot N+1
- └ 0초   다음 Proposer가 Slot N의 Attestation을 Block N+1에 포함 (가장 빠른 경우)
+    └ 0초   다음 Proposer가 Slot N의 Attestation을 Block N+1에 포함 (가장 빠른 경우)
 
 → Block N은 Fork Choice 상의 Head 체인에 속하지만 아직 확정된 상태가 아니다 (reorg 가능)
 ```
@@ -633,14 +633,14 @@ Finalized 상태 이후 해당 체인을 되돌리기 위해서는 전체 Stake�
 가정: 트랜잭션이 Epoch N의 k번째 Slot(0 ≤ k ≤ 31) 블록에 포함됨
 
 k = 0 (해당 블록이 Epoch N의 checkpoint인 경우)
-  Epoch N 종료:   Checkpoint N Justified
-  Epoch N+1 종료: Checkpoint N+1 Justified → Checkpoint N Finalized
-  소요 시간: 64 Slot = 12.8분
+    Epoch N 종료:   Checkpoint N Justified
+    Epoch N+1 종료: Checkpoint N+1 Justified → Checkpoint N Finalized
+    소요 시간: 64 Slot = 12.8분
 
 k ≥ 1 (해당 블록이 Checkpoint N 뒤에 있는 경우)
-  Epoch N+1 종료: Checkpoint N+1 Justified
-  Epoch N+2 종료: Checkpoint N+2 Justified → Checkpoint N+1 Finalized (해당 블록 포함)
-  소요 시간: (96 − k) Slot = 13.0분 (k = 31) ~ 19.0분 (k = 1)
+    Epoch N+1 종료: Checkpoint N+1 Justified
+    Epoch N+2 종료: Checkpoint N+2 Justified → Checkpoint N+1 Finalized (해당 블록 포함)
+    소요 시간: (96 − k) Slot = 13.0분 (k = 31) ~ 19.0분 (k = 1)
 ```
 
 즉 정상적인 네트워크 환경에서 Finality까지 걸리는 시간은 최소 12.8분, 최대 19.0분이다. Validator 참여율이 2/3에 미치지 못하면 Finality는 그만큼 지연된다.

@@ -54,9 +54,9 @@ Adding author information in `_data/authors.yml` (If your website doesn't have t
 
 ```yaml
 <author_id>:
-  name: <full name>
-  twitter: <twitter_of_author>
-  url: <homepage_of_author>
+    name: <full name>
+    twitter: <twitter_of_author>
+    url: <homepage_of_author>
 ```
 {: file="_data/authors.yml" }
 
@@ -119,19 +119,19 @@ From time to time we have to define duplicate URL prefixes for multiple resource
 
 - If you are using a CDN to host media files, you can specify the `cdn` in `_config.yml`{: .filepath }. The URLs of media resources for site avatar and posts are then prefixed with the CDN domain name.
 
-  ```yaml
-  cdn: https://cdn.com
-  ```
-  {: file='_config.yml' .nolineno }
+    ```yaml
+    cdn: https://cdn.com
+    ```
+    {: file='_config.yml' .nolineno }
 
 - To specify the resource path prefix for the current post/page range, set `media_subpath` in the _front matter_ of the post:
 
-  ```yaml
-  ---
-  media_subpath: /path/to/media/
-  ---
-  ```
-  {: .nolineno }
+    ```yaml
+    ---
+    media_subpath: /path/to/media/
+    ---
+    ```
+    {: .nolineno }
 
 The option `site.cdn` and `page.media_subpath` can be used individually or in combination to flexibly compose the final resource URL: `[site.cdn/][page.media_subpath/]file.ext`
 
@@ -175,26 +175,26 @@ By default, the image is centered, but you can specify the position by using one
 
 - **Normal position**
 
-  The image will be left aligned in the below sample:
+    The image will be left aligned in the below sample:
 
-  ```markdown
-  ![Desktop View](/assets/img/sample/mockup.png){: .normal }
-  ```
-  {: .nolineno}
+    ```markdown
+    ![Desktop View](/assets/img/sample/mockup.png){: .normal }
+    ```
+    {: .nolineno}
 
 - **Float to the left**
 
-  ```markdown
-  ![Desktop View](/assets/img/sample/mockup.png){: .left }
-  ```
-  {: .nolineno}
+    ```markdown
+    ![Desktop View](/assets/img/sample/mockup.png){: .left }
+    ```
+    {: .nolineno}
 
 - **Float to the right**
 
-  ```markdown
-  ![Desktop View](/assets/img/sample/mockup.png){: .right }
-  ```
-  {: .nolineno}
+    ```markdown
+    ![Desktop View](/assets/img/sample/mockup.png){: .right }
+    ```
+    {: .nolineno}
 
 #### Dark/Light mode
 
@@ -223,8 +223,8 @@ Knowing these prerequisites, you can start setting the image's attribute:
 ```yaml
 ---
 image:
-  path: /path/to/image
-  alt: image alternative text
+    path: /path/to/image
+    alt: image alternative text
 ---
 ```
 
@@ -245,7 +245,7 @@ For preview images:
 ```yaml
 ---
 image:
-  lqip: /path/to/lqip-file # or base64 URI
+    lqip: /path/to/lqip-file # or base64 URI
 ---
 ```
 
@@ -305,14 +305,14 @@ Consider an example using all of the above:
 
 ```liquid
 {%
-  include embed/video.html
-  src='/path/to/video.mp4'
-  types='ogg|mov'
-  poster='poster.png'
-  title='Demo video'
-  autoplay=true
-  loop=true
-  muted=true
+    include embed/video.html
+    src='/path/to/video.mp4'
+    types='ogg|mov'
+    poster='poster.png'
+    title='Demo video'
+    autoplay=true
+    loop=true
+    muted=true
 %}
 ```
 
@@ -335,10 +335,10 @@ Consider an example using all of the above:
 
 ```liquid
 {%
-  include embed/audio.html
-  src='/path/to/audio.mp3'
-  types='ogg|wav|aac'
-  title='Demo audio'
+    include embed/audio.html
+    src='/path/to/audio.mp3'
+    types='ogg|wav|aac'
+    title='Demo audio'
 %}
 ```
 
@@ -431,7 +431,7 @@ If you want to display the **Liquid** snippet, surround the liquid code with `{%
 {% raw %}
 ```liquid
 {% if product.title contains 'Pack' %}
-  This product's title contains the word Pack.
+    This product's title contains the word Pack.
 {% endif %}
 ```
 {% endraw %}
@@ -454,8 +454,8 @@ math: true
 After enabling the mathematical feature, you can add math equations with the following syntax:
 
 - **Block math** should be added with `$$ math $$` with **mandatory** blank lines before and after `$$`
-  - **Inserting equation numbering** should be added with `$$\begin{equation} math \end{equation}$$`
-  - **Referencing equation numbering** should be done with `\label{eq:label_name}` in the equation block and `\eqref{eq:label_name}` inline with text (see example below)
+    - **Inserting equation numbering** should be added with `$$\begin{equation} math \end{equation}$$`
+    - **Referencing equation numbering** should be done with `\label{eq:label_name}` in the equation block and `\eqref{eq:label_name}` inline with text (see example below)
 - **Inline math** (in lines) should be added with `$$ math $$` without any blank line before or after `$$`
 - **Inline math** (in lists) should be added with `\$$ math $$`
 
@@ -470,8 +470,8 @@ $$
 
 $$
 \begin{equation}
-  LaTeX_math_expression
-  \label{eq:label_name}
+    LaTeX_math_expression
+    \label{eq:label_name}
 \end{equation}
 $$
 

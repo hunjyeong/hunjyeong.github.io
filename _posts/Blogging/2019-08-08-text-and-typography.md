@@ -10,9 +10,9 @@ tags: [typography]
 math: true
 mermaid: true
 image:
-  path: /commons/devices-mockup.png
-  lqip: data:image/webp;base64,UklGRpoAAABXRUJQVlA4WAoAAAAQAAAADwAABwAAQUxQSDIAAAARL0AmbZurmr57yyIiqE8oiG0bejIYEQTgqiDA9vqnsUSI6H+oAERp2HZ65qP/VIAWAFZQOCBCAAAA8AEAnQEqEAAIAAVAfCWkAALp8sF8rgRgAP7o9FDvMCkMde9PK7euH5M1m6VWoDXf2FkP3BqV0ZYbO6NA/VFIAAAA
-  alt: Responsive rendering of Chirpy theme on multiple devices.
+    path: /commons/devices-mockup.png
+    lqip: data:image/webp;base64,UklGRpoAAABXRUJQVlA4WAoAAAAQAAAADwAABwAAQUxQSDIAAAARL0AmbZurmr57yyIiqE8oiG0bejIYEQTgqiDA9vqnsUSI6H+oAERp2HZ65qP/VIAWAFZQOCBCAAAA8AEAnQEqEAAIAAVAfCWkAALp8sF8rgRgAP7o9FDvMCkMde9PK7euH5M1m6VWoDXf2FkP3BqV0ZYbO6NA/VFIAAAA
+    alt: Responsive rendering of Chirpy theme on multiple devices.
 published: false
 ---
 
@@ -48,15 +48,15 @@ Quisque egestas convallis ipsum, ut sollicitudin risus tincidunt a. Maecenas int
 ### Unordered list
 
 - Chapter
-  - Section
-    - Paragraph
+    - Section
+        - Paragraph
 
 ### ToDo list
 
 - [ ] Job
-  - [x] Step 1
-  - [x] Step 2
-  - [ ] Step 3
+    - [x] Step 1
+    - [x] Step 2
+    - [ ] Step 3
 
 ### Description list
 
@@ -124,8 +124,8 @@ This is a common code snippet, without syntax highlight and line number.
 
 ```bash
 if [ $? -ne 0 ]; then
-  echo "The command was not successful.";
-  #do the needful / exit
+    echo "The command was not successful.";
+    #do the needful / exit
 fi;
 ```
 
@@ -133,8 +133,8 @@ fi;
 
 ```sass
 @import
-  "colors/light-typography",
-  "colors/dark-typography";
+    "colors/light-typography",
+    "colors/dark-typography";
 ```
 {: file='_sass/jekyll-theme-chirpy.scss'}
 
@@ -144,8 +144,8 @@ The mathematics powered by [**MathJax**](https://www.mathjax.org/):
 
 $$
 \begin{equation}
-  \sum_{n=1}^\infty 1/n^2 = \frac{\pi^2}{6}
-  \label{eq:series}
+    \sum_{n=1}^\infty 1/n^2 = \frac{\pi^2}{6}
+    \label{eq:series}
 \end{equation}
 $$
 
@@ -158,11 +158,11 @@ $$ x = {-b \pm \sqrt{b^2-4ac} \over 2a} $$
 ## Mermaid SVG
 
 ```mermaid
- gantt
-  title  Adding GANTT diagram functionality to mermaid
-  apple :a, 2017-07-20, 1w
-  banana :crit, b, 2017-07-23, 1d
-  cherry :active, c, after b a, 1d
+gantt
+    title  Adding GANTT diagram functionality to mermaid
+    apple :a, 2017-07-20, 1w
+    banana :crit, b, 2017-07-23, 1d
+    cherry :active, c, after b a, 1d
 ```
 
 ## Images
