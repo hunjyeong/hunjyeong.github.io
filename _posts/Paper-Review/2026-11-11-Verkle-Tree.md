@@ -5,6 +5,7 @@ last_modified_at: 2026-11-23
 categories: [Paper Review]
 tags: [Blockchain, Ethereum, Verkle Tree, Merkle Patricia Trie, Stateless Client, Commitment]
 math: true
+media_subpath: /assets/img/posts/verkle-tree/
 ---
 
 > 관련 글: [Multiproof]({% post_url Cryptography/2026-11-11-Multiproof %})
@@ -29,7 +30,7 @@ Verkle Tree는 Merkle Tree의 부모 Node를 Hash 대신 **Vector Commitment**�
 
 ## Merkle Tree
 
-### 풀려는 문제
+### Merkle Tree가 푸는 문제
 
 데이터를 가진 쪽이, 데이터를 갖고 있지 않은 상대에게 "이 데이터는 전체 집합에 들어 있고 바뀌지 않았다"를 보여야 하는 상황이 있다. 상대가 전체 데이터를 저장하고 있다면 직접 비교하면 되지만, 그러려면 저장 부담이 크다.
 
@@ -46,15 +47,9 @@ Merkle Tree는 Hash를 트리 모양으로 쌓아 데이터 전체를 Hash 하�
 2. 두 자식 Node의 Hash를 이어 붙여 다시 Hash함 → 부모 Node
 3. Node가 하나 남을 때까지 2를 반복함 → 맨 위 Node의 Hash가 **Merkle Root**
 
-예시: 데이터 D1, D2, D3, D4
+예시: 데이터 1부터 데이터 4까지 네 개. h1부터 h4는 각 데이터의 Hash이고, h5 = hash(h1, h2), h6 = hash(h3, h4), h7 = hash(h5, h6)임
 
-```
-                     h7 = Hash(h5, h6)   ← Merkle Root
-                    /                 \
-        h5 = Hash(h1, h2)           h6 = Hash(h3, h4)
-         /            \               /            \
-h1 = Hash(D1)   h2 = Hash(D2)   h3 = Hash(D3)   h4 = Hash(D4)
-```
+![merkle-tree.png](merkle-tree.png)
 
 - 데이터 하나가 바뀌면 그 Node의 Hash가 바뀌고, 위로 올라가며 Merkle Root까지 모두 바뀜
 - 따라서 Merkle Root 하나가 데이터 전체를 대표함
@@ -75,15 +70,15 @@ h1 = Hash(D1)   h2 = Hash(D2)   h3 = Hash(D3)   h4 = Hash(D4)
 
 Merkle Proof는 데이터 하나가 Merkle Root가 가리키는 집합에 들어 있음을 보이는 데이터임. Verifier는 Merkle Root만 알고 있음
 
-예시: D1이 들어 있음을 증명함
+예시: 위 그림에서 데이터 1이 들어 있음을 증명함
 
-1. Prover가 D1과 함께 h2, h6를 보냄
-2. Verifier가 h1 = Hash(D1)을 계산함
-3. Hash(h1, h2)를 계산함 → h5
-4. Hash(h5, h6)를 계산함 → 결과가 알고 있는 Merkle Root와 같으면 Accept
+1. Prover가 데이터 1과 함께 h2, h6를 보냄
+2. Verifier가 데이터 1의 Hash를 계산함 → h1
+3. hash(h1, h2)를 계산함 → h5
+4. hash(h5, h6)를 계산함 → 결과가 알고 있는 Merkle Root와 같으면 Accept
 
 - h2와 h6는 경로 위 Node의 **형제 Node**임. 부모의 Hash를 계산하려면 두 자식이 모두 필요하기 때문에 보냄
-- Proof는 Level마다 형제 Hash 하나임. D2, D3, D4는 보내지 않음
+- Proof는 Level마다 형제 Hash 하나임. 데이터 2, 3, 4는 보내지 않음
 - 위조할 수 없음. 다른 데이터로 같은 Merkle Root를 만들려면 Hash의 충돌을 찾아야 함
 
 크기: Leaf가 $n$개면 깊이가 약 $\log_2 n$이므로 Hash도 약 $\log_2 n$개임. Leaf가 $2^{30}$개이고 Hash가 32 B면 약 1 kB임
@@ -119,24 +114,15 @@ Trie는 Key를 한 자리씩 따라 내려가 Value를 찾는 트리다. Key 자
 
 단순한 Trie는 Key 한 자리마다 Level이 하나씩 생긴다. Key가 64자리면 분기가 없는 구간에도 Node가 필요하고, 조회에 64단계가 걸린다. Patricia Trie는 **분기가 없는 구간을 Node 하나로 묶어** 경로를 줄인다.
 
-예시: Key가 Ethereum, EthereumClassic, Ethena, Bitcoin, BitcoinCash, Bittensor인 Patricia Trie
+예시: Key가 Ethereum, EthereumClassic, Ethena, Bitcoin, BitcoinCash, Bittensor, BitgetToken인 Patricia Trie
 
-```
-Root
-├─ Ethe
-│   ├─ reum → Ethereum
-│   │   └─ Classic → EthereumClassic
-│   └─ na → Ethena
-└─ Bit
-    ├─ coin → Bitcoin
-    │   └─ Cash → BitcoinCash
-    └─ tensor → Bittensor
-```
+![patricia-trie.png](patricia-trie.png)
 
 - Ethe는 세 Key가 공유하는 구간임. 한 글자씩 Node 네 개를 두는 대신 하나로 묶음
+- Bit 아래에서는 tensor, coin, getToken으로 갈리고, coin 아래에 Cash가 이어짐
 - 분기는 Key가 갈라지는 지점에서만 생김
 
-MPT는 Patricia Trie의 각 Node를 Hash로 참조하는 구조다. Node를 직렬화해 Keccak-256에 넣은 결과가 그 Node의 참조가 된다. 부모가 자식의 Hash를 담으므로 Merkle Tree와 마찬가지로 Root의 Hash 하나가 전체를 대표한다.
+MPT는 Patricia Trie의 각 Node를 Hash로 참조하는 구조다. Node를 직렬화해 Keccak-256에 넣은 결과가 그 Node의 참조가 된다. 직렬화한 결과가 32 Byte보다 짧은 Node만 예외로, Hash하지 않고 부모 안에 그대로 넣는다. 부모가 자식의 Hash를 담으므로 Merkle Tree와 마찬가지로 Root의 Hash 하나가 전체를 대표한다.
 
 ### MPT의 구조
 
@@ -157,6 +143,8 @@ Patricia Trie와 대응시키면 Branch Node가 분기 지점이고, Extension N
 | a1 | 0x7340 | Nonce 2, Balance 4 ETH |
 | a2 | 0x7bc6 | Nonce 3, Balance 2 ETH |
 | a3 | 0xd563 | Nonce 4, Balance 5 ETH |
+
+![mpt-structure.png](mpt-structure.png)
 
 ```
 Root (Branch Node)
@@ -187,6 +175,8 @@ Root (Branch Node)
 2. 둘째 Branch Node에서의 형제인 a2 Leaf Node의 Hash → 둘째 Branch Node의 Hash를 계산
 3. Root에서의 형제인 a3 Leaf Node의 Hash → Root의 Hash를 계산해 State Root와 비교
 
+![mpt-proof.png](mpt-proof.png)
+
 이 예시는 Branch Node가 거의 비어 있어 형제가 Level당 1개뿐임. 실제 State Tree의 상위 Level은 항목이 거의 차 있으므로 Level당 최대 15개의 형제 Hash가 들어감. Binary Merkle Tree에서는 Level당 1개였음
 
 **⇒ Hash는 입력 전체를 알아야 다시 계산할 수 있다. 그래서 Verifier는 경로 위의 Node마다 형제를 전부 받아야 한다.**
@@ -213,7 +203,7 @@ Client는 Ethereum Protocol을 실행하는 Software다. **Stateless Client(상�
 
 Verkle Tree가 겨냥한 것은 Weak Statelessness(약한 상태 비저장)다. Block을 만드는 Node는 Witness를 만들어야 하므로 여전히 State 전체를 갖고, 나머지 Node만 State 없이 검증한다. 어떤 Node도 State 전체를 갖지 않는 Strong Statelessness(강한 상태 비저장)와 구분된다. 두 개념은 [ethereum.org](https://ethereum.org/roadmap/statelessness/)에 정리되어 있다.
 
-### 조건: Witness가 작아야 한다
+### Witness 크기의 조건
 
 Witness는 Block과 함께 Network로 전파된다. Ethereum에서 Block 하나가 제안되는 시간 단위인 Slot은 12초다. Witness는 한 Slot 안에 받아서 처리할 수 있을 만큼 작아야 한다. 현재 구조인 MPT로는 이 조건을 맞추기 어렵다.
 
@@ -225,13 +215,13 @@ Witness는 Block과 함께 Network로 전파된다. Ethereum에서 Block 하나�
 | Block Witness | 약 18 MB | Gas Limit 15,000,000, 접근 1회당 2,500 Gas, Block당 접근 6,000회 | [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800) |
 | Block Witness, 최악 | 약 330 MB | Gas Limit 30,000,000, 접근 1회당 2,400 Gas, 접근마다 Contract Code 24,000 B 포함 | [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html) |
 
-수치는 각 글이 쓰인 시점의 Gas Limit을 전제로 한다. Gas Limit이 바뀌면 비례해서 바뀐다.
+Block Witness의 수치는 각 글이 쓰인 시점의 Gas Limit을 전제로 한다. Gas Limit이 바뀌면 비례해서 바뀐다. 2026년에 제안된 [EIP-8297](https://eips.ethereum.org/EIPS/eip-8297)은 Gas Limit 60,000,000과 Code 크기 한도 64 KiB를 기준으로 같은 최악의 경우를 약 1.8 GB로 계산한다.
 
 반면 Verkle Tree에서는 Witness가 Account당 평균 약 200 B로 줄어든다고 EIP-6800은 적는다. 2024년 글은 Block 하나를 검증하는 데 드는 Proof 데이터를 수백 kB로 적는다.
 
 **⇒ Witness 크기는 State Tree가 만드는 Proof의 크기가 정한다. 따라서 MPT의 Proof가 왜 큰지를 봐야 한다.**
 
-### MPT의 Proof는 왜 큰가
+### MPT의 Proof Size
 
 앞의 표에 나온 크기는 MPT의 Proof 크기에서 나옴
 
@@ -260,7 +250,7 @@ MPT에는 문제가 하나 더 있음. Code가 트리 밖에 있어, Code 접근
 
 ## Verkle Tree
 
-### 핵심 아이디어
+### 핵심 아이디어: Hash 대신 Vector Commitment
 
 **문제 상황: Hash로 만든 부모는 자식 전부를 알아야 검증할 수 있음. 그래서 Level마다 형제 Node가 Proof에 들어감**
 
@@ -281,7 +271,7 @@ Ethereum에 제안된 Verkle Tree의 Width는 256임. 1,024로 올리자는 의�
 | Level당 Proof 데이터 | 형제 Hash 최대 15개 (480 B) | Commitment 1개 (32 B) |
 | 여러 Key를 검증할 때 | Key마다 형제 Hash 추가 | 모든 증명을 Multiproof 1개로 묶음 |
 
-### Commitment Scheme
+### Commitment Scheme과 Vector Commitment
 
 Commitment Scheme은 값을 **Commitment**라는 짧은 값 하나로 고정해 두고, 나중에 그 값을 열어 확인시키는 암호학적 방법임. 값을 봉투에 넣어 밀봉해 건네는 것에 비유할 수 있음
 
@@ -304,7 +294,7 @@ Verkle Tree가 쓰는 것은 **Vector Commitment**임
 
 Hash도 Vector Commitment로 볼 수 있음. 다만 항목 하나를 열려면 나머지 항목이 전부 필요한, Proof가 큰 Vector Commitment임
 
-### Polynomial Commitment로 Vector Commitment 만들기
+### Polynomial Commitment로 만드는 Vector Commitment
 
 Vector Commitment를 만드는 한 방법이 Polynomial Commitment(다항식 커밋먼트)임
 
@@ -316,13 +306,44 @@ Vector Commitment를 만드는 한 방법이 Polynomial Commitment(다항식 커
 
 - Vector는 (40, 2, 4)임. MPT 예시의 a1에서 남은 경로 40, Nonce 2, Balance 4를 Index 0, 1, 2의 항목으로 삼은 것임
 - Prover는 다항식을 공개하지 않고 "Index 2의 항목은 4다"를 보이려 함
-- Setup: 난수 $r=7$을 정함
+- Setup: Random Parameter $r=7$ 생성 
 
-| 단계 | 하는 일 | 계산 |
-| --- | --- | --- |
-| 1. Commit | $f(0)=40$, $f(1)=2$, $f(2)=4$인 다항식을 만들고 $C=f(r)$을 보냄 | $f(x)=20x^2-58x+40$, $C=f(7)=614$ |
-| 2. Opening | $z=2$, $y=4$에 대한 몫 $q(x)$를 구하고 $\pi=q(r)$을 $y$와 함께 보냄 | $q(x)=\dfrac{20x^2-58x+36}{x-2}=20x-18$, $\pi=q(7)=122$ |
-| 3. Verify | $C-y=\pi \times (r-z)$인지 확인함 | $614-4=610$, $122 \times 5=610$ → Accept |
+1. **Commit**: 다항식 $f$의 Commitment $C=614$ 생성
+
+    $f(0)=40$, $f(1)=2$, $f(2)=4$로부터 $f(x)$ 생성
+
+    $$
+    f(x)=20x^2-58x+40
+    $$
+
+    $$
+    C=\operatorname{Commit}(f)=f(r)=20\times 7^2-58\times 7+40=614
+    $$
+
+2. **Evaluation**: $x=2$일 때 $f(2)=4$와 Evaluation Proof $\pi=122$ 생성
+
+    $$
+    \begin{aligned}
+    q(x)&=\frac{f(x)-f(2)}{x-2}=\frac{20x^2-58x+40-4}{x-2}\\
+    &=\frac{20x^2-58x+36}{x-2}=\frac{(20x-18)(x-2)}{x-2}=20x-18
+    \end{aligned}
+    $$
+
+    $$
+    \pi=\operatorname{Commit}(q)=q(r)=20\times 7-18=122
+    $$
+
+3. **Verify**: $C-f(2)=\pi\times(r-2)$가 성립하는지 확인하여 Accept 또는 Reject
+
+    $$
+    f(7)-f(2)=q(7)\times(7-2)
+    $$
+
+    $$
+    614-4=610=122\times 5
+    $$
+
+![polynomial-commitment.png](polynomial-commitment.png)
 
 - Verifier가 받은 것은 $C$, $y$, $\pi$뿐임. 나머지 항목 40과 2는 받지 않음 → 형제가 필요 없는 이유
 - 거짓 값은 통과하지 못함. $y=5$를 주장하면 $f(x)-5=20x^2-58x+35$는 $x-2$로 나누어떨어지지 않음(나머지 -1). 다항식 $q$를 만들 수 없음
@@ -333,7 +354,7 @@ Vector Commitment를 만드는 한 방법이 Polynomial Commitment(다항식 커
 - Commitment와 Opening Proof는 수가 아니라 타원곡선 점임. 3단계의 등식은 Pairing이라는 타원곡선 연산으로 $r$을 모르는 채 확인함
 - $r$이 알려지면 안전하지 않음. 위 예시에서 $r=7$을 아는 Prover는 거짓 값 $y=14$에 대해 $\pi=(614-14)/5=120$을 만들어 등식을 통과시킬 수 있음 (출처에 없는 계산)
 
-### Ethereum이 고른 Commitment
+### Ethereum 제안의 Commitment: Pedersen Commitment와 IPA
 
 위 예시는 KZG의 흐름임. Ethereum 제안([EIP-6800](https://eips.ethereum.org/EIPS/eip-6800))은 다른 방식인 **Pedersen Commitment**와 **Inner Product Argument(내적 증명, 이하 IPA)**를 씀
 
@@ -348,11 +369,11 @@ $$
 - **Opening Proof**: IPA로 만듦([Ethereum Foundation Blog](https://blog.ethereum.org/2021/12/02/verkle-tree-structure))
 - **Additively Homomorphic(덧셈 동형)**: 두 Commitment를 더하면 두 Vector의 합에 대한 Commitment가 됨. 이 성질이 트리의 갱신과 Multiproof를 가능하게 함
 
-EIP-6800이 정한 값
+Ethereum 제안에서의 값
 
-- 타원곡선: Bandersnatch. 기저점 256개
-- Commitment 크기: 32 B
-- 한 항목에 넣을 수 있는 값: 252 Bit까지. Scalar가 가질 수 있는 값의 집합인 Scalar Field의 크기가 253 Bit 소수이기 때문임
+- 타원곡선: Bandersnatch. 기저점 256개 (EIP-6800)
+- Commitment 크기: 32 B (Anatomy of a Verkle proof가 적은 Witness 형식)
+- 한 항목에 넣을 수 있는 값: 252 Bit까지. Scalar가 가질 수 있는 값의 집합인 Scalar Field의 크기가 253 Bit 소수이기 때문임 (Ethereum Foundation Blog)
 
 | 항목 | KZG | Pedersen Commitment와 IPA |
 | --- | --- | --- |
@@ -367,13 +388,15 @@ EIP-6800이 정한 값
 
 ### Verkle Tree의 구조
 
-원리를 보이기 위해 단순화한 구조임. 실제 제안의 구조는 뒤의 "Ethereum 제안의 실제 구조"에 있음
+원리를 보이기 위해 단순화한 구조임. 실제 제안의 구조는 뒤의 "Ethereum 제안(EIP-6800)의 실제 구조"에 있음
 
 - **Inner Node**: 자식 256개의 Commitment를 항목으로 가짐. Key를 1 Byte씩 따라 분기함. MPT의 Branch Node에 해당함
-- **Leaf Node**: Value를 가짐
+- **Leaf Node**: Key의 남은 부분과 Value를 가짐
 - Node의 값은 자기 항목들에 대한 Commitment임. Root의 Commitment가 State Root가 됨
 
-예시: MPT 예시의 Key를 그대로 씀. Key의 첫 Byte가 Root에서의 Index가 됨 (0x73 = 115, 0x7b = 123, 0xd5 = 213)
+예시 1: MPT 예시의 Key를 그대로 씀. Key의 첫 Byte가 Root에서의 Index가 됨 (0x73 = 115, 0x7b = 123, 0xd5 = 213)
+
+![verkle-structure.png](verkle-structure.png)
 
 ```
 Root (Inner Node)  C_r = Commit(C_0, ..., C_255)
@@ -387,6 +410,24 @@ Root (Inner Node)  C_r = Commit(C_0, ..., C_255)
 
 → Width가 넓어지면 같은 Key 집합에서 깊이가 줄어듦
 
+예시 2: 깊이가 더 깊어지는 경우임. 예시 1과 다른 Account 집합이고, Key를 5 Byte로 줄임
+
+| Account | Key | Value |
+| --- | --- | --- |
+| a1 | 0x0a1b2c3d4e | Nonce 4, Balance 10 ETH |
+| a2 | 0x0a62c01234 | Nonce 2, Balance 1 ETH |
+| a3 | 0x0a62cd5f61 | Nonce 3, Balance 0.5 ETH |
+| a4 | 0x0ac4e34567 | Nonce 5, Balance 4 ETH |
+| a5 | 0x0ac4ea6765 | Nonce 7, Balance 3 ETH |
+
+![verkle-structure-deep.png](verkle-structure-deep.png)
+
+- 다섯 Key가 첫 Byte 0a를 공유함 → Root의 Index 0x0a 아래에 Inner Node가 생김
+- 둘째 Byte는 1b, 62, c4로 갈림. 1b는 a1뿐이므로 바로 Leaf Node가 됨
+- a2와 a3은 62를, a4와 a5는 c4를 공유함 → 각각 Inner Node가 하나 더 생기고, 셋째 Byte에서 갈림 (c0와 cd, e3와 ea)
+- Inner Node는 Key가 갈리는 지점까지만 생김. Root를 포함해 a1의 경로에는 Inner Node가 2개, 나머지 경로에는 3개 있음
+- Commitment의 아래 첨자는 부모 안에서의 Index를 10진수로 적은 것임 (0x0a = 10, 0x1b = 27, 0x62 = 98, 0xc4 = 196)
+
 ### Verkle Tree의 검증 방법
 
 - Verifier는 Root의 Commitment $C_r$을 이미 알고 있음
@@ -394,7 +435,9 @@ Root (Inner Node)  C_r = Commit(C_0, ..., C_255)
     - $z$: Key가 정하는 자식의 위치
     - $y$: 자식 Commitment. 마지막 Level에서는 저장된 Value
 
-예시: a1의 Value를 검증함
+예시: 예시 1에서 a1의 Value를 검증함
+
+![verkle-proof.png](verkle-proof.png)
 
 1. $C_r$을 Index 115에서 Opening → 항목이 $C_{115}$임을 확인 (Opening Proof $\pi_r$)
 2. $C_{115}$를 Opening → 항목이 a1의 Value임을 확인 (Opening Proof $\pi_{115}$)
@@ -408,13 +451,16 @@ MPT에서는 같은 검증에 a2 Leaf Node의 Hash와 a3 Leaf Node의 Hash가 �
 **문제 상황: 증명할 Value가 많아지면 Opening Proof도 그만큼 늘어남**
 
 - Block 하나는 수천 개의 Value에 접근함. Opening이 대략 (Key 개수) × (Key당 Opening 수)만큼 생김
-- 예시에서 a1, a2, a3를 모두 검증하면 Commitment 3개($C_{115}$, $C_{123}$, $C_{213}$)와 Opening Proof 6개(Root에서 3개, Leaf Node에서 3개)가 필요함
+- 예시 1에서 a1, a2, a3를 모두 검증하면 Commitment 3개($C_{115}$, $C_{123}$, $C_{213}$)와 Opening Proof 6개(Root에서 3개, Leaf Node에서 3개)가 필요함
+
+![verkle-multi-proof.png](verkle-multi-proof.png)
 
 **해결 방법: Multiproof로 모든 Opening Proof를 크기가 고정된 증명 하나로 묶음**
 
 - 원리: Opening마다 "주장이 맞을 때만 다항식이 되는 식" $\dfrac{f_i(X)-y_i}{X-z_i}$를 만들고, 무작위 계수를 곱해 모두 더한 다항식 하나를 만듦. 이 다항식 하나에 대한 증명만 확인하면 모든 Opening이 한 번에 검증됨
 - 자세한 과정은 [Multiproof 글](/posts/multiproof/)과 Dankrad Feist의 [PCS multiproofs using random evaluation](https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html)에 있음
 - 크기는 Opening 개수와 무관하게 고정임. Vitalik Buterin의 2021년 글은 방식에 따라 128~1,000 B로 적음
+- KZG에서 Dankrad Feist의 방식은 타원곡선 점 2개이고 96 B임. Vitalik Buterin의 2021년 글의 표는 Commitment 1개, 수 1개, 증명 2개인 176 B로 계산되어 있음
 - EIP-6800에 맞춰 제안된 Witness 형식에서는 576 B임. Commitment 1개와 IPA의 Opening Proof(타원곡선 점 16개, Scalar 1개)이고 원소마다 32 B임 (Anatomy of a Verkle proof의 형식에서 계산한 값)
 
 Multiproof를 적용한 Witness의 구성
@@ -456,7 +502,7 @@ Block 하나의 최악 Witness임. 2024년 글의 계산이고, Gas Limit 30,000
 
 마지막 행의 식은 30,000,000 / 200 × 32임. 글에는 4,800,800 B로 적혀 있으나 식을 계산하면 4,800,000 B임
 
-### MPT와 Verkle Tree의 비교 예시
+### MPT와 Verkle Tree의 Proof Size 비교
 
 $N$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산임 (출처에 없는 계산)
 
@@ -470,7 +516,7 @@ $N$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산임 (출처에 �
 | Verkle Tree | 1,000 × 3 × 32 B + 576 B | 96,576 B (약 97 kB) |
 
 - 약 25배 차이임
-- KZG 기준(Commitment 48 B, Multiproof 176 B)으로 계산하면 1,000 × 3 × 48 + 176 = 144,176 B(약 144 kB)이고 약 17배 차이임
+- KZG 기준(Commitment 48 B, Multiproof 96 B)으로 계산하면 1,000 × 3 × 48 + 96 = 144,096 B(약 144 kB)이고 약 17배 차이임
 - 두 값 모두 상한임. 여러 Key가 상위 Level의 Node를 공유하면 같은 Hash나 Commitment는 한 번만 넣으므로 실제 크기는 더 작음. Key와 Value 자체의 크기는 포함하지 않음
 
 출처에 적힌 수치는 다음과 같음
@@ -489,13 +535,13 @@ $N$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산임 (출처에 �
 
 <br />
 
-## Ethereum 제안의 실제 구조
+## Ethereum 제안(EIP-6800)의 실제 구조
 
 앞의 구조는 단순화한 것임. 실제 제안인 [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)은 Account, Storage, Code를 모두 하나의 트리에 넣음. Key와 Value는 모두 32 Byte임
 
 이 장은 2026년 11월 23일에 확인한 EIP-6800 본문을 기준으로 함. 이전 시점의 자료는 배치가 다를 수 있음. 예를 들어 Anatomy of a Verkle proof는 Balance와 Nonce를 서로 다른 Suffix에 두는 이전 배치로 설명함
 
-### Key: Stem과 Suffix
+### Key의 구성: Stem과 Suffix
 
 Key 32 Byte는 앞 31 Byte인 **Stem**과 마지막 1 Byte인 **Suffix**로 나뉨
 
@@ -506,7 +552,7 @@ Key 32 Byte는 앞 31 Byte인 **Stem**과 마지막 1 Byte인 **Suffix**로 나�
 
 Address 자체가 경로가 되는 것이 아님. Stem이 Hash의 결과이므로 Key는 트리 전체에 고르게 퍼짐
 
-### 한 Stem 아래의 Value
+### 한 Stem에 묶이는 Value
 
 Account의 첫 번째 Stem(Tree Index 0)에는 자주 함께 읽는 Value가 모여 있음. Storage Slot은 Contract Storage에서 Value 하나가 들어가는 자리이고, Chunk는 Code를 일정한 길이로 자른 조각임
 
@@ -527,7 +573,7 @@ Account의 첫 번째 Stem(Tree Index 0)에는 자주 함께 읽는 Value가 모
 - 같은 Stem에 속한 Value는 경로를 공유함. Nonce와 Balance, 앞쪽 Storage Slot을 함께 읽어도 경로 위의 Commitment는 Witness에 한 번만 들어감
 - Gas 비용에도 반영함. 같은 그룹 안에서 인접한 Storage Slot에 접근하는 비용을 2,100 Gas에서 200 Gas로 낮춤. 세부 규칙은 [EIP-4762](https://eips.ethereum.org/EIPS/eip-4762)가 정함
 
-### Node
+### Node의 종류: Inner Node와 Extension Node
 
 | Node | Commitment의 대상 | 역할 |
 | --- | --- | --- |
@@ -541,7 +587,7 @@ Inner Node → ... → Extension Node  Commit(1, Stem, C1, C2)
 ```
 
 - Extension Node는 MPT의 Extension Node와 이름만 같음. MPT에서는 분기 없는 경로 구간을 잇는 Node이고, 여기서는 Stem 하나에 속한 Value 256개를 담는 Node임. Stem도 남은 부분이 아니라 31 Byte 전체를 가짐
-- 이 글에서 Verkle Tree의 Leaf는 Extension Node에 담긴 Value 하나를 가리킴
+- 앞의 단순화한 구조에서 Leaf Node라고 부른 것이 실제 구조에서는 Extension Node와 C1, C2에 해당함
 - 부모가 자식 Commitment를 담을 때는 Scalar로 변환해 항목에 넣음. Commitment는 타원곡선 점이고 항목은 Scalar이기 때문임
 
 왜 C1과 C2 두 개로 나누는가?
@@ -551,7 +597,7 @@ Inner Node → ... → Extension Node  Commit(1, Stem, C1, C2)
 - Value 128개가 항목 256개를 채우므로 Commitment가 두 개 필요함. C1은 Suffix 0~127, C2는 Suffix 128~255를 담음
 - 아래쪽 조각에는 $2^{128}$을 더함. Value가 0인 경우와 Value가 없는 경우를 구분하기 위해서임
 
-### 깊이
+### 트리의 평균 깊이
 
 무작위 Key $n$개를 Width $d$인 트리에 넣으면 평균 깊이는 약 $\log_d n + 2/3$임. 여기서 깊이는 경로 위에 있는 Inner Node의 수임
 
@@ -559,9 +605,9 @@ Inner Node → ... → Extension Node  Commit(1, Stem, C1, C2)
 - $n=2^{30}$, $d=2^{10}$이면 약 3.67임
 - EIP-6800의 구조에서는 Inner Node의 경로를 Stem이 정함. 따라서 이 식을 적용할 때 $n$은 Stem의 개수로 보는 것이 맞음 (출처에 없는 해석)
 
-### 실제 구조에서의 검증
+### 실제 구조에서 Value 하나의 검증
 
-앞의 예시에서 Key의 첫 Byte를 Stem, 둘째 Byte를 Suffix로 보고 a1(Stem 0x73, Suffix 0x40)을 검증하면 Opening이 여섯 개 필요함. Anatomy of a Verkle proof가 나열하는 Opening 구성을 이 예시에 적용한 수임
+예시 1에서 Key의 첫 Byte를 Stem, 둘째 Byte를 Suffix로 보고 a1(Key 0x7340, Stem 0x73, Suffix 0x40)을 검증하면 Opening이 여섯 개 필요함. Anatomy of a Verkle proof가 나열하는 Opening 구성을 이 예시에 적용한 수임
 
 | 대상 | Opening하는 Index | 확인하는 것 | 개수 |
 | --- | --- | --- | --- |
@@ -570,10 +616,10 @@ Inner Node → ... → Extension Node  Commit(1, Stem, C1, C2)
 | C1 | 128, 129 | Value의 아래쪽 조각과 위쪽 조각 | 2 |
 
 - Suffix 0x40은 10진수로 64이므로 Value는 C1에 들어 있고, 조각의 Index는 2 × 64 = 128과 129임
-- 같은 Stem의 다른 Value를 함께 읽으면 앞의 Opening 4개는 공유함
+- 같은 Stem에서 C1에 속한 다른 Value를 함께 읽으면 앞의 Opening 4개는 공유함
 - Opening 여섯 개의 Opening Proof는 모두 Multiproof 하나에 묶임
 
-### 갱신
+### Value가 바뀔 때의 갱신
 
 **문제 상황: Value가 바뀔 때마다 Commitment를 처음부터 다시 계산하면 Node마다 항목 256개에 대한 연산이 필요함**
 
@@ -600,19 +646,24 @@ $$
 - Value 하나를 고치면 타원곡선 곱셈이 C1 또는 C2에서 최대 2회, Extension Node에서 1회, 경로 위 Inner Node마다 1회 듦. Inner Node가 3개면 최대 6회임 (구조에서 센 값이고 출처에 없는 계산)
 - Vitalik Buterin의 2021년 글은 약 4회로 적음. Value가 Inner Node에 바로 달린 단순한 트리를 전제로, Root를 포함한 Commitment의 수를 센 것임. 같은 글에 따르면 기저점의 배수를 미리 계산해 두면 더 빨라짐
 
-예시: 앞의 예시에서 a1이 a3에게 1 ETH를 보냄. 수수료를 받는 Account의 변경은 생략함
+예시: 예시 2에서 a1이 a4에게 3 ETH를 보냄. 수수료를 받는 Account의 변경은 생략함. 그림은 단순화한 구조로 그린 것임
 
-- 바뀌는 Value: a1(Nonce 2 → 3, Balance 4 → 3 ETH), a3(Balance 5 → 6 ETH)
-- a1 쪽: C1 → a1의 Extension Node Commitment 순으로 갱신함
-- a3 쪽: 같은 순서로 갱신함
-- Root: Index 0x73과 0xd5 두 항목의 변화를 반영함
-- a2의 Extension Node는 그대로임
+![verkle-update.png](verkle-update.png)
+
+- 바뀌는 Value: a1(Nonce 4 → 5, Balance 10 → 7 ETH), a4(Balance 4 → 7 ETH)
+- a1의 경로: a1의 Leaf Node → Index 0x0a 아래 Inner Node → Root
+- a4의 경로: a4의 Leaf Node → Index 0xc4 아래 Inner Node → Index 0x0a 아래 Inner Node → Root
+- 두 경로가 만나는 Index 0x0a 아래 Inner Node와 Root는 두 변경을 한 번에 반영함
+- a2, a3, a5의 Leaf Node와 Index 0x62 아래 Inner Node는 그대로임
+- 실제 구조에서는 Leaf Node 자리에서 C1 또는 C2, Extension Node의 Commitment 순으로 갱신한 뒤 같은 경로를 올라감
 
 Opening Proof는 Node에 저장하지 않음. Block이 접근한 Value에 대해 Witness를 만들 때 계산함
 
 <br />
 
 ## 원 논문과 Ethereum 제안의 차이
+
+### Kuszmaul의 Verkle Trees 논문
 
 Verkle Tree를 처음 제시한 글은 John Kuszmaul의 [Verkle Trees](https://math.mit.edu/research/highschool/primes/materials/2018/Kuszmaul.pdf)(2018)다. Massachusetts Institute of Technology(MIT)의 PRIMES 프로그램에서 나온 12쪽 논문이고, 아이디어는 멘토 Alin Tomescu가 제공했다고 적혀 있다.
 
@@ -630,6 +681,8 @@ Verkle Tree를 처음 제시한 글은 John Kuszmaul의 [Verkle Trees](https://m
 | Vector Commitment | $O(n^2)$ | $O(n)$ | $O(1)$ |
 | Width $k$인 Verkle Tree | $O(kn)$ | $O(k \log_k n)$ | $O(\log_k n)$ |
 
+### Ethereum 제안이 바꾼 것
+
 Ethereum 제안은 논문의 구조에서 세 가지를 바꿨다.
 
 - **Vector Commitment가 다르다.** Pedersen Commitment와 IPA를 쓴다.
@@ -642,9 +695,9 @@ Ethereum 제안은 논문의 구조에서 세 가지를 바꿨다.
 
 ## 한계와 현재 상태
 
-### 한계
+### Verkle Tree의 한계
 
-Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)이 든 것임
+앞의 세 가지는 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)이 Verkle Tree의 단점으로 든 것이고, 뒤의 두 가지는 같은 글의 수치와 설명에서 읽은 것임
 
 - **Quantum Resistance(양자 내성)가 없음**: Commitment가 타원곡선에 기반하므로 양자 컴퓨터에 취약함. 도입하더라도 나중에 다시 교체해야 함
 - **SNARK 안에서 증명하기 어려움**: Succinct Non-interactive Argument of Knowledge(이하 SNARK)는 계산이 올바르게 수행됐음을 짧은 증명으로 보이는 방식임. Verkle Tree의 Proof를 검증하는 계산에는 256 Bit 연산이 많아, 이를 SNARK로 증명하려면 큰 오버헤드나 전용 구조가 필요함
@@ -672,11 +725,13 @@ Binary Merkle Tree를 쓰고, Merkle Proof 전체를 Scalable Transparent Argume
 
 2026년 11월 23일 기준이다.
 
-- **EIP-6800**: Stagnant 단계로 표시되어 있다. Stagnant는 오랫동안 갱신되지 않은 EIP에 붙는 단계다.
+- **EIP-6800**: Stagnant 단계로 표시되어 있다. Stagnant는 Draft, Review, Last Call 단계의 EIP가 6개월 이상 활동이 없을 때 옮겨지는 단계다. 2026년 3월 6일에는 consensus-specs 저장소에서 EIP-6800 사양이 [제거](https://github.com/ethereum/consensus-specs/pull/4984)됐다.
 - **EIP-7864**: 2025년 1월에 제안된 Hash 기반 Unified Binary Tree이고, [Draft 단계](https://eips.ethereum.org/EIPS/eip-7864)다. 제안 동기는 타원곡선의 Quantum Resistance 우려와 증명 시스템의 발전이다. Hash 함수는 확정되지 않았다. 참조 구현은 BLAKE3를 쓰고, Keccak과 Poseidon2가 후보다.
-- **이어지는 것**: Stateless Client라는 목표는 그대로다. EIP-7864는 하나의 트리에 모두 넣는 구조, Stem과 256개 묶음, Code를 Chunk로 나누는 방식처럼 Commitment 방식과 무관한 EIP-6800의 설계를 가져왔다. 달라지는 것은 부모 Node를 만드는 방법과 Proof를 줄이는 방법이다.
+- **EIP-8297**: 2026년 6월에 EIP-7864의 저자들에 두 명이 더해진 저자진이 제안한 [Partitioned Binary Tree](https://eips.ethereum.org/EIPS/eip-8297)이고 Draft 단계다. Key의 첫 Byte로 Account Header, Code, Storage 구역을 나누고, Code를 Account가 아니라 Code Hash 기준으로 저장한다. go-ethereum은 2026년 11월 10일에 "EIP-8297이 EIP-7864를 대체한다"는 설명과 함께 EIP-7864와 EIP-4762의 구현을 [제거](https://github.com/ethereum/go-ethereum/pull/36091)했다.
+- **이어지는 것**: Stateless Client라는 목표는 그대로다. 두 Binary Tree 제안은 하나의 트리에 모두 넣는 구조, 함께 읽는 Value를 같은 Stem에 묶는 방식, Code를 31 Byte Chunk로 나누는 방식처럼 Commitment 방식과 무관한 EIP-6800의 설계를 이어받았다. 달라지는 것은 부모 Node를 만드는 방법과 Proof를 줄이는 방법이다. EIP-8297은 Gas 비용 체계를 바꾸지 않는다고 적는다.
+- **Ethereum Foundation**: 2026년 2월 18일 글에서 State 구조의 장기 방향을 [Binary Tree와 Statelessness](https://blog.ethereum.org/2026/02/18/protocol-priorities-update-2026)로 적었다.
 - **보도**: [The Block](https://www.theblock.co/post/391681/vitalik-buterin-lays-out-a-two-part-plan-to-overhaul-ethereums-execution-layer-from-the-ground-up)은 2026년 3월, Verkle Tree가 2026년 Hard Fork 후보로 거론됐으나 양자 컴퓨팅 우려로 2024년 중반부터 Binary Tree가 다시 주목받았다고 보도했다. [The Defiant](https://thedefiant.io/newsletter/defi-daily/ethereum-bets-its-technical-future-on-privacy-and-quantum-defense)는 2026년 8월, Ethereum Foundation의 Roadmap 초안에서 Verkle Tree 자리에 EIP-7864의 Unified Binary Tree가 들어갔다고 보도했다.
-- **일정**: State Tree 변경이 어느 Hard Fork에 들어갈지 확정한 자료는 찾지 못했다. 2026년 10월 Sepolia Testnet에서 활성화된 Glamsterdam 업그레이드의 [EIP 목록](https://blog.ethereum.org/2026/10/16/glamsterdam-hoodi-announcement)에 State Tree 변경은 없다.
+- **일정**: State Tree 변경이 들어갈 Hard Fork가 확정됐다는 자료는 찾지 못했다. 2026년 10월 Sepolia Testnet에서 활성화된 Glamsterdam 업그레이드의 [EIP 목록](https://blog.ethereum.org/2026/10/16/glamsterdam-hoodi-announcement)에 State Tree 변경은 없다. Ethereum Research의 2026년 9월 [의견 글](https://ethresear.ch/t/how-hegota-can-influence-the-state-roadmap/25895)은 Partitioned Binary Tree로의 전환을 Glamsterdam 다음 업그레이드인 Hegotá보다 뒤로 예상한다.
 - **주의**: [ethereum.org](https://ethereum.org/roadmap/verkle-trees/)의 Verkle Tree 문서는 Binary Tree를 언급하지 않고, Verkle Tree를 여전히 Stateless Client로 가는 단계로 설명한다. 같은 문서는 MPT를 Leaf를 둘씩 묶어 Hash하는 트리로 설명하지만 MPT의 Width는 16이다. Witness 크기가 Leaf 개수와 무관하게 고정이라고도 적지만 고정인 것은 Multiproof의 크기다.
 
 <br />
