@@ -10,21 +10,23 @@ media_subpath: /assets/img/posts/verkle-tree/
 
 > 관련 글: [Multiproof]({% post_url Cryptography/2026-11-11-Multiproof %})
 
-Verkle Tree는 Merkle Tree의 부모 Node를 Hash 대신 **Vector Commitment**로 만든 트리다. 이름은 Vector Commitment와 Merkle Tree를 합친 것이다. 어떤 Value가 트리에 들어 있음을 보이는 Proof가 Merkle Tree보다 훨씬 작다. 2018년 John Kuszmaul이 [논문](https://math.mit.edu/research/highschool/primes/materials/2018/Kuszmaul.pdf)에서 처음 제안했고, Ethereum은 2021년부터 Account 데이터 전체를 담는 State Tree를 Verkle Tree로 바꾸는 방안을 추진했다.
+### Paper Information
 
-이 정의를 이해하려면 Merkle Tree가 무엇인지, Ethereum이 지금 쓰는 Merkle Patricia Trie(이하 MPT)가 무엇인지부터 알아야 한다. 그래서 다음 순서로 설명한다.
+| Item | Details |
+| --- | --- |
+| Title | Verkle Trees |
+| Author | John Kuszmaul |
+| Mentor | Alin Tomescu |
+| Venue | Massachusetts Institute of Technology(이하 MIT) PRIMES(Program for Research in Mathematics, Engineering and Science for High School Students), 2018 |
+| Link | [PDF](https://math.mit.edu/research/highschool/primes/materials/2018/Kuszmaul.pdf) |
 
-1. Merkle Tree는 무엇이고, Proof는 어떻게 만드는가
-2. Ethereum은 State를 어떻게 저장하는가 (MPT)
-3. MPT의 무엇이 문제여서 Ethereum은 State Tree를 바꾸려 했는가
-4. Verkle Tree는 Proof를 어떻게 줄이는가
-5. Ethereum 제안의 실제 구조는 어떤가, 원 논문과 무엇이 다른가
+Verkle Tree는 Merkle Tree의 부모 Node를 Hash 대신 **Vector Commitment**로 만든 트리다. 이름은 Vector Commitment와 Merkle Tree를 합친 것이다. 어떤 Value가 트리에 들어 있음을 보이는 Proof가 Merkle Tree보다 훨씬 작다.
 
-여러 증명을 하나로 묶는 Multiproof는 [별도 글](/posts/multiproof/)에서 다루므로 여기서는 결과만 쓴다.
+논문은 고등학생 대상 연구 프로그램에서 나온 12쪽 분량의 글이다. 저자는 복잡도 증명과 구현, 측정을 맡았고, 아이디어는 멘토가 제공했다고 적혀 있다. Ethereum은 2021년부터 Account 데이터 전체를 담는 State Tree를 Verkle Tree로 바꾸는 방안을 추진했다.
 
-2026년 11월 23일 기준 Ethereum Mainnet은 Verkle Tree를 채택하지 않았다. 논의의 중심은 Hash 기반 Binary Tree로 옮겨 갔다. 이유와 경과는 글 끝의 "한계와 현재 상태"에 적었다.
+이 글은 논문의 Verkle Tree와, 그 아이디어를 Ethereum의 State Tree에 적용한 제안을 함께 다룬다. Ethereum 제안은 논문과 Commitment 방식도, Proof를 다루는 방식도 다르다. 그래서 어느 쪽의 내용인지 구분해 적었다. 배경으로 Merkle Tree와, Ethereum이 지금 쓰는 State Tree인 Merkle Patricia Trie(이하 MPT)를 먼저 설명한다.
 
-이 글에서 Proof와 Witness의 크기는 B(Byte), kB, MB로 적는다.
+여러 증명을 하나로 묶는 Multiproof의 과정은 [별도 글](/posts/multiproof/)에서 다루므로 여기서는 결과만 쓴다. Ethereum 제안의 상태는 2026년 11월 23일 기준이고, 글 끝의 "논문 이후"에 적었다. 이 글에서 Proof와 Witness의 크기는 B(Byte), kB, MB로 적는다.
 
 ---
 
@@ -183,7 +185,17 @@ Root (Branch Node)
 
 <br />
 
-## Ethereum이 State Tree를 바꾸려 한 이유
+## Problem
+
+### 논문이 다루는 문제
+
+논문의 상황은 원격 저장이다. 사용자가 파일 여러 개를 원격 Server에 맡기고, 나중에 돌려받은 파일이 맡긴 파일과 같은지 확인하려 한다. 사용자는 Merkle Root 같은 짧은 요약값만 저장하고, Server는 파일과 함께 Proof를 보낸다.
+
+- Proof는 요청할 때마다 Network로 전송된다. 트리가 크면 Proof 전송이 대역폭의 대부분을 차지할 수 있다.
+- Leaf가 $2^{30}$개이고 Hash가 256 Bit면 Merkle Proof는 약 1 kB다. 파일이 작으면 파일보다 Proof가 더 큰 부담이 된다.
+- 논문은 같은 문제가 생기는 곳으로 Consensus Protocol, Public Key Directory, Bitcoin 같은 암호화폐, Secure File System을 든다.
+
+**⇒ 논문의 목표는 Proof 크기를 줄여 대역폭을 아끼는 것이다. 같은 문제가 Ethereum에서는 Block과 함께 전파되는 Witness의 크기로 나타난다.**
 
 ### State가 커지면 생기는 문제
 
@@ -236,21 +248,50 @@ $$
 
 $k=16$이면 $32 \times 15 \times \log_{16} N = 120 \times \log_2 N$ B이고, $N=2^{32}$일 때 3,840 B임. 식과 수치는 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)과 [EIP-7864](https://eips.ethereum.org/EIPS/eip-7864)에 있음
 
-왜 Width를 바꾸는 것만으로는 해결되지 않는가?
-
-- Width를 키우면 깊이는 줄지만 형제 수가 더 빨리 늚. $k=256$이면 Level마다 형제 Hash가 최대 255개이고, $N=2^{32}$일 때 32 × 255 × 4 = 32,640 B (위 식에 대입한 계산)
-- Hash 기반 트리에서는 반대로 Width 2가 가장 유리함. $k=2$인 Binary Merkle Tree는 $32 \times \log_2 N$ B이고, $N=2^{32}$일 때 1,024 B
-- Width 2로도 Block 하나의 Witness는 최악의 경우 약 10.4 MB임 (뒤의 "Verkle Tree의 Proof Size" 참고)
-
 MPT에는 문제가 하나 더 있음. Code가 트리 밖에 있어, Code 접근을 증명하려면 Code 전체(최대 24,000 B)를 Witness에 넣어야 함
 
-**⇒ Hash를 쓰는 한 형제를 보내야 한다는 제약은 사라지지 않는다. Proof를 줄이려면 트리 구조, 그중에서도 부모 Node를 만드는 방법 자체를 바꿔야 한다.**
+**⇒ MPT의 Proof가 큰 이유는 Level마다 형제 Hash가 최대 15개 들어가기 때문이다.** 풀어야 할 질문은 네 가지다.
+
+1. **형제 Node 없이 검증할 수 있는가.** Hash는 입력 전체를 알아야 다시 계산할 수 있다.
+2. **깊이를 줄일 수 있는가.** Proof는 깊이에 비례한다.
+3. **Value가 많을 때도 Proof가 작게 유지되는가.** Block 하나는 수천 개의 Value에 접근한다.
+4. **갱신 비용을 감당할 수 있는가.** State Tree는 Block마다 바뀐다.
+
+<br />
+
+## 기존 접근
+
+논문이 Verkle Tree와 비교하는 구조는 세 가지다. $n$은 Leaf의 수이고 $k$는 Width다. 논문은 Width를 Branching Factor라 부른다.
+
+Vector Commitment는 값의 목록 전체를 짧은 값 하나로 고정하고, 항목 하나를 나머지 항목 없이 짧은 증명으로 확인시키는 암호학적 방법이다. 자세한 설명은 다음 장에 있다.
+
+| 접근 | 내용 | Proof 크기 | 한계 |
+| --- | --- | --- | --- |
+| Binary Merkle Tree | Width가 2임. Level마다 형제 Hash 1개 | $O(\log_2 n)$ | Leaf가 $2^{30}$개면 약 1 kB. 작은 데이터를 많이 담는 트리에서는 Proof 전송이 부담임 |
+| Width $k$인 Merkle Tree | Width를 키워 깊이를 $\log_2 n$에서 $\log_k n$으로 줄임 | $O(k \log_k n)$ | Level마다 형제가 $k-1$개 필요해 Proof가 오히려 커짐 |
+| Vector Commitment 하나 | 트리 없이 데이터 전체를 Commitment 하나로 만듦 | $O(1)$ | Commitment와 모든 항목의 증명을 만드는 데 $O(n^2)$, 항목 하나 갱신에 $O(n)$ |
+
+Ethereum의 수치로 보면 Width를 키우는 방법이 왜 통하지 않는지 드러난다. $N=2^{32}$이고 Hash는 32 B다. 앞의 두 행은 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)의 값이고, 마지막 행은 같은 식에 대입한 계산이다.
+
+| Hash 기반 트리 | 식 | Key 하나의 Proof |
+| --- | --- | --- |
+| Width 16 (MPT) | $32 \times 15 \times \log_{16} N$ | 3,840 B |
+| Width 2 (Binary Merkle Tree) | $32 \times \log_2 N$ | 1,024 B |
+| Width 256 | $32 \times 255 \times \log_{256} N$ | 32,640 B |
+
+- Width를 키우면 깊이는 줄지만 형제 수가 더 빨리 늘어난다.
+- Hash 기반 트리에서는 반대로 Width 2가 가장 유리하다.
+- Width를 2로 바꾸고 Code를 트리에 넣어도 Block 하나의 Witness는 최악의 경우 약 10.4 MB다. 계산의 가정은 뒤의 "Block 하나의 Witness"에 있다.
+
+**⇒ Hash를 쓰는 한 형제를 보내야 한다는 제약은 사라지지 않는다. Vector Commitment 하나로 전체를 묶으면 형제는 없어지지만 계산이 너무 무겁다. Verkle Tree는 둘을 결합한다. 트리 구조는 그대로 두고, 부모 Node를 만드는 방법만 Vector Commitment로 바꾼다.**
 
 <br />
 
 ## Verkle Tree
 
 ### 핵심 아이디어: Hash 대신 Vector Commitment
+
+논문의 핵심은 한 가지다. Merkle Tree를 만들되 Hash 함수 자리에 Vector Commitment를 쓴다. Merkle Tree에서 부모 Node는 자식들의 Hash이고, Verkle Tree에서 부모 Node는 자식들의 Vector Commitment다.
 
 **문제 상황: Hash로 만든 부모는 자식 전부를 알아야 검증할 수 있음. 그래서 Level마다 형제 Node가 Proof에 들어감**
 
@@ -261,6 +302,15 @@ MPT에는 문제가 하나 더 있음. Code가 트리 밖에 있어, Code 접근
 1. **형제 Node가 필요 없음**: 자식 하나가 부모에 속함을 보이는 데 나머지 자식들이 필요하지 않음
 2. **깊이를 줄일 수 있음**: 형제를 보내지 않으므로 Width를 키워도 Level당 Proof 데이터가 늘지 않음. Width를 키우면 깊이만 줄어듦
 
+Problem의 네 질문에 대한 답은 다음과 같음. 앞의 두 가지는 논문의 답이고, 뒤의 두 가지는 Ethereum 제안의 답임
+
+| 질문 | 해결 방법 | 설명하는 곳 |
+| --- | --- | --- |
+| 형제 Node 없이 검증할 수 있는가 | 부모 Node를 Vector Commitment로 만들고, 항목 하나만 Opening Proof로 확인 | Commitment Scheme과 Vector Commitment, Verkle Tree의 검증 방법 |
+| 깊이를 줄일 수 있는가 | Width를 키움. 형제가 없으므로 Proof가 늘지 않음 | Verkle Tree의 구조 |
+| Value가 많을 때도 Proof가 작게 유지되는가 | 모든 Opening Proof를 Multiproof 하나로 묶음 | 여러 Value의 검증과 Multiproof |
+| 갱신 비용을 감당할 수 있는가 | Opening Proof를 저장하지 않고, 경로 위 Commitment만 바뀐 분량만큼 갱신 | Value가 바뀔 때의 갱신 |
+
 Ethereum에 제안된 Verkle Tree의 Width는 256임. 1,024로 올리자는 의견도 있었음([Vitalik Buterin의 2021년 글](https://vitalik.eth.limo/general/2021/06/18/verkle.html)). Width의 상한은 Proof를 만드는 비용이 정함. Node마다 Width에 비례하는 연산이 들기 때문임
 
 | 항목 | MPT | Verkle Tree (Ethereum 제안) |
@@ -270,6 +320,16 @@ Ethereum에 제안된 Verkle Tree의 Width는 256임. 1,024로 올리자는 의�
 | 깊이 | 약 $\log_{16} N$ | 약 $\log_{256} N$ |
 | Level당 Proof 데이터 | 형제 Hash 최대 15개 (480 B) | Commitment 1개 (32 B) |
 | 여러 Key를 검증할 때 | Key마다 형제 Hash 추가 | 모든 증명을 Multiproof 1개로 묶음 |
+
+용어는 다음과 같음. 각 용어는 뒤에서 다시 설명함
+
+| 용어 | 의미 |
+| --- | --- |
+| Commitment | 값을 고정해 둔 짧은 값 |
+| Vector Commitment | 값의 목록 전체에 대한 Commitment |
+| Opening | Commitment의 특정 Index에 있는 항목을 밝히는 것 |
+| Opening Proof | Opening이 맞음을 보이는 증명. 논문은 Membership Proof라 부름 |
+| Multiproof | 여러 Opening Proof를 하나로 묶은 증명. 논문에는 없고 Ethereum 제안에 있음 |
 
 ### Commitment Scheme과 Vector Commitment
 
@@ -320,7 +380,7 @@ Vector Commitment를 만드는 한 방법이 Polynomial Commitment(다항식 커
     C=\operatorname{Commit}(f)=f(r)=20\times 7^2-58\times 7+40=614
     $$
 
-2. **Evaluation**: $x=2$일 때 $f(2)=4$와 Evaluation Proof $\pi=122$ 생성
+2. **Opening**: $x=2$일 때 $f(2)=4$와 Opening Proof $\pi=122$ 생성
 
     $$
     \begin{aligned}
@@ -345,50 +405,18 @@ Vector Commitment를 만드는 한 방법이 Polynomial Commitment(다항식 커
 
 ![polynomial-commitment.png](polynomial-commitment.png)
 
-- Verifier가 받은 것은 $C$, $y$, $\pi$뿐임. 나머지 항목 40과 2는 받지 않음 → 형제가 필요 없는 이유
-- 거짓 값은 통과하지 못함. $y=5$를 주장하면 $f(x)-5=20x^2-58x+35$는 $x-2$로 나누어떨어지지 않음(나머지 -1). 다항식 $q$를 만들 수 없음
+- Verifier가 받은 것은 $C$, $f(2)$, $\pi$뿐임. 나머지 항목 40과 2는 받지 않음 → 형제가 필요 없는 이유
+- 거짓 값은 통과하지 못함. $f(2)=5$라고 주장하면 $f(x)-5=20x^2-58x+35$는 $x-2$로 나누어떨어지지 않음(나머지 -1). 다항식 $q$를 만들 수 없음
 
 주의: 이 예시가 줄인 부분
 
 - 실제로는 $r$을 아무도 모름. KZG는 Trusted Setup(신뢰 설정)이라는 준비 절차에서 $r$의 거듭제곱을 타원곡선 점 안에 숨긴 공개 매개변수를 만들고 $r$을 폐기함
 - Commitment와 Opening Proof는 수가 아니라 타원곡선 점임. 3단계의 등식은 Pairing이라는 타원곡선 연산으로 $r$을 모르는 채 확인함
-- $r$이 알려지면 안전하지 않음. 위 예시에서 $r=7$을 아는 Prover는 거짓 값 $y=14$에 대해 $\pi=(614-14)/5=120$을 만들어 등식을 통과시킬 수 있음 (출처에 없는 계산)
-
-### Ethereum 제안의 Commitment: Pedersen Commitment와 IPA
-
-위 예시는 KZG의 흐름임. Ethereum 제안([EIP-6800](https://eips.ethereum.org/EIPS/eip-6800))은 다른 방식인 **Pedersen Commitment**와 **Inner Product Argument(내적 증명, 이하 IPA)**를 씀
-
-타원곡선 위의 점은 서로 더할 수 있고 정수를 곱할 수 있음. 곱하는 정수를 Scalar라 함. Pedersen Commitment는 미리 정해 둔 타원곡선 점 $G_0, \ldots, G_{255}$에 항목 $v_i$를 각각 곱해 모두 더한 점임. 이 점들을 기저점이라 함
-
-$$
-C = v_0 G_0 + v_1 G_1 + \cdots + v_{255} G_{255}
-$$
-
-- **Binding**: 어떤 기저점이 다른 기저점의 몇 배인지(Discrete Log 관계)가 알려져 있지 않으면 성립함
-- **Trusted Setup**: 필요 없음
-- **Opening Proof**: IPA로 만듦([Ethereum Foundation Blog](https://blog.ethereum.org/2021/12/02/verkle-tree-structure))
-- **Additively Homomorphic(덧셈 동형)**: 두 Commitment를 더하면 두 Vector의 합에 대한 Commitment가 됨. 이 성질이 트리의 갱신과 Multiproof를 가능하게 함
-
-Ethereum 제안에서의 값
-
-- 타원곡선: Bandersnatch. 기저점 256개 (EIP-6800)
-- Commitment 크기: 32 B (Anatomy of a Verkle proof가 적은 Witness 형식)
-- 한 항목에 넣을 수 있는 값: 252 Bit까지. Scalar가 가질 수 있는 값의 집합인 Scalar Field의 크기가 253 Bit 소수이기 때문임 (Ethereum Foundation Blog)
-
-| 항목 | KZG | Pedersen Commitment와 IPA |
-| --- | --- | --- |
-| Trusted Setup | 필요 | 불필요 |
-| Opening Proof | 타원곡선 점 1개 | 타원곡선 점 $2\log_2 256 = 16$개와 Scalar 1개 |
-| 검증 비용 | Pairing 1회 | Width에 비례하는 타원곡선 연산 |
-| 암호학적 가정 | Bilinear Group | Discrete Log |
-
-- IPA는 KZG보다 Opening Proof가 크고 검증 비용이 큼. 대신 Multiproof로 모든 Opening을 하나로 묶으므로, IPA의 Opening Proof는 Witness 하나에 한 개만 들어가고 한 번만 검증함
-- 비교는 Dankrad Feist의 [Inner Product Arguments](https://dankradfeist.de/ethereum/2021/07/27/inner-product-arguments.html)에 있음. Scalar 1개는 Ignacio Hagopian의 [Anatomy of a Verkle proof](https://ihagopian.com/posts/anatomy-of-a-verkle-proof)가 적은 Witness 형식에 있음
-- 주의: 다른 자료는 Commitment 방식이 다를 수 있음. Dankrad Feist의 [Verkle trie for Eth1 state](https://dankradfeist.de/ethereum/2021/06/18/verkle-trie-for-eth1.html)는 KZG 기준으로 쓰였고, Vitalik Buterin의 2021년 글은 수치를 KZG(Commitment 48 B) 기준으로 듦
+- $r$이 알려지면 안전하지 않음. 위 예시에서 $r=7$을 아는 Prover는 거짓 값 14에 대해 $\pi=(614-14)/5=120$을 만들어 등식을 통과시킬 수 있음 (출처에 없는 계산)
 
 ### Verkle Tree의 구조
 
-원리를 보이기 위해 단순화한 구조임. 실제 제안의 구조는 뒤의 "Ethereum 제안(EIP-6800)의 실제 구조"에 있음
+Ethereum 제안의 Width인 256을 기준으로 설명함. 원리를 보이기 위해 단순화한 구조이고, 실제 제안의 구조는 뒤의 "Ethereum 제안(EIP-6800)"에 있음
 
 - **Inner Node**: 자식 256개의 Commitment를 항목으로 가짐. Key를 1 Byte씩 따라 분기함. MPT의 Branch Node에 해당함
 - **Leaf Node**: Key의 남은 부분과 Value를 가짐
@@ -446,7 +474,60 @@ Root (Inner Node)  C_r = Commit(C_0, ..., C_255)
 
 MPT에서는 같은 검증에 a2 Leaf Node의 Hash와 a3 Leaf Node의 Hash가 필요했음
 
+<br />
+
+## Ethereum 제안(EIP-6800)
+
+Ethereum은 논문의 구조를 그대로 쓰지 않았다. 이 장은 State Tree를 Verkle Tree로 바꾸는 제안인 [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)과, 그 설계를 설명한 글들을 기준으로 한다. EIP-6800 본문은 2026년 11월 23일에 확인했다.
+
+### 논문과 달라진 점
+
+| 항목 | 논문 | Ethereum 제안 |
+| --- | --- | --- |
+| Vector Commitment | Catalano와 Fiore의 방식 | Pedersen Commitment와 Inner Product Argument(내적 증명, 이하 IPA) |
+| Width | 정하지 않음. 용도에 따라 고름 | 256 |
+| Opening Proof | 트리를 만들 때 자식마다 미리 계산 | 저장하지 않음. Block이 접근한 Value에 대해 그때 계산 |
+| 여러 Value의 Proof | 다루지 않음 | Multiproof 하나로 묶음 |
+| Value 하나의 갱신 | $O(k \log_k n)$ | 경로 위 Commitment만 바뀐 분량만큼 갱신. Width에 비례하지 않음 |
+| 담는 데이터 | 파일 같은 데이터의 목록 | Account, Storage, Code |
+
+**⇒ 논문의 약점은 구성과 갱신에 드는 $k$배의 계산이었다. Ethereum 제안은 Opening Proof를 저장하지 않고, 덧셈으로 갱신할 수 있는 Commitment를 쓴다. 그래서 갱신 비용이 Width에 비례하지 않는다. Width에 비례하는 연산은 Proof를 만드는 시점에만 든다.**
+
+### Pedersen Commitment와 IPA
+
+앞의 Polynomial Commitment 예시는 KZG의 흐름임. Ethereum 제안은 다른 방식인 **Pedersen Commitment**와 **IPA**를 씀
+
+타원곡선 위의 점은 서로 더할 수 있고 정수를 곱할 수 있음. 곱하는 정수를 Scalar라 함. Pedersen Commitment는 미리 정해 둔 타원곡선 점 $G_0, \ldots, G_{255}$에 항목 $v_i$를 각각 곱해 모두 더한 점임. 이 점들을 기저점이라 함
+
+$$
+C = v_0 G_0 + v_1 G_1 + \cdots + v_{255} G_{255}
+$$
+
+- **Binding**: 어떤 기저점이 다른 기저점의 몇 배인지(Discrete Log 관계)가 알려져 있지 않으면 성립함
+- **Trusted Setup**: 필요 없음
+- **Opening Proof**: IPA로 만듦([Ethereum Foundation Blog](https://blog.ethereum.org/2021/12/02/verkle-tree-structure))
+- **Additively Homomorphic(덧셈 동형)**: 두 Commitment를 더하면 두 Vector의 합에 대한 Commitment가 됨. 이 성질이 트리의 갱신과 Multiproof를 가능하게 함
+
+Ethereum 제안에서의 값
+
+- 타원곡선: Bandersnatch. 기저점 256개 (EIP-6800)
+- Commitment 크기: 32 B (Ignacio Hagopian의 [Anatomy of a Verkle proof](https://ihagopian.com/posts/anatomy-of-a-verkle-proof)가 적은 Witness 형식)
+- 한 항목에 넣을 수 있는 값: 252 Bit까지. Scalar가 가질 수 있는 값의 집합인 Scalar Field의 크기가 253 Bit 소수이기 때문임 (Ethereum Foundation Blog)
+
+| 항목 | KZG | Pedersen Commitment와 IPA |
+| --- | --- | --- |
+| Trusted Setup | 필요 | 불필요 |
+| Opening Proof | 타원곡선 점 1개 | 타원곡선 점 $2\log_2 256 = 16$개와 Scalar 1개 |
+| 검증 비용 | Pairing 1회 | Width에 비례하는 타원곡선 연산 |
+| 암호학적 가정 | Bilinear Group | Discrete Log |
+
+- IPA는 KZG보다 Opening Proof가 크고 검증 비용이 큼. 대신 Multiproof로 모든 Opening을 하나로 묶으므로, IPA의 Opening Proof는 Witness 하나에 한 개만 들어가고 한 번만 검증함
+- 비교는 Dankrad Feist의 [Inner Product Arguments](https://dankradfeist.de/ethereum/2021/07/27/inner-product-arguments.html)에 있음. Scalar 1개는 Anatomy of a Verkle proof가 적은 Witness 형식에 있음
+- 주의: 다른 자료는 Commitment 방식이 다를 수 있음. Dankrad Feist의 [Verkle trie for Eth1 state](https://dankradfeist.de/ethereum/2021/06/18/verkle-trie-for-eth1.html)는 KZG 기준으로 쓰였고, Vitalik Buterin의 2021년 글은 수치를 KZG(Commitment 48 B) 기준으로 듦
+
 ### 여러 Value의 검증과 Multiproof
+
+논문은 여러 Proof를 묶는 방법을 다루지 않음. Multiproof는 Ethereum 제안에서 더해진 것임
 
 **문제 상황: 증명할 Value가 많아지면 Opening Proof도 그만큼 늘어남**
 
@@ -473,75 +554,9 @@ $z$와 $y$는 보내지 않음. Verifier가 Key, Value, 경로의 Commitment로�
 
 **⇒ Key가 늘어날 때 Proof에서 커지는 부분은 경로 위의 Commitment뿐이다.**
 
-비용은 다음과 같음 (Vitalik Buterin의 2021년 글)
-
-- **검증**: Value $m$개를 증명할 때 크기 $m$의 Multiexponentiation 1회와 약 $4m$회의 Field 연산이 대부분임. Multiexponentiation은 여러 타원곡선 점에 각각 Scalar를 곱해 모두 더하는 연산이고, Field 연산은 큰 소수를 법으로 하는 덧셈과 곱셈임. 글은 Value 수천 개의 검증이 100 ms 안에 끝난다고 적음. 2021년의 추정이고 측정 환경은 적혀 있지 않음
-- **생성**: 경로 위 각 Node의 항목 256개가 모두 필요함. 그래서 State 전체를 가진 Block 생성 Node가 Witness를 만듦
-
-### Verkle Tree의 Proof Size
-
-Key 하나의 경로 크기임. $N=2^{32}$, Hash와 Commitment는 32 B임. 식은 2024년 글에 있음. MPT와 Binary Merkle Tree의 값은 글에 적혀 있고, Verkle Tree의 128 B는 식에 대입한 값임
-
-| 트리 | 식 | $N=2^{32}$일 때 |
-| --- | --- | --- |
-| MPT (Width 16) | $32 \times 15 \times \log_{16} N$ | 3,840 B |
-| Binary Merkle Tree (Width 2) | $32 \times \log_2 N$ | 1,024 B |
-| Verkle Tree (Width 256) | $32 \times \log_{256} N$ | 128 B |
-
-- Verkle Tree에는 여기에 Multiproof 하나가 더해짐. Key가 몇 개든 하나임
-- Value $m$개를 증명할 때 MPT는 $O(mk \log_k N)$, Verkle Tree는 $O(m \log_k N)$에 고정 크기 Multiproof를 더한 값임
-
-Block 하나의 최악 Witness임. 2024년 글의 계산이고, Gas Limit 30,000,000과 접근 1회당 2,400 Gas(Block당 최대 12,500회 접근)를 가정함
-
-| 트리 | 최악의 Witness | 비고 |
-| --- | --- | --- |
-| MPT | 약 330 MB | 접근마다 Code 전체(최대 24,000 B) 포함 |
-| Binary Merkle Tree, Code를 트리에 포함 | 약 10.4 MB | |
-| Verkle Tree | 약 1.3 MB | 공격자가 긴 공통 앞부분을 가진 Address를 만들면 약 2.6 MB |
-| Verkle Tree, 인접 접근만 한 경우 | 약 4.8 MB | 인접 접근 1회당 200 Gas, 접근마다 32 B를 가정 |
-
-마지막 행의 식은 30,000,000 / 200 × 32임. 글에는 4,800,800 B로 적혀 있으나 식을 계산하면 4,800,000 B임
-
-### MPT와 Verkle Tree의 Proof Size 비교
-
-$N$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산임 (출처에 없는 계산)
-
-- 깊이: MPT는 $\log_{16} 10^6 \approx 4.98$이므로 5, Verkle Tree는 $\log_{256} 10^6 \approx 2.49$이므로 3으로 놓음
-- MPT는 Level마다 형제 Hash 15개(각 32 B)를 넣음
-- Verkle Tree는 Level마다 Commitment 1개(32 B)를 넣고, Multiproof 하나(576 B)를 더함
-
-| 트리 | 계산 | 크기 |
-| --- | --- | --- |
-| MPT | 1,000 × 15 × 5 × 32 B | 2,400,000 B (2.4 MB) |
-| Verkle Tree | 1,000 × 3 × 32 B + 576 B | 96,576 B (약 97 kB) |
-
-- 약 25배 차이임
-- KZG 기준(Commitment 48 B, Multiproof 96 B)으로 계산하면 1,000 × 3 × 48 + 96 = 144,096 B(약 144 kB)이고 약 17배 차이임
-- 두 값 모두 상한임. 여러 Key가 상위 Level의 Node를 공유하면 같은 Hash나 Commitment는 한 번만 넣으므로 실제 크기는 더 작음. Key와 Value 자체의 크기는 포함하지 않음
-
-출처에 적힌 수치는 다음과 같음
-
-- Vitalik Buterin의 2021년 글의 표임. Width 256, Commitment와 Opening Proof가 48 B인 KZG, Key가 고르게 분포한 트리를 가정함. Key와 Value 자체는 포함하지 않음. 단위는 B임
-
-    | 트리 크기 | Key 1개 | Key 1,000개 | Key 10,000개 |
-    | --- | --- | --- | --- |
-    | $2^{24}$ | 272 | 59,792 | 457,616 |
-    | $2^{32}$ | 320 | 107,744 | 937,472 |
-
-- $2^{32}$ 크기의 트리에서 Key 1,000개일 때 Key당 약 108 B임. Key 1개일 때의 320 B보다 훨씬 작음. 상위 Level의 Commitment를 여러 Key가 공유하고 Multiproof가 하나뿐이기 때문임
-- 같은 글의 보정: Key가 무작위로 분포하면 깊이가 약 0.6 늘어 Key당 약 30 B가 더 듦. 32 B Commitment를 쓰면 크기가 약 3분의 1 줄어듦
-- 같은 글의 결론: Verkle Tree의 Proof는 Width 16인 MPT보다 20~30배 이상, 이상적인 Binary Merkle Tree보다 6~8배 작음
-- [ethereum.org](https://ethereum.org/roadmap/verkle-trees/)는 Value 1,000개 기준으로 MPT의 Witness 약 3.5 MB(7 Level), Verkle Tree의 Witness 약 150 kB(4 Level)를 들고 약 23배 작다고 적음
-
-<br />
-
-## Ethereum 제안(EIP-6800)의 실제 구조
-
-앞의 구조는 단순화한 것임. 실제 제안인 [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)은 Account, Storage, Code를 모두 하나의 트리에 넣음. Key와 Value는 모두 32 Byte임
-
-이 장은 2026년 11월 23일에 확인한 EIP-6800 본문을 기준으로 함. 이전 시점의 자료는 배치가 다를 수 있음. 예를 들어 Anatomy of a Verkle proof는 Balance와 Nonce를 서로 다른 Suffix에 두는 이전 배치로 설명함
-
 ### Key의 구성: Stem과 Suffix
+
+앞의 "Verkle Tree의 구조"는 단순화한 것임. EIP-6800은 Account, Storage, Code를 모두 하나의 트리에 넣음. Key와 Value는 모두 32 Byte임. 이전 시점의 자료는 배치가 다를 수 있음. 예를 들어 Anatomy of a Verkle proof는 Balance와 Nonce를 서로 다른 Suffix에 두는 이전 배치로 설명함
 
 Key 32 Byte는 앞 31 Byte인 **Stem**과 마지막 1 Byte인 **Suffix**로 나뉨
 
@@ -661,18 +676,13 @@ Opening Proof는 Node에 저장하지 않음. Block이 접근한 Value에 대해
 
 <br />
 
-## 원 논문과 Ethereum 제안의 차이
+## 평가
 
-### Kuszmaul의 Verkle Trees 논문
+논문의 평가는 복잡도 분석과 구성 시간 측정이다. Ethereum 제안의 평가는 Proof와 Witness의 크기 계산이다. 둘을 나눠 적는다.
 
-Verkle Tree를 처음 제시한 글은 John Kuszmaul의 [Verkle Trees](https://math.mit.edu/research/highschool/primes/materials/2018/Kuszmaul.pdf)(2018)다. Massachusetts Institute of Technology(MIT)의 PRIMES 프로그램에서 나온 12쪽 논문이고, 아이디어는 멘토 Alin Tomescu가 제공했다고 적혀 있다.
+### 논문의 분석과 측정
 
-논문의 내용은 다음과 같다. $n$은 Leaf의 수이고 $k$는 Width다.
-
-- **문제**: Width가 2인 Merkle Tree의 Proof 크기는 $O(\log_2 n)$이다. Leaf가 $2^{30}$개이고 Hash가 256 Bit면 약 1 kB다. Width가 $k$인 Merkle Tree는 Level마다 형제 $k-1$개가 필요해 $O(k \log_k n)$으로 오히려 커진다.
-- **설계**: Merkle Tree와 같은 방식으로 트리를 만들되 Hash 대신 Vector Commitment를 쓴다. Opening Proof는 크기가 고정이므로 Proof 크기는 $O(\log_k n)$이다. Width 2인 Merkle Tree보다 $\log_2 k$배 작다. $k=1024$면 10배, $k=32$면 5배다.
-- **비용**: Node를 만들 때 자식마다 Opening Proof를 미리 계산한다. 그래서 트리 구성에 $O(kn)$, Value 하나 갱신에 $O(k \log_k n)$이 든다. $k$는 Proof 크기와 계산량을 맞바꾸는 값이다.
-- **구현**: Catalano와 Fiore의 Vector Commitment를 썼다. Bilinear Group과 Computational Diffie-Hellman 가정에 기반한다. Leaf가 $2^{14}$개인 트리에서 Leaf 1개당 구성 시간은 $k=1024$일 때 110.1 ms, $k=32$일 때 8.4 ms였다.
+복잡도는 다음과 같음. $n$은 Leaf의 수이고 $k$는 Width임
 
 | 구조 | 트리 구성 | Value 하나 갱신 | Proof 크기 |
 | --- | --- | --- | --- |
@@ -681,29 +691,140 @@ Verkle Tree를 처음 제시한 글은 John Kuszmaul의 [Verkle Trees](https://m
 | Vector Commitment | $O(n^2)$ | $O(n)$ | $O(1)$ |
 | Width $k$인 Verkle Tree | $O(kn)$ | $O(k \log_k n)$ | $O(\log_k n)$ |
 
-### Ethereum 제안이 바꾼 것
+- Proof는 Width 2인 Merkle Tree보다 $\log_2 k$배 작음. 깊이가 $\log_2 n$에서 $\log_k n$으로 줄기 때문임
+- 대가로 구성과 갱신에 $k$배의 계산이 듦. 논문의 구성은 Node를 만들 때 자식 $k$개 각각의 Opening Proof를 미리 계산해 두기 때문임
+    - 트리 구성 $O(kn)$: Node 하나를 자식 $k$개의 증명까지 만드는 데 $O(k^2)$이 듦. 표의 Vector Commitment 행에 $n=k$를 넣은 값임. 맨 아래 Level에 Node가 $n/k$개이므로 $O(k^2) \times n/k = O(kn)$이고, 위 Level은 Node 수가 $k$배씩 줄어들어 합쳐도 $O(kn)$임 (논문에 없는 유도)
+    - Value 하나 갱신 $O(k \log_k n)$: 경로 위 Node마다 Commitment와 자식 $k$개의 증명을 고쳐야 한다고 보면 맞는 값임 (논문에 없는 해석)
 
-Ethereum 제안은 논문의 구조에서 세 가지를 바꿨다.
+실험 설정
 
-- **Vector Commitment가 다르다.** Pedersen Commitment와 IPA를 쓴다.
-- **Opening Proof를 Node에 저장하지 않는다.** Block이 접근한 Value에 대해서만 그때 계산한다. 그래서 Value 하나를 갱신하는 비용이 Width에 비례하지 않는다.
-- **여러 Opening Proof를 Multiproof 하나로 묶는다.** 논문은 Opening Proof를 묶는 방법을 다루지 않는다.
+| 항목 | 값 |
+| --- | --- |
+| 구현 | C++, RELIC 라이브러리, SHA-256 |
+| Vector Commitment | Catalano와 Fiore의 방식. Bilinear Group과 Computational Diffie-Hellman 가정에 기반함. 논문은 저자들이 아는 한 이 방식의 첫 구현이라고 적음 |
+| 트리 형태 | Prefix Tree. Leaf는 Key와 Value의 쌍이고, Leaf의 위치는 Key의 Hash가 정함 |
+| 측정 방법 | 빈 트리에서 시작해 Leaf를 하나씩 추가하며 걸린 시간을 잼 |
+| 트리 크기 | Leaf $2^{14}$개 (16,384개) |
 
-논문의 비교 대상은 Width 2인 Merkle Tree다. Ethereum의 현재 트리는 Width가 16이어서 줄어드는 폭이 더 크다.
+- 한꺼번에 구성하면 더 빠름. 하나씩 추가한 것은 Server가 새 Leaf를 계속 받아 트리를 갱신하는 상황을 재현하기 위해서임
+- 논문은 Leaf $2^{14}$개의 결과가 더 큰 트리를 대표한다고 봄. 이 크기에서 이미 점근적 비용이 계산 시간을 지배한다는 이유임
+
+결과
+
+| Width $k$ | Proof 크기 (Width 2인 Merkle Tree 대비) | Leaf 1개당 구성 시간 | 전체 구성 시간 (직접 계산한 값) |
+| --- | --- | --- | --- |
+| 1024 | 10분의 1 | 110.1 ms | 약 1,804초 (약 30분) |
+| 32 | 5분의 1 | 8.4 ms | 약 138초 |
+
+- $k$를 1024에서 32로 낮추면 구성이 약 13배 빨라지고, Proof가 줄어드는 폭은 10배에서 5배로 낮아짐
+- Proof 크기의 10배와 5배는 측정값이 아니라 $\log_2 1024 = 10$, $\log_2 32 = 5$임
+- 논문의 판단: 갱신이 잦은 트리는 낮은 $k$를, 잘 바뀌지 않는 트리는 높은 $k$를 고름
+
+**⇒ 논문이 보인 것은 Proof 크기와 계산량을 $k$로 맞바꿀 수 있다는 점이다.**
+
+아래부터는 Ethereum 제안의 수치임. 논문의 비교 대상은 Width 2인 Merkle Tree이지만, Ethereum의 현재 트리는 Width가 16이어서 줄어드는 폭이 더 큼
+
+### Key 하나의 Proof Size
+
+Key 하나의 경로 크기임. $N=2^{32}$, Hash와 Commitment는 32 B임. 식은 2024년 글에 있음. MPT와 Binary Merkle Tree의 값은 글에 적혀 있고, Verkle Tree의 128 B는 식에 대입한 값임
+
+| 트리 | 식 | $N=2^{32}$일 때 |
+| --- | --- | --- |
+| MPT (Width 16) | $32 \times 15 \times \log_{16} N$ | 3,840 B |
+| Binary Merkle Tree (Width 2) | $32 \times \log_2 N$ | 1,024 B |
+| Verkle Tree (Width 256) | $32 \times \log_{256} N$ | 128 B |
+
+- Verkle Tree에는 여기에 Multiproof 하나가 더해짐. Key가 몇 개든 하나임
+- Value $m$개를 증명할 때 MPT는 $O(mk \log_k N)$, Verkle Tree는 $O(m \log_k N)$에 고정 크기 Multiproof를 더한 값임
+
+### Value 1,000개의 Proof Size
+
+$N$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산임 (출처에 없는 계산)
+
+- 깊이: MPT는 $\log_{16} 10^6 \approx 4.98$이므로 5, Verkle Tree는 $\log_{256} 10^6 \approx 2.49$이므로 3으로 놓음
+- MPT는 Level마다 형제 Hash 15개(각 32 B)를 넣음
+- Verkle Tree는 Level마다 Commitment 1개(32 B)를 넣고, Multiproof 하나(576 B)를 더함
+
+| 트리 | 계산 | 크기 |
+| --- | --- | --- |
+| MPT | 1,000 × 15 × 5 × 32 B | 2,400,000 B (2.4 MB) |
+| Verkle Tree | 1,000 × 3 × 32 B + 576 B | 96,576 B (약 97 kB) |
+
+- 약 25배 차이임
+- KZG 기준(Commitment 48 B, Multiproof 96 B)으로 계산하면 1,000 × 3 × 48 + 96 = 144,096 B(약 144 kB)이고 약 17배 차이임
+- 두 값 모두 상한임. 여러 Key가 상위 Level의 Node를 공유하면 같은 Hash나 Commitment는 한 번만 넣으므로 실제 크기는 더 작음. Key와 Value 자체의 크기는 포함하지 않음
+
+출처에 적힌 수치는 다음과 같음
+
+- Vitalik Buterin의 2021년 글의 표임. Width 256, Commitment와 Opening Proof가 48 B인 KZG, Key가 고르게 분포한 트리를 가정함. Key와 Value 자체는 포함하지 않음. 단위는 B임
+
+    | 트리 크기 | Key 1개 | Key 1,000개 | Key 10,000개 |
+    | --- | --- | --- | --- |
+    | $2^{24}$ | 272 | 59,792 | 457,616 |
+    | $2^{32}$ | 320 | 107,744 | 937,472 |
+
+- $2^{32}$ 크기의 트리에서 Key 1,000개일 때 Key당 약 108 B임. Key 1개일 때의 320 B보다 훨씬 작음. 상위 Level의 Commitment를 여러 Key가 공유하고 Multiproof가 하나뿐이기 때문임
+- 같은 글의 보정: Key가 무작위로 분포하면 깊이가 약 0.6 늘어 Key당 약 30 B가 더 듦. 32 B Commitment를 쓰면 크기가 약 3분의 1 줄어듦
+- 같은 글의 결론: Verkle Tree의 Proof는 Width 16인 MPT보다 20~30배 이상, 이상적인 Binary Merkle Tree보다 6~8배 작음
+- [ethereum.org](https://ethereum.org/roadmap/verkle-trees/)는 Value 1,000개 기준으로 MPT의 Witness 약 3.5 MB(7 Level), Verkle Tree의 Witness 약 150 kB(4 Level)를 들고 약 23배 작다고 적음
+
+### Block 하나의 Witness
+
+Block 하나의 최악 Witness임. 2024년 글의 계산이고, Gas Limit 30,000,000과 접근 1회당 2,400 Gas(Block당 최대 12,500회 접근)를 가정함
+
+| 트리 | 최악의 Witness | 비고 |
+| --- | --- | --- |
+| MPT | 약 330 MB | 접근마다 Code 전체(최대 24,000 B) 포함 |
+| Binary Merkle Tree, Code를 트리에 포함 | 약 10.4 MB | |
+| Verkle Tree | 약 1.3 MB | 공격자가 긴 공통 앞부분을 가진 Address를 만들면 약 2.6 MB |
+| Verkle Tree, 인접 접근만 한 경우 | 약 4.8 MB | 인접 접근 1회당 200 Gas, 접근마다 32 B를 가정 |
+
+마지막 행의 식은 30,000,000 / 200 × 32임. 글에는 4,800,800 B로 적혀 있으나 식을 계산하면 4,800,000 B임
+
+### 검증과 생성 비용
+
+Multiproof를 쓴 Witness의 비용임 (Vitalik Buterin의 2021년 글)
+
+- **검증**: Value $m$개를 증명할 때 크기 $m$의 Multiexponentiation 1회와 약 $4m$회의 Field 연산이 대부분임. Multiexponentiation은 여러 타원곡선 점에 각각 Scalar를 곱해 모두 더하는 연산이고, Field 연산은 큰 소수를 법으로 하는 덧셈과 곱셈임. 글은 Value 수천 개의 검증이 100 ms 안에 끝난다고 적음. 2021년의 추정이고 측정 환경은 적혀 있지 않음
+- **생성**: 경로 위 각 Node의 항목 256개가 모두 필요함. 그래서 State 전체를 가진 Block 생성 Node가 Witness를 만듦
 
 <br />
 
-## 한계와 현재 상태
+## 한계와 주의
 
-### Verkle Tree의 한계
+### 논문
 
-앞의 세 가지는 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)이 Verkle Tree의 단점으로 든 것이고, 뒤의 두 가지는 같은 글의 수치와 설명에서 읽은 것임
+- **측정 범위**: 측정한 것은 트리 구성 시간뿐임
+
+    - Proof의 실제 크기, Proof를 만드는 시간, 검증하는 시간은 측정하지 않음. 측정에 쓴 기기의 사양도 적혀 있지 않음
+    - 주의: $\log_2 k$배는 Level 수의 비임. Level마다 들어가는 데이터의 크기가 Hash 하나와 같을 때에만 Proof 크기의 비가 됨. 앞의 a1 검증 예시에서도 Level마다 Opening Proof 하나가 들고 중간 Commitment인 $C_{115}$를 함께 보냄. 논문은 증명 하나의 크기를 Hash와 비교하지 않음 (논문에 없는 판단)
+
+- **계산 비용**: 구성과 갱신에 $k$배의 계산이 듦
+
+    - $k=1024$에서는 Leaf 16,384개를 구성하는 데 약 30분이 걸림 (직접 계산한 값). 논문도 상대적으로 느리다고 적음
+    - 논문이 든 향후 과제는 구현의 병렬화와, 갱신을 묶어 처리하는 Batching임
+
+- **여러 Value의 증명**: 논문은 Proof를 묶는 방법을 다루지 않음. Value $m$개를 증명하면 Proof도 $m$에 비례해 늚
+
+- **안전성**: Verkle Tree의 Proof를 위조할 수 없다는 논증이 따로 없음
+
+    - Merkle Tree에 대해서는 위조하려면 Hash의 Collision Resistance를 깨야 한다고 설명함. Verkle Tree에 대해서는 대응하는 설명이 없음 (논문에 없는 판단)
+
+- **서술의 불일치**: 대역폭과 계산 자원 가운데 어느 쪽이 비싼지에 대한 서술이 두 곳에서 반대임
+
+    - 한 곳은 대역폭이 계산 자원보다 훨씬 비싸다고 쓰고, 다른 곳은 대역폭이 계산 자원보다 싸다고 씀
+    - 계산을 더 써서 대역폭을 줄이는 설계이므로 앞의 서술이 논지에 맞음 (논문에 없는 판단)
+
+### Ethereum 제안
+
+앞의 세 가지는 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)이 Verkle Tree의 단점으로 든 것이고, 나머지는 같은 글의 수치와 앞의 설명에서 읽은 것임
 
 - **Quantum Resistance(양자 내성)가 없음**: Commitment가 타원곡선에 기반하므로 양자 컴퓨터에 취약함. 도입하더라도 나중에 다시 교체해야 함
 - **SNARK 안에서 증명하기 어려움**: Succinct Non-interactive Argument of Knowledge(이하 SNARK)는 계산이 올바르게 수행됐음을 짧은 증명으로 보이는 방식임. Verkle Tree의 Proof를 검증하는 계산에는 256 Bit 연산이 많아, 이를 SNARK로 증명하려면 큰 오버헤드나 전용 구조가 필요함
 - **State Root 갱신이 Hash 기반 트리보다 느림**: State 전체를 저장하는 Node가 Chain을 따라잡는 Sync 시간이 길어짐
-- **최악의 Witness는 여전히 MB 단위임**: 앞의 표에서 약 1.3~4.8 MB임
+- **최악의 Witness는 여전히 MB 단위임**: 평가의 "Block 하나의 Witness" 표에서 약 1.3~4.8 MB임
 - **Width에 상한이 있음**: 트리가 너무 넓어지면 Proof 계산이 비효율적이 됨
+- **Block을 만드는 Node는 State 전체가 필요함**: Witness를 만들려면 경로 위 Node의 항목이 모두 필요함. 그래서 목표가 Weak Statelessness임
 
 같은 글이 든 Verkle Tree의 장점은 세 가지임. Proof 생성이 빠르고, 구현이 성숙했고, Witness를 다음 Block에 맞춰 갱신할 수 있음
 
@@ -721,10 +842,13 @@ Binary Merkle Tree를 쓰고, Merkle Proof 전체를 Scalable Transparent Argume
 
 같은 글은 최악의 경우 약 660,000번의 Hash를 증명해야 하고, 보수적 Hash는 당시 초당 약 10,000~30,000번을 증명할 수 있다고 적음
 
-### 현재 상태
+<br />
+
+## 논문 이후
 
 2026년 11월 23일 기준이다.
 
+- **Ethereum의 채택 시도**: 2021년 6월 Vitalik Buterin과 Dankrad Feist가 Verkle Tree를 State Tree에 쓰는 방안을 글로 설명했고, 2021년 12월 Ethereum Foundation Blog가 트리 구조를 정리했다. 2023년 3월에 EIP-6800이 만들어졌다.
 - **EIP-6800**: Stagnant 단계로 표시되어 있다. Stagnant는 Draft, Review, Last Call 단계의 EIP가 6개월 이상 활동이 없을 때 옮겨지는 단계다. 2026년 3월 6일에는 consensus-specs 저장소에서 EIP-6800 사양이 [제거](https://github.com/ethereum/consensus-specs/pull/4984)됐다.
 - **EIP-7864**: 2025년 1월에 제안된 Hash 기반 Unified Binary Tree이고, [Draft 단계](https://eips.ethereum.org/EIPS/eip-7864)다. 제안 동기는 타원곡선의 Quantum Resistance 우려와 증명 시스템의 발전이다. Hash 함수는 확정되지 않았다. 참조 구현은 BLAKE3를 쓰고, Keccak과 Poseidon2가 후보다.
 - **EIP-8297**: 2026년 6월에 EIP-7864의 저자들에 두 명이 더해진 저자진이 제안한 [Partitioned Binary Tree](https://eips.ethereum.org/EIPS/eip-8297)이고 Draft 단계다. Key의 첫 Byte로 Account Header, Code, Storage 구역을 나누고, Code를 Account가 아니라 Code Hash 기준으로 저장한다. go-ethereum은 2026년 11월 10일에 "EIP-8297이 EIP-7864를 대체한다"는 설명과 함께 EIP-7864와 EIP-4762의 구현을 [제거](https://github.com/ethereum/go-ethereum/pull/36091)했다.
@@ -738,6 +862,8 @@ Binary Merkle Tree를 쓰고, Merkle Proof 전체를 Scalable Transparent Argume
 
 ## 결론
 
-Stateless Client가 되려면 Witness가 작아야 하고, Witness 크기는 State Tree의 Proof 크기가 정한다. MPT는 Hash로 부모 Node를 만들기 때문에 Level마다 형제 Hash를 보내야 하고, Proof가 (Width - 1) × 깊이에 비례한다. Verkle Tree는 부모 Node를 Vector Commitment로 만들어 형제를 보내지 않는다. 형제가 없으므로 Width를 256으로 키워 깊이를 줄일 수 있고, 여러 Opening Proof는 Multiproof 하나로 묶인다. 그 결과 Key 하나의 경로 크기는 3,840 B에서 128 B로, Value 1,000개의 Witness는 약 3.5 MB에서 약 150 kB로 줄어든다.
+Verkle Tree는 Merkle Tree의 Hash 자리에 Vector Commitment를 넣은 트리다. 논문은 이 구조가 Proof를 Width 2인 Merkle Tree보다 $\log_2 k$배 줄이고, 대신 구성과 갱신에 $k$배의 계산을 쓴다는 것을 보였다.
 
-이 구조는 Kuszmaul의 논문이 제시했고, Ethereum 제안은 Commitment를 Pedersen Commitment와 IPA로 바꾸고 Stem과 Suffix로 Value를 묶는 배치를 더했다. 대가는 타원곡선에 대한 의존이다. Quantum Resistance가 없고 SNARK로 증명하기 어렵다는 점 때문에, 2026년 11월 기준 Ethereum의 논의는 Hash 기반 Binary Tree로 옮겨 가 있다.
+Ethereum은 이 아이디어를 Stateless Client에 필요한 Witness를 줄이는 데 적용했다. Witness 크기는 State Tree의 Proof 크기가 정한다. MPT는 Hash로 부모 Node를 만들기 때문에 Level마다 형제 Hash를 보내야 하고, Proof가 (Width - 1) × 깊이에 비례한다. Verkle Tree는 부모 Node를 Vector Commitment로 만들어 형제를 보내지 않는다. 형제가 없으므로 Width를 256으로 키워 깊이를 줄일 수 있고, 여러 Opening Proof는 Multiproof 하나로 묶인다. Opening Proof를 저장하지 않고 Commitment를 덧셈으로 갱신하므로 갱신 비용은 Width에 비례하지 않는다. 그 결과 Key 하나의 경로 크기는 3,840 B에서 128 B로, Value 1,000개의 Witness는 약 3.5 MB에서 약 150 kB로 줄어든다.
+
+2026년 11월 23일 기준 Ethereum은 Verkle Tree를 채택하지 않았다. 타원곡선에 기반한 Commitment에 Quantum Resistance가 없다는 점과 증명 시스템의 발전을 이유로, 논의는 Hash 기반 Binary Tree로 옮겨 갔다. Stateless Client라는 목표와, 함께 읽는 Value를 같은 Stem에 묶는 설계는 이어진다.
