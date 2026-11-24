@@ -1,6 +1,6 @@
 ---
 title: "Multiproof"
-date: 2026-11-11
+date: 2026-11-10
 last_modified_at: 2026-11-23
 categories: [Cryptography]
 tags: [Cryptography, PCS, KZG, Verkle Tree]
