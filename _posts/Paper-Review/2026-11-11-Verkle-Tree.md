@@ -1,7 +1,7 @@
 ---
 title: "Verkle Tree"
 date: 2026-11-11
-last_modified_at: 2026-11-23
+last_modified_at: 2026-11-24
 categories: [Paper Review]
 tags: [Blockchain, Ethereum, Verkle Tree, Merkle Patricia Trie, Stateless Client, Commitment]
 math: true
@@ -20,13 +20,15 @@ media_subpath: /assets/img/posts/verkle-tree/
 | Venue | Massachusetts Institute of Technology(이하 MIT) PRIMES(Program for Research in Mathematics, Engineering and Science for High School Students), 2018 |
 | Link | [PDF](https://math.mit.edu/research/highschool/primes/materials/2018/Kuszmaul.pdf) |
 
+- [https://vitalik.eth.limo/general/2021/06/18/verkle.html](https://vitalik.eth.limo/general/2021/06/18/verkle.html)
+
 Verkle Tree는 Merkle Tree의 부모 Node를 Hash 대신 **Vector Commitment**로 만든 트리다. 이름은 Vector Commitment와 Merkle Tree를 합친 것이다. 어떤 Value가 트리에 들어 있음을 보이는 Proof가 Merkle Tree보다 훨씬 작다.
 
-논문은 고등학생 대상 연구 프로그램에서 나온 12쪽 분량의 글이다. 저자는 복잡도 증명과 구현, 측정을 맡았고, 아이디어는 멘토가 제공했다고 적혀 있다. Ethereum은 2021년부터 Account 데이터 전체를 담는 State Tree를 Verkle Tree로 바꾸는 방안을 추진했다.
+논문은 고등학생 대상 연구 프로그램에서 나온 10여 쪽 분량의 글이다. 저자는 복잡도 증명과 구현, 측정을 맡았고, 아이디어는 멘토가 제공했다고 적혀 있다. Ethereum은 2021년부터 Account 데이터 전체를 담는 State Tree를 Verkle Tree로 바꾸는 방안을 추진했다. 2026년 11월 현재 이 방안은 채택되지 않았고, 같은 자리에 Hash 기반 Binary Tree가 들어와 있다.
 
-이 글은 논문의 Verkle Tree와, 그 아이디어를 Ethereum의 State Tree에 적용한 제안을 함께 다룬다. Ethereum 제안은 논문과 Commitment 방식도, Proof를 다루는 방식도 다르다. 그래서 어느 쪽의 내용인지 구분해 적었다. 배경으로 Merkle Tree와, Ethereum이 지금 쓰는 State Tree인 Merkle Patricia Trie(이하 MPT)를 먼저 설명한다.
+이 글은 세 가지를 다룬다. 논문의 Verkle Tree, 그 아이디어를 Ethereum의 State Tree에 적용한 제안, 그리고 그 제안이 Ethereum Roadmap에 들어갔다가 빠진 과정이다. Ethereum 제안은 논문과 Commitment 방식도, Proof를 다루는 방식도 다르다. 그래서 어느 쪽의 내용인지 구분해 적었다. 배경으로 Merkle Tree와, Ethereum이 지금 쓰는 State Tree인 Merkle Patricia Trie(이하 MPT)를 먼저 설명한다.
 
-여러 증명을 하나로 묶는 Multiproof의 과정은 [별도 글](/posts/multiproof/)에서 다루므로 여기서는 결과만 쓴다. Ethereum 제안의 상태는 2026년 11월 23일 기준이고, 글 끝의 "논문 이후"에 적었다. 이 글에서 Proof와 Witness의 크기는 B(Byte), kB, MB로 적는다.
+여러 증명을 하나로 묶는 Multiproof의 과정은 [별도 글](/posts/multiproof/)에서 다루므로 여기서는 결과만 쓴다. Ethereum 제안과 Roadmap의 상태는 2026년 11월 24일 기준이고, 글 뒤쪽의 "Ethereum Roadmap과 Verkle Tree"에 적었다. 이 글에서 Proof와 Witness의 크기는 B(Byte), kB, MB로 적는다.
 
 ---
 
@@ -83,7 +85,7 @@ Merkle Proof는 데이터 하나가 Merkle Root가 가리키는 집합에 들어
 - Proof는 Level마다 형제 Hash 하나임. 데이터 2, 3, 4는 보내지 않음
 - 위조할 수 없음. 다른 데이터로 같은 Merkle Root를 만들려면 Hash의 충돌을 찾아야 함
 
-크기: Leaf가 $n$개면 깊이가 약 $\log_2 n$이므로 Hash도 약 $\log_2 n$개임. Leaf가 $2^{30}$개이고 Hash가 32 B면 약 1 kB임
+크기: Leaf가 $n$개면 깊이가 약 $\log_2 n$이므로 Hash도 약 $\log_2 n$개임. Leaf가 $2^{30}$개이고 Hash가 32 B면 30 × 32 = 960 B, 약 1 kB임
 
 **⇒ Verifier는 Root 하나만 저장하고도, 데이터 하나와 짧은 Proof로 포함 여부를 확인할 수 있다. 대신 Level마다 형제가 필요하다는 점이 뒤에서 문제가 된다.**
 
@@ -213,7 +215,7 @@ Client는 Ethereum Protocol을 실행하는 Software다. **Stateless Client(상�
 - Block의 Transaction을 실행하는 데 필요한 State 조각
 - 그 조각이 State Root가 가리키는 State에 들어 있음을 보이는 Proof
 
-Verkle Tree가 겨냥한 것은 Weak Statelessness(약한 상태 비저장)다. Block을 만드는 Node는 Witness를 만들어야 하므로 여전히 State 전체를 갖고, 나머지 Node만 State 없이 검증한다. 어떤 Node도 State 전체를 갖지 않는 Strong Statelessness(강한 상태 비저장)와 구분된다. 두 개념은 [ethereum.org](https://ethereum.org/roadmap/statelessness/)에 정리되어 있다.
+Verkle Tree가 겨냥한 것은 Weak Statelessness(약한 상태 비저장)다. Block을 만드는 Node는 Witness를 만들어야 하므로 여전히 State 전체를 갖고, 나머지 Node만 State 없이 검증한다. 어떤 Node도 State 전체를 갖지 않는 Strong Statelessness(강한 상태 비저장)와 구분된다. 두 개념은 [ethereum.org](https://ethereum.org/roadmap/statelessness/)에 정리되어 있다. 같은 문서는 Strong Statelessness를 현재 Roadmap에 들어갈 것으로 보지 않는다고 적는다.
 
 ### Witness 크기의 조건
 
@@ -229,7 +231,7 @@ Witness는 Block과 함께 Network로 전파된다. Ethereum에서 Block 하나�
 
 Block Witness의 수치는 각 글이 쓰인 시점의 Gas Limit을 전제로 한다. Gas Limit이 바뀌면 비례해서 바뀐다. 2026년에 제안된 [EIP-8297](https://eips.ethereum.org/EIPS/eip-8297)은 Gas Limit 60,000,000과 Code 크기 한도 64 KiB를 기준으로 같은 최악의 경우를 약 1.8 GB로 계산한다.
 
-반면 Verkle Tree에서는 Witness가 Account당 평균 약 200 B로 줄어든다고 EIP-6800은 적는다. 2024년 글은 Block 하나를 검증하는 데 드는 Proof 데이터를 수백 kB로 적는다.
+반면 Verkle Tree에서는 Witness가 Account당 평균 약 200 B로 줄어든다고 EIP-6800은 적는다. 2024년 글은 Block 하나를 검증하는 데 드는 Proof 데이터를 접근한 데이터에 더해 약 100~2,000 kB로 적는다.
 
 **⇒ Witness 크기는 State Tree가 만드는 Proof의 크기가 정한다. 따라서 MPT의 Proof가 왜 큰지를 봐야 한다.**
 
@@ -366,7 +368,7 @@ Vector Commitment를 만드는 한 방법이 Polynomial Commitment(다항식 커
 
 - Vector는 (40, 2, 4)임. MPT 예시의 a1에서 남은 경로 40, Nonce 2, Balance 4를 Index 0, 1, 2의 항목으로 삼은 것임
 - Prover는 다항식을 공개하지 않고 "Index 2의 항목은 4다"를 보이려 함
-- Setup: Random Parameter $r=7$ 생성 
+- Setup: Random Parameter $r=7$ 생성
 
 1. **Commit**: 다항식 $f$의 Commitment $C=614$ 생성
 
@@ -478,7 +480,7 @@ MPT에서는 같은 검증에 a2 Leaf Node의 Hash와 a3 Leaf Node의 Hash가 �
 
 ## Ethereum 제안(EIP-6800)
 
-Ethereum은 논문의 구조를 그대로 쓰지 않았다. 이 장은 State Tree를 Verkle Tree로 바꾸는 제안인 [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)과, 그 설계를 설명한 글들을 기준으로 한다. EIP-6800 본문은 2026년 11월 23일에 확인했다.
+Ethereum은 논문의 구조를 그대로 쓰지 않았다. 이 장은 State Tree를 Verkle Tree로 바꾸는 제안인 [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)과, 그 설계를 설명한 글들을 기준으로 한다. EIP-6800은 2023년 3월에 작성됐고, 본문은 2026년 11월 24일에 확인했다. 이 제안이 채택되지 않은 경위는 뒤의 "Ethereum Roadmap과 Verkle Tree"에 있다.
 
 ### 논문과 달라진 점
 
@@ -523,6 +525,7 @@ Ethereum 제안에서의 값
 
 - IPA는 KZG보다 Opening Proof가 크고 검증 비용이 큼. 대신 Multiproof로 모든 Opening을 하나로 묶으므로, IPA의 Opening Proof는 Witness 하나에 한 개만 들어가고 한 번만 검증함
 - 비교는 Dankrad Feist의 [Inner Product Arguments](https://dankradfeist.de/ethereum/2021/07/27/inner-product-arguments.html)에 있음. Scalar 1개는 Anatomy of a Verkle proof가 적은 Witness 형식에 있음
+- 두 방식 모두 타원곡선의 Discrete Log 문제가 어렵다는 데 기댐. 양자 컴퓨터는 이 문제를 풀 수 있으므로 어느 쪽도 Quantum Resistance(양자 내성)가 없음. 이 점이 뒤에서 Verkle Tree가 Roadmap에서 빠지는 첫째 이유가 됨
 - 주의: 다른 자료는 Commitment 방식이 다를 수 있음. Dankrad Feist의 [Verkle trie for Eth1 state](https://dankradfeist.de/ethereum/2021/06/18/verkle-trie-for-eth1.html)는 KZG 기준으로 쓰였고, Vitalik Buterin의 2021년 글은 수치를 KZG(Commitment 48 B) 기준으로 듦
 
 ### 여러 Value의 검증과 Multiproof
@@ -541,7 +544,7 @@ Ethereum 제안에서의 값
 - 원리: Opening마다 "주장이 맞을 때만 다항식이 되는 식" $\dfrac{f_i(X)-y_i}{X-z_i}$를 만들고, 무작위 계수를 곱해 모두 더한 다항식 하나를 만듦. 이 다항식 하나에 대한 증명만 확인하면 모든 Opening이 한 번에 검증됨
 - 자세한 과정은 [Multiproof 글](/posts/multiproof/)과 Dankrad Feist의 [PCS multiproofs using random evaluation](https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html)에 있음
 - 크기는 Opening 개수와 무관하게 고정임. Vitalik Buterin의 2021년 글은 방식에 따라 128~1,000 B로 적음
-- KZG에서 Dankrad Feist의 방식은 타원곡선 점 2개이고 96 B임. Vitalik Buterin의 2021년 글의 표는 Commitment 1개, 수 1개, 증명 2개인 176 B로 계산되어 있음
+- KZG에서 Dankrad Feist의 방식은 타원곡선 점 2개임. 점 하나가 48 B면 96 B임 (Byte 수는 직접 계산한 값). Vitalik Buterin의 2021년 글의 표는 Commitment 1개, 수 1개, 증명 2개인 176 B로 계산되어 있음
 - EIP-6800에 맞춰 제안된 Witness 형식에서는 576 B임. Commitment 1개와 IPA의 Opening Proof(타원곡선 점 16개, Scalar 1개)이고 원소마다 32 B임 (Anatomy of a Verkle proof의 형식에서 계산한 값)
 
 Multiproof를 적용한 Witness의 구성
@@ -586,7 +589,7 @@ Account의 첫 번째 Stem(Tree Index 0)에는 자주 함께 읽는 Value가 모
 왜 Value를 Stem 단위로 묶는가?
 
 - 같은 Stem에 속한 Value는 경로를 공유함. Nonce와 Balance, 앞쪽 Storage Slot을 함께 읽어도 경로 위의 Commitment는 Witness에 한 번만 들어감
-- Gas 비용에도 반영함. 같은 그룹 안에서 인접한 Storage Slot에 접근하는 비용을 2,100 Gas에서 200 Gas로 낮춤. 세부 규칙은 [EIP-4762](https://eips.ethereum.org/EIPS/eip-4762)가 정함
+- Gas 비용에도 반영함. EIP-6800은 Storage Slot 0~63의 접근 비용을 첫 Slot까지 포함해 2,100 Gas에서 200 Gas로, 그 밖의 Slot은 같은 그룹 안에서 두 번째 접근부터 200 Gas로 낮춘다고 적음. 세부 규칙은 [EIP-4762](https://eips.ethereum.org/EIPS/eip-4762)가 정함
 
 ### Node의 종류: Inner Node와 Extension Node
 
@@ -756,13 +759,14 @@ $N$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산임 (출처에 �
 
 출처에 적힌 수치는 다음과 같음
 
-- Vitalik Buterin의 2021년 글의 표임. Width 256, Commitment와 Opening Proof가 48 B인 KZG, Key가 고르게 분포한 트리를 가정함. Key와 Value 자체는 포함하지 않음. 단위는 B임
+- Vitalik Buterin의 2021년 글의 표임. Width 256, Commitment와 Opening Proof가 48 B인 KZG, Key가 고르게 분포한 트리를 가정함. 단위는 B임
 
     | 트리 크기 | Key 1개 | Key 1,000개 | Key 10,000개 |
     | --- | --- | --- | --- |
     | $2^{24}$ | 272 | 59,792 | 457,616 |
     | $2^{32}$ | 320 | 107,744 | 937,472 |
 
+- 표의 값은 경로 위 Commitment와 Multiproof만 센 것으로 읽힘. Key 1개일 때 $2^{32}$ 행의 320 B가 176 + 3 × 48과 같기 때문임. Key와 Value 자체는 들어 있지 않음 (글에 명시되어 있지 않고 값에서 역산한 해석)
 - $2^{32}$ 크기의 트리에서 Key 1,000개일 때 Key당 약 108 B임. Key 1개일 때의 320 B보다 훨씬 작음. 상위 Level의 Commitment를 여러 Key가 공유하고 Multiproof가 하나뿐이기 때문임
 - 같은 글의 보정: Key가 무작위로 분포하면 깊이가 약 0.6 늘어 Key당 약 30 B가 더 듦. 32 B Commitment를 쓰면 크기가 약 3분의 1 줄어듦
 - 같은 글의 결론: Verkle Tree의 Proof는 Width 16인 MPT보다 20~30배 이상, 이상적인 Binary Merkle Tree보다 6~8배 작음
@@ -779,7 +783,8 @@ Block 하나의 최악 Witness임. 2024년 글의 계산이고, Gas Limit 30,000
 | Verkle Tree | 약 1.3 MB | 공격자가 긴 공통 앞부분을 가진 Address를 만들면 약 2.6 MB |
 | Verkle Tree, 인접 접근만 한 경우 | 약 4.8 MB | 인접 접근 1회당 200 Gas, 접근마다 32 B를 가정 |
 
-마지막 행의 식은 30,000,000 / 200 × 32임. 글에는 4,800,800 B로 적혀 있으나 식을 계산하면 4,800,000 B임
+- Binary Merkle Tree 행의 식은 12,500 × 32 × (32 - 14 + 8)이고, Verkle Tree 행은 같은 식을 8로 나눈 값임
+- 마지막 행의 식은 30,000,000 / 200 × 32임. 글에는 4,800,800 B로 적혀 있으나 식을 계산하면 4,800,000 B임
 
 ### 검증과 생성 비용
 
@@ -819,14 +824,14 @@ Multiproof를 쓴 Witness의 비용임 (Vitalik Buterin의 2021년 글)
 
 앞의 세 가지는 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)이 Verkle Tree의 단점으로 든 것이고, 나머지는 같은 글의 수치와 앞의 설명에서 읽은 것임
 
-- **Quantum Resistance(양자 내성)가 없음**: Commitment가 타원곡선에 기반하므로 양자 컴퓨터에 취약함. 도입하더라도 나중에 다시 교체해야 함
-- **SNARK 안에서 증명하기 어려움**: Succinct Non-interactive Argument of Knowledge(이하 SNARK)는 계산이 올바르게 수행됐음을 짧은 증명으로 보이는 방식임. Verkle Tree의 Proof를 검증하는 계산에는 256 Bit 연산이 많아, 이를 SNARK로 증명하려면 큰 오버헤드나 전용 구조가 필요함
+- **Quantum Resistance가 없음**: Commitment가 타원곡선에 기반하므로 양자 컴퓨터에 취약함. 글은 MPT를 Verkle Tree로 바꾸면 나중에 트리를 다시 바꿔야 한다고 적음
+- **SNARK 안에서 증명하기 어려움**: Succinct Non-interactive Argument of Knowledge(이하 SNARK)는 계산이 올바르게 수행됐음을 짧은 증명으로 보이는 방식임. Verkle Tree의 Proof를 검증하는 계산에는 256 Bit 연산이 많아, 이를 SNARK로 증명하려면 큰 오버헤드나 전용 구조가 필요함. 글은 이것이 Stateless 검증 자체의 문제는 아니고 그 뒤 단계에서 어려움이 된다고 적음
 - **State Root 갱신이 Hash 기반 트리보다 느림**: State 전체를 저장하는 Node가 Chain을 따라잡는 Sync 시간이 길어짐
 - **최악의 Witness는 여전히 MB 단위임**: 평가의 "Block 하나의 Witness" 표에서 약 1.3~4.8 MB임
 - **Width에 상한이 있음**: 트리가 너무 넓어지면 Proof 계산이 비효율적이 됨
 - **Block을 만드는 Node는 State 전체가 필요함**: Witness를 만들려면 경로 위 Node의 항목이 모두 필요함. 그래서 목표가 Weak Statelessness임
 
-같은 글이 든 Verkle Tree의 장점은 세 가지임. Proof 생성이 빠르고, 구현이 성숙했고, Witness를 다음 Block에 맞춰 갱신할 수 있음
+같은 글이 든 Verkle Tree의 장점은 세 가지임. 최악의 경우에도 Proof 생성이 1초 미만이고, 구현이 성숙했고, Witness를 다음 Block에 맞춰 갱신할 수 있음. 다만 같은 글은 Merkle Proof도 갱신할 수 있다고 적으므로 마지막 장점은 Verkle Tree만의 것이 아님
 
 ### 대안: STARK로 증명하는 Binary Hash Tree
 
@@ -840,23 +845,289 @@ Binary Merkle Tree를 쓰고, Merkle Proof 전체를 Scalable Transparent Argume
 | STARK + 보수적 Hash (SHA256, BLAKE) | 데이터 + 약 100~300 kB | 보수적 Hash 함수 | 10초 초과 |
 | STARK + 공격적 Hash (Poseidon, Ajtai) | 데이터 + 약 100~300 kB | 덜 검증된 새 Hash 함수 | 1~2초 |
 
-같은 글은 최악의 경우 약 660,000번의 Hash를 증명해야 하고, 보수적 Hash는 당시 초당 약 10,000~30,000번을 증명할 수 있다고 적음
+- 같은 글은 최악의 경우 약 660,000번의 Hash를 증명해야 하고, 초당 약 200,000번을 증명할 수 있으면 충분하다고 적음. 보수적 Hash는 당시 일반 노트북에서 초당 약 10,000~30,000번이었음
+- 글은 세 방식 가운데 하나를 고르지 않음. 곧 결정해야 한다고 적고, Verkle Tree가 아닌 방식을 고르면 배포가 Hard Fork 한 번쯤 늦어질 것으로 봄
+
+**⇒ 2024년 10월에는 Verkle Tree가 "지금 준비된 방식"이었고 Binary Hash Tree는 "증명이 아직 느린 방식"이었다. 이 저울이 그 뒤 어느 쪽으로 기울었는지가 다음 장의 내용이다.**
 
 <br />
 
-## 논문 이후
+## Ethereum Roadmap과 Verkle Tree
 
-2026년 11월 23일 기준이다.
+이 장은 Verkle Tree가 Ethereum Roadmap에 어떻게 들어갔고, 왜 빠졌고, 그 자리에 무엇이 들어왔는지를 적는다. 2026년 11월 24일 기준이다. 현재 상태는 Ethereum Foundation의 Roadmap 초안인 [Strawmap](https://strawmap.org/), [ethereum.org의 Roadmap](https://ethereum.org/roadmap/), Upgrade 진행 상황을 추적하는 [Forkcast](https://forkcast.org/)에서 확인했다.
 
-- **Ethereum의 채택 시도**: 2021년 6월 Vitalik Buterin과 Dankrad Feist가 Verkle Tree를 State Tree에 쓰는 방안을 글로 설명했고, 2021년 12월 Ethereum Foundation Blog가 트리 구조를 정리했다. 2023년 3월에 EIP-6800이 만들어졌다.
-- **EIP-6800**: Stagnant 단계로 표시되어 있다. Stagnant는 Draft, Review, Last Call 단계의 EIP가 6개월 이상 활동이 없을 때 옮겨지는 단계다. 2026년 3월 6일에는 consensus-specs 저장소에서 EIP-6800 사양이 [제거](https://github.com/ethereum/consensus-specs/pull/4984)됐다.
-- **EIP-7864**: 2025년 1월에 제안된 Hash 기반 Unified Binary Tree이고, [Draft 단계](https://eips.ethereum.org/EIPS/eip-7864)다. 제안 동기는 타원곡선의 Quantum Resistance 우려와 증명 시스템의 발전이다. Hash 함수는 확정되지 않았다. 참조 구현은 BLAKE3를 쓰고, Keccak과 Poseidon2가 후보다.
-- **EIP-8297**: 2026년 6월에 EIP-7864의 저자들에 두 명이 더해진 저자진이 제안한 [Partitioned Binary Tree](https://eips.ethereum.org/EIPS/eip-8297)이고 Draft 단계다. Key의 첫 Byte로 Account Header, Code, Storage 구역을 나누고, Code를 Account가 아니라 Code Hash 기준으로 저장한다. go-ethereum은 2026년 11월 10일에 "EIP-8297이 EIP-7864를 대체한다"는 설명과 함께 EIP-7864와 EIP-4762의 구현을 [제거](https://github.com/ethereum/go-ethereum/pull/36091)했다.
-- **이어지는 것**: Stateless Client라는 목표는 그대로다. 두 Binary Tree 제안은 하나의 트리에 모두 넣는 구조, 함께 읽는 Value를 같은 Stem에 묶는 방식, Code를 31 Byte Chunk로 나누는 방식처럼 Commitment 방식과 무관한 EIP-6800의 설계를 이어받았다. 달라지는 것은 부모 Node를 만드는 방법과 Proof를 줄이는 방법이다. EIP-8297은 Gas 비용 체계를 바꾸지 않는다고 적는다.
-- **Ethereum Foundation**: 2026년 2월 18일 글에서 State 구조의 장기 방향을 [Binary Tree와 Statelessness](https://blog.ethereum.org/2026/02/18/protocol-priorities-update-2026)로 적었다.
-- **보도**: [The Block](https://www.theblock.co/post/391681/vitalik-buterin-lays-out-a-two-part-plan-to-overhaul-ethereums-execution-layer-from-the-ground-up)은 2026년 3월, Verkle Tree가 2026년 Hard Fork 후보로 거론됐으나 양자 컴퓨팅 우려로 2024년 중반부터 Binary Tree가 다시 주목받았다고 보도했다. [The Defiant](https://thedefiant.io/newsletter/defi-daily/ethereum-bets-its-technical-future-on-privacy-and-quantum-defense)는 2026년 8월, Ethereum Foundation의 Roadmap 초안에서 Verkle Tree 자리에 EIP-7864의 Unified Binary Tree가 들어갔다고 보도했다.
-- **일정**: State Tree 변경이 들어갈 Hard Fork가 확정됐다는 자료는 찾지 못했다. 2026년 10월 Sepolia Testnet에서 활성화된 Glamsterdam 업그레이드의 [EIP 목록](https://blog.ethereum.org/2026/10/16/glamsterdam-hoodi-announcement)에 State Tree 변경은 없다. Ethereum Research의 2026년 9월 [의견 글](https://ethresear.ch/t/how-hegota-can-influence-the-state-roadmap/25895)은 Partitioned Binary Tree로의 전환을 Glamsterdam 다음 업그레이드인 Hegotá보다 뒤로 예상한다.
-- **주의**: [ethereum.org](https://ethereum.org/roadmap/verkle-trees/)의 Verkle Tree 문서는 Binary Tree를 언급하지 않고, Verkle Tree를 여전히 Stateless Client로 가는 단계로 설명한다. 같은 문서는 MPT를 Leaf를 둘씩 묶어 Hash하는 트리로 설명하지만 MPT의 Width는 16이다. Witness 크기가 Leaf 개수와 무관하게 고정이라고도 적지만 고정인 것은 Multiproof의 크기다.
+요약하면 다음과 같다.
+
+- Verkle Tree는 Roadmap의 **The Verge**에서 State Tree를 바꾸는 수단이었다. 2024년 2월에는 Osaka Upgrade에 넣기로 정해졌다.
+- 실제로는 어느 Upgrade에도 들어가지 못했다. Osaka는 Fusaka라는 이름으로 2025년 12월에 적용됐고 Verkle Tree는 없었다.
+- 빠진 이유는 세 가지다. 타원곡선 기반이라 Quantum Resistance가 없고, Hash 기반 트리의 Proof를 증명하는 기술이 빨라져 Verkle Tree의 장점이 줄었고, Roadmap의 목표가 모든 실행을 SNARK로 증명하는 쪽으로 넓어지면서 증명하기 쉬운 트리가 필요해졌다.
+- 그 자리에는 Hash 기반 Binary Tree가 들어왔다. 2025년 1월의 EIP-7864(Unified Binary Tree)를 거쳐 2026년 6월의 EIP-8297, 곧 Partitioned Binary Tree(이하 PBT)로 이어졌다.
+- 빠진 것은 Verkle Tree라는 수단이다. Stateless Client라는 목표와 EIP-6800의 설계 일부는 그대로 이어진다.
+
+### Roadmap 그림에서의 위치: The Verge
+
+Vitalik Buterin의 Roadmap은 Ethereum의 개발 과제를 The Merge, The Surge, The Scourge, The Verge, The Purge, The Splurge로 나눈다. Verkle Tree는 이 가운데 **The Verge**에 속했다. 세 시점의 그림을 차례로 본다.
+
+**2022년 11월의 Roadmap**
+
+![roadmap2022.jpeg](roadmap2022.jpeg)
+
+[https://x.com/VitalikButerin/status/1588669782471368704?a=AFtNzel-piZvsIUa0TE&s=20](https://x.com/VitalikButerin/status/1588669782471368704?a=AFtNzel-piZvsIUa0TE&s=20)
+
+- 한국 시간으로 2022년 11월 5일에 올라온 그림이다. 이때 The Scourge가 새로 들어갔다.
+- [당시 보도](https://coingape.com/breaking-vitalik-buterin-releases-updated-ethereum-roadmap)에 따르면 이 개정에서 The Verge는 Verkle Tree만이 아니라 검증(Verification) 전체를 가리키는 이름으로 넓어졌고, 최종 목표로 모든 실행을 SNARK로 검증하는 Ethereum이 적혔다.
+- 즉 Verkle Tree는 이 시점부터 The Verge의 전부가 아니라 첫 단계였다.
+
+**2023년판 Roadmap**
+
+![roadmap2023.jpeg](roadmap2023.jpeg)
+
+[https://vitalik.eth.limo/general/2024/10/23/futures4.html](https://vitalik.eth.limo/general/2024/10/23/futures4.html)
+
+Vitalik Buterin의 2024년 글에 실린 2023년판 Roadmap이다. 아래는 그 가운데 The Verge 부분이다.
+
+![ethereum-roadmap-verge.png](ethereum-roadmap-verge.png)
+
+- The Verge는 원래 State 저장 구조를 Verkle Tree로 옮기는 일을 가리켰다. 2024년 글은 범위를 넓혀, Stateless 검증에 더해 Ethereum의 모든 실행을 SNARK로 검증하는 것까지 포함한다고 적는다.
+- 목표는 두 가지다. Block을 완전히 검증하는 Client와 Staking Node가 수 GB를 넘는 저장 공간을 쓰지 않게 한다. 장기적으로는 스마트워치에서도 Chain 전체를 검증할 수 있게 한다.
+
+그림의 항목은 다음과 같이 읽는다. 그림에는 EIP 번호가 없고, 항목과 EIP의 대응은 직접 연결한 것이다.
+
+| 그림의 항목 | 뜻 | 해당 EIP |
+| --- | --- | --- |
+| Verkle tree spec + impl | Verkle Tree의 사양과 구현 | EIP-6800 |
+| Code chunking + gas cost updates | Code를 Chunk로 나눠 트리에 넣고, Gas 비용을 Witness에 맞게 고침 | EIP-6800, EIP-4762 |
+| Transition spec + impl | MPT의 State를 Verkle Tree로 옮기는 절차 | EIP-7612, EIP-7748 |
+| Verkle trees | 위 세 가지가 모여 State Tree를 교체함 | |
+| SNARK for Verkle proofs, Fully SNARKed Ethereum | Verkle Proof와 실행, 합의 과정을 SNARK로 증명함 | |
+| Move to quantum-safe SNARKs (eg. STARKs) | 양자 컴퓨터에 안전한 증명 방식으로 옮김 | |
+
+**⇒ 이 그림에서 Verkle Tree는 최종 목표가 아니라 중간 단계다. 그 뒤에 모든 실행을 SNARK로 증명하는 단계와 양자 내성 증명이 놓여 있다. 뒤의 두 단계가 요구하는 조건, 곧 SNARK로 증명하기 쉬울 것과 양자 컴퓨터에 안전할 것을 Verkle Tree 자신은 충족하지 못한다. Verkle Tree가 빠지는 이유가 이미 같은 그림 안에 들어 있었던 셈이다.**
+
+**2026년 8월의 Roadmap**
+
+![roadmap2026.jpeg](roadmap2026.jpeg)
+
+![roadmap2026_2.jpeg](roadmap2026_2.jpeg)
+
+[https://x.com/VitalikButerin/status/2086824673556467938?a=U1PdudCaHuTR7kbLD7Q&s=20](https://x.com/VitalikButerin/status/2086824673556467938?a=U1PdudCaHuTR7kbLD7Q&s=20)
+
+- 2026년 8월 10일에 Vitalik Buterin이 2023년판 Roadmap을 Strawmap과 겹쳐 비교한 그림이다.
+- [The Defiant](https://thedefiant.io/newsletter/defi-daily/ethereum-bets-its-technical-future-on-privacy-and-quantum-defense)와 [Unchained](https://unchainedcrypto.com/ethereums-priorities-have-changed-a-lot-since-2023-vitalik-says-comparing-new-roadmap/)의 보도에 따르면 이 비교에서 Verkle Tree는 더 나은 방식으로 대체된 항목으로 분류됐다. 먼저 Unified Binary Tree로, 다시 PBT로 바뀌었다. State Expiry도 새로운 State 유형으로 대체됐다.
+- 같은 비교에서 양자 안전성은 우선순위가 올라갔고, Verifiable Delay Function과 Ethereum Virtual Machine(이하 EVM) 개선 항목 다수는 내려갔다. 강한 Privacy 같은 항목은 2023년판에 없던 것이다.
+
+세 시점을 나란히 놓으면 다음과 같다.
+
+| 시점 | State Tree를 바꾸는 수단 | The Verge의 범위 |
+| --- | --- | --- |
+| 2022년 11월 | Verkle Tree | 검증 전체로 확장. 최종 목표는 모든 실행을 SNARK로 검증 |
+| 2023년판 | Verkle Tree | Verkle Tree, 그 뒤 SNARK로 증명하는 Ethereum, 그 뒤 양자 내성 SNARK |
+| 2026년 8월 | Unified Binary Tree를 거쳐 PBT | 양자 안전성과 Privacy가 앞 순위로 올라옴 |
+
+### Verkle Tree 도입을 구성한 EIP
+
+Verkle Tree 도입은 EIP 하나가 아니라 여러 EIP의 묶음이었다. 상태는 각 EIP 문서와 [EIP 목록](https://eips.ethereum.org/core)에서 확인했다.
+
+| EIP | 제목 | 역할 | 상태 |
+| --- | --- | --- | --- |
+| [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800) | Ethereum state using a unified verkle tree | 트리 구조, Key의 배치, Code Chunk | Stagnant |
+| [EIP-4762](https://eips.ethereum.org/EIPS/eip-4762) | Statelessness gas cost changes | Witness를 만드는 비용을 Gas에 반영 | Draft |
+| [EIP-7612](https://eips.ethereum.org/EIPS/eip-7612) | Verkle state transition via an overlay tree | Fork 시점에 트리를 바꾸는 방식 | Stagnant |
+| [EIP-7748](https://eips.ethereum.org/EIPS/eip-7748) | State conversion to Verkle Tree | 기존 State를 Block마다 조금씩 옮기는 절차 | Draft |
+| [EIP-7545](https://eips.ethereum.org/EIPS/eip-7545) | Verkle proof verification precompile | Smart Contract가 State Proof를 검증할 수 있게 하는 내장 Contract | Stagnant |
+| [EIP-2935](https://eips.ethereum.org/EIPS/eip-2935) | Serve historical block hashes from state | 과거 Block Hash를 State에 저장 | Final |
+| [EIP-7709](https://eips.ethereum.org/EIPS/eip-7709) | Read BLOCKHASH from Storage and Update Cost | Block Hash를 State에서 읽도록 변경 | Draft |
+| [EIP-6780](https://eips.ethereum.org/EIPS/eip-6780) | SELFDESTRUCT only in same transaction | Account 전체 삭제를 제한 | Final |
+| [EIP-7736](https://eips.ethereum.org/EIPS/eip-7736) | Leaf-level state expiry in verkle trees | 오래 쓰이지 않은 Extension Node를 지우는 State Expiry | Stagnant |
+
+- Draft는 작성 중인 단계, Final은 확정된 단계다. Stagnant는 Draft, Review, Last Call 단계의 EIP가 6개월 이상 활동이 없을 때 옮겨지는 단계다.
+- 핵심인 EIP-6800, EIP-7612, EIP-7545가 Stagnant다. 철회를 뜻하는 Withdrawn은 아니다. 제안이 거부된 것이 아니라 더 이상 진행되지 않는 상태다.
+- Final인 두 EIP는 Verkle Tree와 무관하게 적용할 수 있는 준비 작업이어서 먼저 적용됐다. State Tree가 Binary Tree로 바뀌어도 되돌릴 이유가 없는 변경이다.
+
+### 도입 계획: 준비, Overlay Tree, 단계적 변환
+
+가장 어려운 부분은 트리 구조가 아니라 전환이었다. 운영 중인 Chain을 멈추지 않고 State 전체를 다른 트리로 옮겨야 한다. 계획은 네 단계였다.
+
+**1단계. 준비 (전환 Fork 이전)**
+
+Stateless Client가 다룰 수 없는 동작을 먼저 없앤다.
+
+- **EIP-2935**: BLOCKHASH 명령은 Client가 최근 Block 이력을 갖고 있다고 가정한다. Stateless Client는 이력을 갖고 있지 않다. 그래서 최근 8,191개 Block의 Hash를 System Contract의 Storage에 저장해, Witness에 담을 수 있게 한다. Pectra에서 적용됐다. EIP-7709는 BLOCKHASH가 실제로 이 Storage를 읽고 그 비용을 내도록 바꾼다.
+- **EIP-6780**: SELFDESTRUCT 명령은 Account의 Code와 Storage를 모두 지운다. Verkle Tree에서는 한 Account의 데이터가 서로 연결이 드러나지 않는 여러 Key에 흩어져 있어 이 동작이 불가능하다. 그래서 Contract를 만든 Transaction 안에서 호출한 경우가 아니면 잔고만 보내도록 바꿨다.
+- **EIP-4762**: Gas 비용을 Witness 크기에 맞춘다. EIP는 이 변경을 Verkle Tree Fork 직전의 Fork에 넣는 것을 목표로 적는다. 개발자가 새 비용 구조에 미리 적응하게 하려는 것이다.
+
+EIP-4762의 비용은 접근 단위가 정한다. 접근은 (Address, Sub Key, Leaf Key)로 표현된다. Sub Key까지가 Stem 하나에, Leaf Key가 Suffix에 대응한다.
+
+| 상수 | 값 (Gas) | 부과되는 때 |
+| --- | --- | --- |
+| WITNESS_BRANCH_COST | 1,900 | 한 Transaction 안에서 어떤 Stem에 처음 접근할 때 |
+| WITNESS_CHUNK_COST | 200 | 어떤 Value에 처음 접근할 때 |
+| SUBTREE_EDIT_COST | 3,000 | 어떤 Stem 아래에 처음 쓸 때 |
+| CHUNK_EDIT_COST | 500 | 어떤 Value에 처음 쓸 때 |
+| CHUNK_FILL_COST | 6,200 | 비어 있던 자리에 처음 값을 쓸 때 |
+
+한 Transaction 안에서 같은 Stem에 속한 Value를 이어서 읽으면 두 번째부터는 200 Gas만 든다. 앞에서 본 "한 Stem에 묶이는 Value"의 배치가 Gas 비용으로 이어지는 지점이다.
+
+**2단계. Fork 시점 (EIP-7612)**
+
+- 기존 MPT를 그대로 동결한다. 더 이상 쓰지 않고 읽기만 한다.
+- Verkle Tree를 MPT 위에 겹쳐 놓는다. 이 구조를 Overlay Tree라 한다.
+- 새로 쓰는 값은 모두 Verkle Tree에 들어간다.
+- 값을 읽을 때는 Verkle Tree를 먼저 보고, 없으면 MPT에서 읽는다.
+- Block Header의 State Root는 이 시점부터 MPT의 Root가 아니라 Verkle Tree의 Root다.
+
+**3단계. 변환 (EIP-7748)**
+
+Transaction이 건드린 값만 Verkle Tree로 넘어가기를 기다리기에는 State가 너무 크다. 그래서 Block마다 정해진 수 이하의 값을 MPT에서 Verkle Tree로 옮긴다.
+
+- 옮기는 단위는 Storage Slot 하나, 또는 Account의 데이터와 Code다.
+- Block의 Transaction을 실행하기 전에 수행한다.
+- Account를 MPT의 Key 순서대로 처리하고, 각 Account 안에서는 Storage를 먼저 옮긴 뒤 Account의 데이터와 Code를 옮긴다.
+- 그 사이 Transaction이 이미 새 값을 써 둔 자리는 덮어쓰지 않는다.
+- Block당 옮기는 수의 상한(CONVERSION_STRIDE)과 시작 시점은 EIP에 값이 정해져 있지 않다(TBD).
+
+**4단계. 완료**
+
+변환이 끝나면 Overlay Tree라는 구분을 없애고 모든 접근을 Verkle Tree로 처리한다.
+
+```
+Fork 이전     State Root = MPT의 Root
+              읽기와 쓰기 모두 MPT
+
+Fork 시점     State Root = Verkle Tree의 Root                    EIP-7612
+              쓰기 → Verkle Tree
+              읽기 → Verkle Tree, 없으면 동결된 MPT
+
+변환 기간     Block마다 MPT의 값 일부를 Verkle Tree로 옮김        EIP-7748
+
+변환 완료     읽기와 쓰기 모두 Verkle Tree
+```
+
+**⇒ 이 계획은 변환을 합의 과정 안에 넣는다. 모든 Node가 Block마다 같은 값을 같은 순서로 옮겨야 State Root가 일치한다.**
+
+### Upgrade 일정에서의 위치: Osaka에 배정됐다가 빠짐
+
+Roadmap 그림은 방향을 보여 줄 뿐이고, 실제 적용 여부는 Upgrade마다 어떤 EIP를 넣을지 정하는 개발자 회의에서 결정된다. 그 기록을 시간순으로 적는다.
+
+| 시점 | 일어난 일 |
+| --- | --- |
+| 2024년 2월 1일 | All Core Developers Execution 회의에서 Verkle Tree를 Prague 다음 Upgrade인 Osaka에 넣기로 함. 반대는 없었음 ([Galaxy의 회의 정리](https://galaxy.com/insights/research/ethereum-all-core-developers-execution-call-180)) |
+| 2024년 4월 11일 | 전용 시험 Network인 verkle-gen-devnet-6이 시작됨. ethPandaOps의 [문서](https://notes.ethereum.org/@ethpandaops/verkle-gen-devnet-6)는 EIP-2935, EIP-4762, EIP-6800을 활성 상태로, EIP-7545를 아직 활성화되지 않은 상태로 적음 |
+| 2024년 10월 | Vitalik Buterin의 2024년 글이 Verkle Tree, STARK와 보수적 Hash, STARK와 공격적 Hash 세 가지를 나란히 놓고 곧 결정해야 한다고 적음 |
+| 2025년 1월 20일 | Hash 기반 Binary Tree 제안인 [EIP-7864](https://eips.ethereum.org/EIPS/eip-7864)가 작성됨. 저자 열 명이 EIP-6800과 같음 |
+| 2025년 5월 7일 | Pectra 적용. EIP-2935 포함 |
+| 2025년 6월 30일 | go-ethereum의 Guillaume Ballet이 Ethereum Community Conference에서 [Verkle Tree에서 Binary Tree로의 전환](https://ethcc.io/archives/completing-the-circle-transitioning-from-verkle-to-binary-trees-in-ethereum)을 발표함 |
+| 2025년 12월 3일 | Osaka가 Fusaka라는 이름으로 적용됨. 주요 변경은 PeerDAS(Peer-to-Peer Data Availability Sampling)와 Gas Limit 상향이고 Verkle Tree는 들어가지 않음 |
+| 2026년 2월 18일 | Ethereum Foundation이 2026년 우선순위 글에서 State의 장기 방향을 [Binary Tree와 Statelessness](https://blog.ethereum.org/2026/02/18/protocol-priorities-update-2026)로 적음. 이 글에 Verkle Tree는 나오지 않음 |
+| 2026년 3월 1일 | Vitalik Buterin이 State Tree를 Binary Tree로 바꾸고 장기적으로 EVM도 바꾸는 계획을 밝힘 ([The Block](https://www.theblock.co/post/391681/vitalik-buterin-lays-out-a-two-part-plan-to-overhaul-ethereums-execution-layer-from-the-ground-up)) |
+| 2026년 3월 6일 | consensus-specs 저장소에서 EIP-6800 사양이 [제거](https://github.com/ethereum/consensus-specs/pull/4984)됨. 사유는 EIP가 Stagnant이고 가까운 Upgrade에 들어갈 가능성이 낮다는 것 |
+| 2026년 6월 11일 | [EIP-8297](https://eips.ethereum.org/EIPS/eip-8297)(PBT)이 작성됨 |
+| 2026년 7월 23일 | [EIP-8347](https://eips.ethereum.org/EIPS/eip-8347)(PBT로의 State 이전 절차)이 작성됨 |
+| 2026년 8월 10일 | Vitalik Buterin이 2023년판 Roadmap과 Strawmap을 비교한 그림을 올림. Verkle Tree는 대체된 항목으로 분류됨 |
+| 2026년 10월 22일~31일 | 시험 Network glamsterdam-pbt-1에서 MPT를 PBT로 옮기는 시험이 진행됨 |
+| 2026년 11월 10일 | go-ethereum이 EIP-7864와 EIP-4762의 구현을 [제거](https://github.com/ethereum/go-ethereum/pull/36091)함. 하루 전에는 EIP-8297 구현이 들어감 |
+
+- Verkle Tree를 폐기한다고 못 박은 단일 결정문은 확인하지 못했다. EIP-6800의 상태도 Withdrawn이 아니라 Stagnant다. 위 표의 변화가 쌓여 사실상 Roadmap에서 빠진 것이다.
+- 표에서 보이는 순서는 이렇다. Osaka 배정(2024년 2월) → 대안 비교(2024년 10월) → Binary Tree 제안(2025년 1월) → Verkle Tree 없는 Fusaka(2025년 12월) → Foundation의 방향 명시와 사양 제거(2026년 2~3월) → 구현 교체(2026년 11월).
+
+### Roadmap에서 빠진 이유
+
+출처들이 드는 이유는 세 가지로 모인다. 각 이유가 어느 문서에 적혀 있는지 함께 적는다.
+
+**이유 1. Quantum Resistance가 없어서 트리를 두 번 바꿔야 한다**
+
+- Verkle Tree의 Commitment는 타원곡선의 Discrete Log 문제에 기댄다. 양자 컴퓨터는 이 문제를 풀 수 있다.
+- 2024년 글은 MPT를 Verkle Tree로 바꾸면 나중에 트리를 다시 바꿔야 한다고 적는다.
+- EIP-7864는 실용적인 양자 위협을 2030년대로 보는 전문가 추정과, 2030년까지 타원곡선 암호를 단계적으로 줄이라는 National Institute of Standards and Technology의 권고를 든다. Hash 함수에만 의존하는 설계가 더 오래 간다고 보고, 자신을 아마도 마지막 State Tree가 될 구조로 적는다.
+- State Tree 교체는 앞의 "도입 계획"에서 본 대로 Chain 전체의 State를 옮기는 가장 무거운 종류의 변경이다. 이것을 Verkle Tree로 한 번, 양자 내성 구조로 또 한 번 하느니 한 번에 끝내자는 것이 핵심 논리다 (출처들의 서술을 묶은 해석).
+- Strawmap은 장기 목표 다섯 가지 가운데 하나로 Hash 기반 방식을 통한 양자 내성을 든다. 타원곡선 기반인 Verkle Tree는 이 목표와 맞지 않는다.
+- [The Block](https://www.theblock.co/post/391681/vitalik-buterin-lays-out-a-two-part-plan-to-overhaul-ethereums-execution-layer-from-the-ground-up)은 Verkle Tree가 2026년 Hard Fork의 유력 후보로 거론됐으나, 타원곡선 암호의 양자 취약성에 대한 우려로 2024년 중반부터 Binary Tree가 다시 주목받았다고 보도했다.
+
+**이유 2. 증명 기술이 빨라져 Verkle Tree의 장점이 줄었다**
+
+- Verkle Tree의 주된 장점은 작은 Proof를 빨리 만든다는 것이었다. Hash 기반 Binary Tree는 Proof 자체는 크지만, 그 Proof를 STARK로 증명해 대체하면 크기 문제가 사라진다. 걸림돌은 증명 속도였다.
+- 2024년 10월 시점에는 보수적 Hash를 쓰는 STARK의 증명이 10초를 넘었다. 앞의 "대안" 표가 이 시점의 비교다.
+- EIP-7864와 EIP-8297은 증명 시스템의 발전으로 이 격차가 좁혀져, Verkle Tree의 주된 장점에 맞먹을 수 있다고 적는다.
+- 2024년 글은 Verkle Tree가 아닌 방식을 고르면 배포가 Hard Fork 한 번쯤 늦어진다는 점을 Verkle Tree 쪽의 근거로 들었다. 그런데 Verkle Tree 자신이 Osaka에 들어가지 못했으므로 이 근거도 약해졌다 (출처에 없는 해석).
+
+**이유 3. 목표가 모든 실행을 SNARK로 증명하는 쪽으로 넓어졌다**
+
+- The Verge의 최종 목표는 2022년부터 모든 실행을 SNARK로 검증하는 Ethereum이었다. 실행을 증명하려면 State를 읽고 쓰는 과정, 곧 State Tree의 연산도 증명 안에 들어가야 한다.
+- Verkle Tree의 Proof 검증은 256 Bit 연산이 많아 SNARK로 증명하기 어렵다(2024년 글).
+- EIP-7864와 EIP-8297이 첫머리에 드는 동기가 이것이다. 현재의 MPT는 Recursive Length Prefix 부호화, Keccak Hash, 트리 안에 트리가 들어 있는 구조, 트리 밖에 있는 Code 때문에 증명하기 어렵다. Binary Tree에 증명하기 쉬운 Hash 함수를 쓰면 이 문제가 줄어든다.
+- The Block의 보도에 따르면 Vitalik Buterin은 State Tree와 EVM이 증명 병목의 80% 이상을 차지한다고 보았다. Binary Tree는 Merkle Proof를 지금의 4분의 1로 줄이고, Hash 함수를 바꾸면 증명 효율이 3배에서 100배 더 나아진다고 했다. 4분의 1은 앞의 "Key 하나의 Proof Size" 표에서 3,840 B가 1,024 B로 줄어드는 것과 같은 수치다.
+- Strawmap의 또 다른 장기 목표는 Zero-Knowledge EVM과 실시간 증명으로 Layer 1의 처리량을 초당 1 Gigagas까지 올리는 것이다. State Tree는 이 목표에 맞춰 고르게 됐다.
+
+**⇒ 세 이유는 하나로 이어진다. Verkle Tree는 "Stateless Client를 위한 작은 Witness"라는 문제 하나를 가장 잘 푸는 구조였다. Roadmap이 요구하는 조건이 "양자 컴퓨터에 안전할 것"과 "SNARK로 증명하기 쉬울 것"까지 늘어나자, 세 조건을 한 번의 전환으로 충족하는 Hash 기반 Binary Tree가 선택됐다.**
+
+잃은 것도 있다.
+
+- Binary Tree만으로는 Witness가 Verkle Tree보다 크다. 최악의 경우 약 10.4 MB와 약 1.3 MB다. 그래서 이 방향은 Proof를 증명 시스템으로 줄이는 것을 전제로 한다.
+- Guillaume Ballet의 [발표 자료](https://notes.ethereum.org/@gballet/verkle-and-binary)는 Verkle Tree가 나은 점으로 저장할 내부 Node가 적다는 것과 Proof가 작다는 것을, Binary Tree가 나은 점으로 Hash 속도, Quantum Resistance, STARK와의 호환을 든다.
+- 2024년 글이 적은 대로 공격적 Hash는 검증이 덜 됐다. Hash 함수가 아직 확정되지 않은 이유다.
+
+### Verkle Tree 자리에 들어온 것: Binary Tree
+
+Stateless Client라는 목표는 그대로이고, Proof를 줄이는 수단이 Vector Commitment에서 "Binary Tree와 그 Proof를 증명하는 SNARK"로 바뀌었다.
+
+| EIP | 제목 | 내용 | 상태 |
+| --- | --- | --- | --- |
+| [EIP-7864](https://eips.ethereum.org/EIPS/eip-7864) | Ethereum state using a unified binary tree | 2025년 1월 제안. Account, Storage, Code를 Binary Tree 하나에 넣음 | Draft |
+| [EIP-8297](https://eips.ethereum.org/EIPS/eip-8297) | Partitioned Binary Tree | 2026년 6월 제안. Key의 첫 Byte로 구역(Zone)을 나눔. 0x00은 Account Header, 0x01은 Code, 0xFF는 Storage | Draft |
+| [EIP-8347](https://eips.ethereum.org/EIPS/eip-8347) | Offline State Migration to the PBT | 2026년 7월 제안. MPT에서 PBT로 State를 옮기는 절차 | Draft |
+
+![eip-8297-tree.png](eip-8297-tree.png)
+
+그림은 EIP-8297에 실린 트리 구조다.
+
+- **이어받은 것**: Account, Storage, Code를 하나의 트리에 넣는 구조, Value를 256개 단위의 Stem으로 묶는 방식, Account Header에 기본 데이터와 Code Hash와 앞쪽 Storage Slot 64개를 함께 두는 배치(HEADER_STORAGE_OFFSET 64), Code를 31 Byte Chunk로 나누고 PUSH 데이터 Byte 수 1 Byte를 붙이는 방식은 EIP-6800에서 온 것이다. Verkle Tree를 위해 한 설계 가운데 Commitment 방식을 뺀 나머지가 대부분 남았다.
+- **달라진 것**: 부모 Node는 두 자식의 Hash다. Key는 길이가 고정되어 있지 않고 첫 Byte가 구역을 나타낸다. Code는 Account가 아니라 Code Hash를 기준으로 저장해, 같은 Code를 가진 Contract들이 Chunk를 공유한다. 64번 이후의 Storage Slot은 Storage 구역으로 간다.
+- **정해지지 않은 것**: Hash 함수다. 참조 구현은 BLAKE3를 쓰고 Keccak과 Poseidon2가 후보다. Poseidon2는 증명 안에서의 성능이 좋지만 안전성 분석이 진행 중이다.
+- **Gas 비용**: EIP-8297은 Gas 비용 체계를 바꾸지 않는다고 적는다. Gas 비용 조정은 별도 EIP로 다룰 예정이라고 EIP-8347이 적는다.
+- **EIP-7864와 EIP-8297의 관계**: go-ethereum은 2026년 11월 10일에 "EIP-8297의 PBT가 EIP-7864의 Unified Binary Tree를 대체한다"는 설명과 함께 EIP-7864와 EIP-4762의 구현을 [제거](https://github.com/ethereum/go-ethereum/pull/36091)했다. EIP 문서상으로는 둘 다 Draft다.
+- **이름에 대한 주의**: PBT는 EIP-8297의 제목대로 Partitioned Binary Tree다. 2026년 8월의 일부 기사는 이를 Poseidon Binary Tree나 Polynomial Binary Tree로 풀어 적었는데, EIP의 이름과 다르다. Hash 함수는 Poseidon으로 확정되지 않았다.
+
+전환 방식도 달라졌다.
+
+| 항목 | Verkle Tree 계획 (EIP-7612, EIP-7748) | PBT 계획 (EIP-8347) |
+| --- | --- | --- |
+| 변환하는 곳 | 합의 과정 안. 모든 Node가 Block마다 일부씩 옮김 | 합의 과정 밖. Node가 직접 변환하거나 변환된 State의 사본(Snapshot)을 내려받아 검증함 |
+| 기준 | MPT의 Key 순서대로 처음부터 끝까지 | 되돌릴 수 없게 확정(Finalize)된 Block 하나(Anchor Block)의 State 전체 |
+| 최신 Block까지 따라잡기 | 변환과 실행이 함께 진행됨 | Block마다 바뀐 State를 기록한 Block-Level Access List(EIP-7928)를 재생함. 다시 실행하지 않음 |
+| 교체 전 확인 | 없음. Fork와 함께 시작 | 검증자들이 Block마다 PBT의 Root를 서명해 공개하는 기간을 둠. 합의에는 쓰이지 않는 관찰용임 |
+| State Root 교체 | Fork 시점에 바로 교체하고 이후 변환 | 변환을 마친 뒤 Hard Fork 한 번에 교체. 그 Fork가 Finalize될 때까지 두 트리를 유지 |
+
+- EIP-8347이 합의 과정 밖의 변환을 고른 이유는 세 가지다. 합의 규칙의 변경이 작고, State Root 하나가 항상 State 전체를 대표하고, 실행을 증명하는 쪽이 변환 단계까지 증명할 필요가 없다.
+- 대가도 적혀 있다. 전환 기간에 두 트리를 함께 보관해야 하고(Mainnet 규모에서 약 300 GB 추가), 변환의 정확성이 합의로 강제되지 않고, Block마다 두 트리를 갱신해야 한다.
+
+**⇒ Verkle Tree 계획에서 가장 무거웠던 "합의 과정 안의 변환"을 PBT 계획은 합의 과정 밖으로 뺐다.**
+
+- **시험**: 2026년 10월 22일부터 31일까지 ethPandaOps의 시험 Network(glamsterdam-pbt-1)에서 Node 9개가 Chain을 운영하면서 MPT에서 PBT로 State를 옮겼다. Execution Client는 geth, Nethermind, Besu, erigon 네 가지였고 PBT Fork는 10월 29일이었다. 기록된 범위에서 Node 사이의 State Root 불일치는 없었다([측정 데이터 저장소](https://github.com/CPerezz/pbt-devnet-1-data)).
+
+### 현재 일정
+
+[ethereum.org의 Roadmap](https://ethereum.org/roadmap/)은 Upgrade를 시간순으로 보여 준다. State Tree와 관련된 내용만 옮기면 다음과 같다.
+
+| Upgrade | 시점 | 상태 | State Tree 관련 내용 |
+| --- | --- | --- | --- |
+| Pectra | 2025년 5월 7일 | 적용됨 | EIP-2935 포함 |
+| Fusaka | 2025년 12월 3일 | 적용됨 | 주요 변경에 없음 |
+| Glamsterdam | 2026년 4분기로 표기 | 개발 중 | 주요 변경에 없음. 함께 들어가는 Block-Level Access List(EIP-7928)는 EIP-8347이 사용함 |
+| Hegotá | 2027년 | 개발 중 | 주요 변경에 없음. 범위는 확정되지 않음 |
+
+같은 문서는 앞으로 올 기술 과제의 하나로 Statelessness를 든다. State Tree를 무엇으로 바꾸는지는 이 문서에 적혀 있지 않다.
+
+- **Glamsterdam**: 대표 변경은 Enshrined Proposer-Builder Separation(EIP-7732)과 Block-Level Access List(EIP-7928)다. Sepolia Testnet에는 2026년 10월 6일에 적용됐고, Gas 비용 변경이 기존 Contract에 미치는 영향 때문에 Hoodi Testnet 적용이 보류됐다([보도](https://www.altcoinbuzz.io/ethereum-delays-glamsterdam-testnet-upgrade-over-smart-contract-risks)). [Forkcast](https://forkcast.org/)는 Mainnet 적용 시점을 미정(TBD)으로 표시하고 자체 추정치를 2027년 1월 27일로 둔다. 발표된 날짜가 아니라 추정이다. ethereum.org의 Roadmap은 2026년 4분기로 적는다.
+- **Hegotá**: Forkcast는 목표를 2027년으로 적는다. 대표 변경은 Fork-Choice Enforced Inclusion List(EIP-7805)와 Frame Transaction(EIP-8141)으로 정해졌고 나머지 범위는 논의 중이다. EIP-7709는 포함을 검토하는 목록(Considered for Inclusion)에 있다.
+- **State Tree 교체**: 어느 Upgrade에도 확정되어 있지 않다. Hegotá의 EIP 목록인 [EIP-8081](https://eips.ethereum.org/EIPS/eip-8081)에는 확정, 검토, 제안, 거절 어느 목록에도 EIP-8297, EIP-8347, EIP-7864, EIP-6800이 없다. EIP-8347은 교체가 일어날 Fork에 이름(PBT_ACTIVATION_FORK)만 붙이고 시점은 정하지 않는다. 시점은 나중에 별도 EIP가 정한다고 적는다.
+- **예상**: EIP-8347의 저자인 Maria Silva와 Carlos Perez가 Ethereum Research에 쓴 2026년 9월 [의견 글](https://ethresear.ch/t/how-hegota-can-influence-the-state-roadmap/25895)은 PBT로의 이전을 Hegotá 다음 Fork인 I\*로 예상한다. 공식 일정이 아니라 저자들의 예상이다. Maria Silva가 관리하는 [계획 문서](https://github.com/misilva73/pbt-planning)는 사양, 시험, Client별 구현 상황을 모아 둔다.
+- **Roadmap 초안**: Ethereum Foundation은 [Strawmap](https://strawmap.org)이라는 Roadmap 초안을 그림으로 관리한다. 2029년까지 약 6개월 간격으로 Fork 일곱 개를 그리고, Glamsterdam과 Hegotá 다음 Fork는 I\*, J\* 같은 임시 이름으로 적는다. 문서 스스로 공식 계획이나 예측이 아니라 조율을 위한 초안이라고 밝힌다. 그림 안에서 State Tree가 놓인 위치는 직접 확인하지 못했다.
+
+주의할 점은 다음과 같다.
+
+- 일부 기사는 PBT의 Mainnet 적용을 2026년 4분기로 적는다. 이는 Glamsterdam의 목표 시점과 섞인 것으로 보인다. Glamsterdam의 범위에 State Tree 교체는 없다.
+- Verkle Tree가 Fusaka나 Hegotá에 들어간다고 적은 글도 있다. EIP-6800의 상태와 두 Upgrade의 EIP 목록과 맞지 않는다.
+- [ethereum.org의 Verkle Tree 문서](https://ethereum.org/roadmap/verkle-trees/)는 2026년 6월에 마지막으로 고쳐졌는데도 Binary Tree를 언급하지 않고, Verkle Tree를 여전히 Stateless Client로 가는 단계로 설명한다. [Statelessness 문서](https://ethereum.org/roadmap/statelessness/)도 같다. 같은 Verkle Tree 문서는 MPT를 Leaf를 둘씩 묶어 Hash하는 트리로 설명하지만 MPT의 Width는 16이다. Witness 크기가 Leaf 개수와 무관하게 고정이라고도 적지만 고정인 것은 Multiproof의 크기다.
 
 <br />
 
@@ -866,4 +1137,4 @@ Verkle Tree는 Merkle Tree의 Hash 자리에 Vector Commitment를 넣은 트리�
 
 Ethereum은 이 아이디어를 Stateless Client에 필요한 Witness를 줄이는 데 적용했다. Witness 크기는 State Tree의 Proof 크기가 정한다. MPT는 Hash로 부모 Node를 만들기 때문에 Level마다 형제 Hash를 보내야 하고, Proof가 (Width - 1) × 깊이에 비례한다. Verkle Tree는 부모 Node를 Vector Commitment로 만들어 형제를 보내지 않는다. 형제가 없으므로 Width를 256으로 키워 깊이를 줄일 수 있고, 여러 Opening Proof는 Multiproof 하나로 묶인다. Opening Proof를 저장하지 않고 Commitment를 덧셈으로 갱신하므로 갱신 비용은 Width에 비례하지 않는다. 그 결과 Key 하나의 경로 크기는 3,840 B에서 128 B로, Value 1,000개의 Witness는 약 3.5 MB에서 약 150 kB로 줄어든다.
 
-2026년 11월 23일 기준 Ethereum은 Verkle Tree를 채택하지 않았다. 타원곡선에 기반한 Commitment에 Quantum Resistance가 없다는 점과 증명 시스템의 발전을 이유로, 논의는 Hash 기반 Binary Tree로 옮겨 갔다. Stateless Client라는 목표와, 함께 읽는 Value를 같은 Stem에 묶는 설계는 이어진다.
+Roadmap에서 Verkle Tree는 The Verge의 첫 단계였고, 2024년 2월에는 Osaka Upgrade에 배정됐다. 그러나 2026년 11월 24일 기준 Ethereum은 Verkle Tree를 채택하지 않았다. 타원곡선에 기반한 Commitment에 Quantum Resistance가 없어 트리를 두 번 바꿔야 한다는 점, 증명 시스템의 발전으로 Hash 기반 트리의 약점이 줄었다는 점, 모든 실행을 SNARK로 증명하려면 증명하기 쉬운 트리가 필요하다는 점이 이유다. 그 자리에는 Hash 기반 Binary Tree(EIP-7864를 거쳐 EIP-8297)가 들어왔고, 적용할 Upgrade는 아직 정해지지 않았다. Stateless Client라는 목표와, 함께 읽는 Value를 같은 Stem에 묶는 설계는 이어진다.
