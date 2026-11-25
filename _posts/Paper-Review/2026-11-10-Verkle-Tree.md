@@ -1,7 +1,7 @@
 ---
 title: "Verkle Tree"
 date: 2026-11-10
-last_modified_at: 2026-11-24
+last_modified_at: 2026-11-25
 categories: [Paper Review]
 tags: [Blockchain, Ethereum, Verkle Tree, Merkle Patricia Trie, Stateless Client, Commitment]
 math: true
@@ -28,7 +28,7 @@ media_subpath: /assets/img/posts/verkle-tree/
 
 ### TL;DR
 
-Verkle Tree는 Merkle Tree의 Parent Node를 Hash 대신 Vector Commitment로 만든 Tree다. 증명할 때 Sibling이 필요 없어 Width(폭)를 넓히고 Depth(깊이)를 줄일 수 있으므로 Proof가 작아진다.
+Verkle Tree는 Merkle Tree의 Parent Node를 Hash 대신 Vector Commitment로 만든 Tree다. 증명할 때 Sibling이 필요 없어 Width(폭)를 넓히고 Tree Depth(깊이)를 줄일 수 있으므로 Proof가 작아진다.
 
 Ethereum은 State 전체를 저장하지 않고 Witness로 Block을 검증하는 Stateless Client를 위해 2021년부터 State Tree를 Verkle Tree로 바꾸려 했다. 2026년 11월 현재 이 방안은 채택되지 않았다. Verkle Tree는 Quantum Resistance(양자 내성)가 없어 나중에 다시 교체해야 하고, Hash Tree를 STARK(Scalable Transparent Argument of Knowledge)로 증명하는 기술이 실용화에 가까워졌다. 그래서 지금 Roadmap에서는 Hash 기반 Binary Tree가 대안으로 논의되고 있다. 이 경위는 [2편]({% post_url Paper-Review/2026-11-10-Verkle-Tree-Roadmap %})에서 다룬다.
 
@@ -300,9 +300,9 @@ MPT의 Proof에는 Path 위 Branch Node마다 Sibling의 Hash가 최대 15개 �
 
 ### Toward Verkle Tree
 
-Merkle 방식에서 Proof를 줄이려면 Depth를 줄이거나, Level마다 보내는 Sibling을 줄여야 한다. 하지만 Width $k$를 넓혀 Depth를 줄이면 Level마다 Sibling이 $k - 1$개로 늘어난다. 그래서 [Hash 기반 Tree 중에서는 Binary Merkle Tree가 이미 이론적 최적에 가깝다](https://hackmd.io/@vbuterin/BylgAm7ZF).
+Merkle 방식에서 Proof를 줄이려면 Tree Depth를 줄이거나, Level마다 보내는 Sibling을 줄여야 한다. 하지만 Width $k$를 넓혀 Tree Depth를 줄이면 Level마다 Sibling이 $k - 1$개로 늘어난다. 그래서 [Hash 기반 Tree 중에서는 Binary Merkle Tree가 이미 이론적 최적에 가깝다](https://hackmd.io/@vbuterin/BylgAm7ZF).
 
-Verkle Tree는 Parent를 Child들의 Hash 대신 Vector Commitment로 만든다. 그러면 Sibling 없이 Child 하나를 증명할 수 있으므로, Width를 256으로 넓혀 Depth를 줄여도 다른 255개 Child의 Hash를 보낼 필요가 없다. Vector Commitment가 무엇이고 왜 Sibling이 필요 없는지는 뒤에서 설명한다.
+Verkle Tree는 Parent를 Child들의 Hash 대신 Vector Commitment로 만든다. 그러면 Sibling 없이 Child 하나를 증명할 수 있으므로, Width를 256으로 넓혀 Tree Depth를 줄여도 다른 255개 Child의 Hash를 보낼 필요가 없다. Vector Commitment가 무엇이고 왜 Sibling이 필요 없는지는 뒤에서 설명한다.
 
 - Account 하나: 평균 약 200 Bytes (EIP-6800)
 
@@ -318,20 +318,20 @@ Verkle Tree는 Parent를 Child들의 Hash 대신 Vector Commitment로 만든다.
 
 ### What is a Verkle Tree?
 
-[Verkle Tree](https://math.mit.edu/research/highschool/primes/materials/2018/Kuszmaul.pdf)는 Merkle Tree에서 Hash 자리에 Vector Commitment를 쓴 Tree다. Merkle Patricia Trie(이하 MPT)에서 Parent는 Child들의 Hash이고, Verkle Tree에서 Parent는 Child들의 Vector Commitment다. Vector Commitment는 바로 다음 절에서 설명한다.
+[Verkle Tree](https://math.mit.edu/research/highschool/primes/materials/2018/Kuszmaul.pdf)는 Merkle Tree에서 Hash 자리에 Vector Commitment를 쓴 Tree다. MPT에서 Parent는 Child들의 Hash이고, Verkle Tree에서 Parent는 Child들의 Vector Commitment다. Vector Commitment는 바로 다음 절에서 설명한다.
 
 Proof Size가 줄어드는 이유는 두 가지다.
  
 1. **Sibling이 필요 없다.** Hash로 만든 Parent는 Child 전부를 알아야 확인할 수 있다. 그래서 MPT는 Level마다 Sibling Hash를 Proof에 넣는다. Vector Commitment로 만든 Parent는 Child 하나가 자기에게 속함을 나머지 Child 없이 짧은 증명으로 보일 수 있다.
 
-2. **Tree Depth가 줄어든다.** Sibling을 보내지 않으므로 Width를 키워도 Level마다 들어가는 Proof 데이터가 늘지 않는다. 그래서 Width를 16에서 256으로 키워 Tree Depth를 줄인다. MPT는 Width를 256으로 키우면 Level마다 Sibling Hash가 최대 255개로 늘어 Proof가 오히려 커진다.
+2. **Tree Depth가 줄어든다.** Sibling을 보내지 않으므로 Width를 키워도 Level마다 들어가는 Proof Data가 늘지 않는다. 그래서 Width를 16에서 256으로 키워 Tree Depth를 줄인다. Hash 기반 Tree는 Width를 256으로 키우면 Level마다 Sibling Hash가 최대 255개로 늘어 Proof가 오히려 커진다.
 
-| 항목 | MPT | Verkle Tree (EIP-6800) |
+| 항목 | MPT | Verkle Tree (Ethereum 제안) |
 | --- | --- | --- |
 | Parent의 값 | Child들의 Hash | Child들에 대한 Vector Commitment |
 | Width | 16 | 256 |
 | Tree Depth | 약 $\log_{16} n$ | 약 $\log_{256} n$ |
-| Level마다 Proof에 들어가는 것 | Sibling Hash 최대 15개 (480 B) | Commitment 1개 (32 B) |
+| Level마다 Proof에 들어가는 것 | Sibling Hash 최대 15개 (480 Bytes) | Commitment 1개 (32 Bytes) |
 | 여러 Key를 증명할 때 | Key마다 Sibling Hash가 늘어남 | 모든 증명을 Multiproof 하나로 묶음 |
 
 Ethereum에 제안된 Verkle Tree의 Width는 256이고, 1,024가 낫다는 의견도 있었다. [Width의 상한은 Proof를 만드는 비용이 정한다](https://vitalik.eth.limo/general/2021/06/18/verkle.html). Node마다 Width에 비례하는 연산이 들기 때문이다.
@@ -348,7 +348,7 @@ Vector Commitment는 순서가 있는 값의 목록인 Vector $(v_0, \ldots, v_{
  
 - Opening: Commitment $C$의 Index $i$에 있는 Element가 $v_i$임을 밝히는 것
 
-- Opening Proof: Opening이 맞음을 보이는 증명. 나머지 Element 없이 확인할 수 있다. Evaluation Proof라고도 부른다.
+- Opening Proof: Opening이 맞음을 보이는 증명. 나머지 Element 없이 확인할 수 있다.
 
 Verkle Tree가 쓰는 성질은 Binding과 짧은 Opening Proof다. Hiding은 쓰지 않는다. Ethereum의 State는 공개된 Data이고, [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)의 Commitment 식에도 값을 감추는 Random 항이 없다.
  
@@ -360,7 +360,7 @@ Vector Commitment를 만드는 한 방법이 Polynomial Commitment다.
 
 - Element $v_0, \ldots, v_{n-1}$에 대해 $f(i) = v_i$를 만족하는 Polynomial $f$를 만든다. 주어진 점들을 지나는 Polynomial을 구하는 Lagrange Interpolation(라그랑주 보간)을 쓴다.
 
-- 그러면 "Index $i$의 Element가 $v_i$다"는 "$f(i) = v_i$다"와 같은 말이 된다.
+- 그러면 "Index $i$의 Element가 $v_i$다"는 "$f(i) = v_i$다"와 같은 말이 된다. 그래서 Polynomial Commitment에서는 Opening Proof를 Evaluation Proof라고도 부른다.
 
 - $f(z) = y$이면 $f(x) - y$는 $(x - z)$로 나누어떨어지고, 그 역도 성립한다. 따라서 Quotient(몫) $q(x) = \dfrac{f(x) - y}{x - z}$가 Polynomial로 존재한다는 것이 $f(z) = y$의 증거가 된다.
 
@@ -433,7 +433,7 @@ Root (Inner Node)  C_r = Commit(C_0, ..., C_255)
 - 세 Key가 첫 Byte에서 모두 갈리므로 Inner Node는 Root 하나뿐이다.
 - Width가 16인 MPT라면 a1과 a2가 첫 Nibble 7을 공유하므로 Branch Node가 하나 더 필요하다. Width가 넓으면 같은 Key 집합에서 Tree Depth가 줄어든다.
 
-**Example 2**: Tree Depth가 더 깊어지는 경우다. Example 1과 다른 Account 집합이고, Key를 5 Byte로 줄였다.
+**Example 2**: Tree Depth가 더 깊어지는 경우다. Example 1과 다른 Account 집합이고, Key를 5 Bytes로 줄였다.
 
 | Account | Key | Value |
 | --- | --- | --- |
@@ -456,7 +456,7 @@ Root (Inner Node)  C_r = Commit(C_0, ..., C_255)
 Verifier는 Root의 Commitment $C_r$을 알고 있다. Path의 각 Level에서 "Parent의 Commitment를 Index $z$에서 Opening하면 Element가 $y$다"를 확인한다.
 
 - $z$: Key가 정하는 Child의 위치
-- $y$: Child의 Commitment. 마지막 Level에서는 저장된 Value
+- $y$: Child의 Commitment(실제로는 Commitment를 Scalar로 바꾼 값. 뒤의 EIP-6800 "Node Types"에서 설명). 마지막 Level에서는 저장된 Value
 
 [Proof는 Path 위의 Commitment와, 각 Commitment를 다음 Commitment에 잇는 짧은 증명이다](https://vitalik.eth.limo/general/2021/06/18/verkle.html). Sibling은 들어가지 않는다.
 
@@ -469,7 +469,7 @@ Verifier는 Root의 Commitment $C_r$을 알고 있다. Path의 각 Level에서 "
 3. $C_{115}$를 Opening한 Element가 a1의 Value인지 $\pi_{115}$로 확인한다. → Accept
 
 - a2와 a3에 관한 Data는 보내지 않는다. Width가 16인 MPT라면 같은 증명에 a2의 Leaf Node와 a3의 Leaf Node의 Hash가 Sibling으로 들어간다.
-- 단순화를 위해 남은 Key의 확인은 생략했다. $C_{115}$는 남은 Key와 Value의 Commitment이므로, 이 Leaf Node가 a1의 것임을 보이려면 남은 Key의 자리도 Opening해야 한다. 실제 구조에서는 Stem을 Opening해 이를 확인한다.
+- 단순화를 위해 남은 Key의 확인은 생략했다. $C_{115}$는 남은 Key와 Value의 Commitment이므로, 이 Leaf Node가 a1의 것임을 보이려면 남은 Key의 자리도 Opening해야 한다. 실제 구조에서는 Stem(뒤의 "Key: Stem and Suffix"에서 설명)을 Opening해 이를 확인한다.
 
 ### 여러 Value의 검증과 Multiproof
 
@@ -491,7 +491,7 @@ Multiproof는 모든 Opening Proof를 크기가 고정된 증명 하나로 묶�
 
     주장이 틀린 항은 나누어떨어지지 않는다. $r$은 주장들이 정해진 뒤에 Hash로 정해지므로, Prover가 틀린 항의 나머지끼리 서로 지워지도록 $r$을 고를 수 없다. 따라서 주장이 하나라도 틀리면 $g$는 무시할 수 있는 확률을 빼고 Polynomial이 되지 않는다.
 
-3. $r$과 $D$를 Hash해 Random 값 $t$를 만든다. Verifier는 $D$가 정말 $g$의 Commitment인지 $t$ 한 점에서 확인한다.
+3. $r$과 $D$를 Hash해 Random 값 $t$를 만든다. $t$는 Verifier가 $g$를 확인할 점이다. 확인은 5단계에서 한다.
 4. Verifier가 $C_i$들로부터 $E = \sum_i \dfrac{r^i}{t - z_i} C_i$를, $y_i$들로부터 $y = \sum_i \dfrac{r^i \, y_i}{t - z_i}$를 직접 계산한다. $E$는 Polynomial $h(X) = \sum_i \dfrac{r^i}{t - z_i} f_i(X)$의 Commitment다.
 5. Prover가 "$E - D$의 Polynomial을 $t$에서 Opening하면 $y$다"에 대한 Opening Proof 하나를 보낸다. $h(t) - g(t) = y$이기 때문이다.
 
@@ -508,46 +508,51 @@ Verkle Tree의 Proof가 MPT보다 작은 이유는 세 가지로 정리된다.
 - Level마다 Sibling Hash 최대 15개 대신 Commitment 1개만 들어간다.
 - Opening Proof는 Key 수와 무관하게 Multiproof 하나다.
 
-아래 수치에서 Commitment 32 B와 Multiproof 576 B는 EIP-6800의 값이다. 근거는 뒤의 "Verkle Tree in EIP-6800"에 있다.
+아래 수치에서 Commitment 32 Bytes와 Multiproof 576 Bytes는 [Anatomy of a Verkle proof](https://ihagopian.com/posts/anatomy-of-a-verkle-proof)가 적은 Verkle Proof 형식의 값과, 그 형식에서 계산한 값이다. 근거는 뒤의 "Verkle Tree in EIP-6800"에 있다.
 
 #### Path Size of One Key
 
-Key 하나의 Path 크기다. Hash와 Commitment는 32 B다. 세 식은 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)에 있다. 3,840 B와 1,024 B는 글에 적힌 값이고, 128 B는 식에 대입한 값이다.
+Key 하나의 Path 크기다. Hash와 Commitment는 32 Bytes다. 세 식은 Vitalik Buterin의 [2024년 글](https://vitalik.eth.limo/general/2024/10/23/futures4.html)에 있다. 3,840 Bytes와 1,024 Bytes는 글에 적힌 값이고, 128 Bytes는 식에 대입한 값이다.
 
 | Tree | 식 | $n = 2^{32}$일 때 |
 | --- | --- | --- |
-| MPT (Width 16) | $32 \times 15 \times \log_{16} n$ | 3,840 B |
-| Binary Merkle Tree (Width 2) | $32 \times \log_2 n$ | 1,024 B |
-| Verkle Tree (Width 256) | $32 \times \log_{256} n$ | 128 B |
+| MPT (Width 16) | $32 \times 15 \times \log_{16} n$ | 3,840 Bytes |
+| Binary Merkle Tree (Width 2) | $32 \times \log_2 n$ | 1,024 Bytes |
+| Verkle Tree (Width 256) | $32 \times \log_{256} n$ | 128 Bytes |
 
-Verkle Tree에는 여기에 Multiproof 하나가 더해진다. Value $m$개를 증명할 때 MPT는 $O(mk \log_k n)$, Verkle Tree는 $O(m \log_k n)$에 크기가 고정된 Multiproof를 더한 값이다. $k$는 Width다.
+앞의 MPT 절은 Level마다 Hash 16개, $n = 2^{30}$ 기준이고, 여기서는 Sibling 15개, $n = 2^{32}$ 기준이다. 두 계산이 같은 3,840 Bytes가 된 것은 우연이다.
+
+Verkle Tree에는 여기에 Multiproof 하나가 더해진다. Value $m$개를 증명할 때 Width가 $k$인 Hash 기반 Tree는 $O(mk \log_k n)$, Verkle Tree는 $O(m \log_k n)$에 크기가 고정된 Multiproof를 더한 값이다.
 
 #### Proof Size of 1,000 Values
 
 $n$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산이다 (직접 계산한 값).
 
 - Tree Depth: MPT는 $\log_{16} 10^6 \approx 4.98$이므로 5, Verkle Tree는 $\log_{256} 10^6 \approx 2.49$이므로 3으로 놓는다.
-- MPT는 Level마다 Sibling Hash 15개(각 32 B)를 넣는다.
-- Verkle Tree(단순화한 구조)는 Level마다 Commitment 1개(32 B)를 넣고, Multiproof 하나(576 B)를 더한다.
-- Verkle Tree(EIP-6800)는 Path 끝에 Extension Node의 Commitment와 C1 또는 C2가 함께 들어가므로 Key당 Commitment가 하나 더 많다 (뒤의 "Verkle Tree in EIP-6800"). Root를 포함해 Inner Node가 3개면 Key당 4개다.
+- MPT는 Level마다 Sibling Hash 15개(각 32 Bytes)를 넣는다. 앞의 MPT 절의 512 Bytes(Hash 16개)와 달리 Sibling만 센다. MPT 절 기준으로 세면 1,000 × 16 × 5 × 32 = 2,560,000 Bytes다.
+- Verkle Tree(단순화한 구조)는 Level마다 Commitment 1개(32 Bytes)를 넣고, Multiproof 하나(576 Bytes)를 더한다.
+- Verkle Tree(EIP-6800)는 Path 끝에 Extension Node의 Commitment와 C1 또는 C2가 함께 들어가므로 Key당 Commitment가 하나 더 많다. Root를 포함해 Inner Node가 3개면 Key당 4개다.
+    - 여기의 Extension Node는 MPT의 Extension Node와 이름만 같다. 같은 Stem에 속한 Value 256개를 대표하는 Node다.
+    - C1과 C2는 그 Value 256개를 절반씩 나눠 담은 Commitment다.
+    - 자세한 구조는 뒤의 EIP-6800 "Node Types"에서 설명한다.
 
 | Tree | 계산 | 크기 |
 | --- | --- | --- |
-| MPT | 1,000 × 15 × 5 × 32 B | 2,400,000 B (2.4 MB) |
-| Verkle Tree (단순화한 구조) | 1,000 × 3 × 32 B + 576 B | 96,576 B (약 97 kB) |
-| Verkle Tree (EIP-6800) | 1,000 × 4 × 32 B + 576 B | 128,576 B (약 129 kB) |
+| MPT | 1,000 × 15 × 5 × 32 Bytes | 2,400,000 Bytes (2.4 MB) |
+| Verkle Tree (단순화한 구조) | 1,000 × 3 × 32 Bytes + 576 Bytes | 96,576 Bytes (약 97 kB) |
+| Verkle Tree (EIP-6800) | 1,000 × 4 × 32 Bytes + 576 Bytes | 128,576 Bytes (약 129 kB) |
 
 - MPT와 비교하면 단순화한 구조는 약 25배, EIP-6800 구조는 약 19배 작다.
 - 세 값 모두 근삿값이며 상한이 아니다.
-    - Path가 가정보다 긴 Key가 있다. Key가 Random이면 MPT에서 앞 5 Nibble을 다른 Key와 공유할 확률은 $1 - e^{-10^6/16^5} \approx 0.61$이다. 따라서 약 61%의 Key가 Branch Node를 6개 이상 거친다. Verkle Tree에서 앞 3 Byte를 공유할 확률은 $1 - e^{-10^6/256^3} \approx 0.058$이다. 따라서 약 6%의 Key가 Inner Node를 4개 이상 거친다.
+    - Path가 가정보다 긴 Key가 있다. Key가 Random이면 MPT에서 앞 5 Nibble을 다른 Key와 공유할 확률은 $1 - e^{-10^6/16^5} \approx 0.61$이다. 따라서 약 61%의 Key가 Branch Node를 6개 이상 거친다. Verkle Tree에서 앞 3 Bytes를 공유할 확률은 $1 - e^{-10^6/256^3} \approx 0.058$이다. 따라서 약 6%의 Key가 Inner Node를 4개 이상 거친다.
     - 실제 크기를 줄이는 요인도 있다. 여러 Key가 위쪽 Level의 Node를 공유하면 같은 Hash나 Commitment는 한 번만 넣는다. MPT의 아래쪽 Branch Node는 항목 16개가 모두 차 있지 않다.
 - Key와 Value 자체의 크기는 넣지 않았다.
 
 #### 출처의 수치
 
-- [Vitalik Buterin의 2021년 글](https://vitalik.eth.limo/general/2021/06/18/verkle.html): Width 256, Commitment와 Opening Proof가 48 B인 KZG, Key가 가장 고르게 채워진 Tree를 가정한다. $2^{32}$ 크기의 Tree에서 Key 1개는 320 B, Key 1,000개는 107,744 B, Key 10,000개는 937,472 B다.
-- Key 1,000개일 때 Key당 약 108 B다. Key 1개일 때의 320 B보다 훨씬 작다. 위쪽 Level의 Commitment를 여러 Key가 공유하고 Multiproof가 하나뿐이기 때문이다.
-- 같은 글의 보정: Key가 Random이면 Tree Depth가 약 0.6 늘어 Key당 약 30 B가 더 든다. 32 B Commitment를 쓰면 크기가 약 3분의 1 줄어든다.
+- [Vitalik Buterin의 2021년 글](https://vitalik.eth.limo/general/2021/06/18/verkle.html): Width 256, Commitment와 Opening Proof가 48 Bytes인 KZG, Key가 가장 고르게 채워진 Tree를 가정한다. $2^{32}$ 크기의 Tree에서 Key 1개는 320 Bytes, Key 1,000개는 107,744 Bytes, Key 10,000개는 937,472 Bytes다.
+- Key 1,000개일 때 Key당 약 108 Bytes다. Key 1개일 때의 320 Bytes보다 훨씬 작다. 위쪽 Level의 Commitment를 여러 Key가 공유하고 Multiproof가 하나뿐이기 때문이다.
+- 같은 글의 보정: Key가 Random이면 Tree Depth가 약 0.6 늘어 Key당 약 30 Bytes가 더 든다. 32 Bytes Commitment를 쓰면 크기가 약 3분의 1 줄어든다.
 - 같은 글의 비교: Verkle Tree의 Proof는 Width 16인 MPT보다 20~30배 이상, 이상적인 Binary Merkle Tree보다 6~8배 작다.
 - [ethereum.org](https://ethereum.org/roadmap/verkle-trees/)는 Leaf 1,000개 기준으로 MPT의 Witness 약 3.5 MB(7 Level), Verkle Tree의 Witness 약 150 kB(4 Level)를 들고 약 23배 작다고 적는다.
 - Tree Depth: Random인 Key $n$개를 Width $d$인 Tree에 넣으면 [Path 위 Inner Node의 수는 평균 약 $\log_d n + 2/3$](https://dankradfeist.de/ethereum/2021/06/18/verkle-trie-for-eth1.html)이다. 수치 실험에서 얻은 값이다. $n = 2^{30}$, $d = 2^{10}$이면 약 3.67이다.
@@ -556,16 +561,16 @@ Block 하나의 최악의 경우는 앞의 "Problem: Proof Size"에서 본 값�
 
 ### Verkle Tree in EIP-6800
 
-앞의 구조는 원리를 보이기 위해 단순화한 것이다. Ethereum에 제안된 구조는 [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)이 정하고, 다음이 다르다.
+앞의 구조는 원리를 보이기 위해 단순화한 것이다. Ethereum에 제안된 구조는 [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)과 Verkle Proof 형식이 정하고, 다음이 다르다. IPA는 EIP-6800 본문이 아니라 Verkle Proof 형식에서 온다.
 
-| 항목 | 단순화한 구조 | EIP-6800 |
+| 항목 | 단순화한 구조 | EIP-6800과 Verkle Proof 형식 |
 | --- | --- | --- |
 | Commitment | KZG의 흐름으로 설명 | Pedersen Commitment와 Inner Product Argument(IPA) |
-| Key | Account마다 Key 하나 | Stem(31 Byte)과 Suffix(1 Byte) |
+| Key | Account마다 Key 하나 | Stem(31 Bytes)과 Suffix(1 Byte) |
 | Tree의 끝 | Leaf Node | Extension Node와 그 아래 C1, C2 |
-| Opening Proof | Opening마다 하나 | Node에 저장하지 않고, Witness를 만들 때 Multiproof 하나로 계산 |
+| Opening Proof의 저장 | 다루지 않음 | Node에 저장하지 않고, Witness를 만들 때 Multiproof 하나로 계산 |
 
-EIP-6800은 2026년 11월 기준 Stagnant 상태다. 이후 State Tree 교체 논의는 Hash 기반 Binary Tree([EIP-7864](https://eips.ethereum.org/EIPS/eip-7864))로 옮겨 갔다.
+EIP-6800은 2026년 11월 기준 Stagnant 상태다. Hash 기반 Binary Tree를 쓰는 [EIP-7864](https://eips.ethereum.org/EIPS/eip-7864)(Draft)가 대안으로 제안되어 있다. 이후의 경위는 [2편]({% post_url Paper-Review/2026-11-10-Verkle-Tree-Roadmap %})에서 다룬다.
 
 #### Pedersen Commitment and IPA
 
@@ -580,11 +585,11 @@ $$
 - Additively Homomorphic(덧셈 동형): 두 Commitment를 더하면 두 Vector의 합에 대한 Commitment가 된다. 이 성질이 Multiproof와 Tree의 갱신을 가능하게 한다.
 - Opening Proof: IPA로 만든다. IPA는 Commitment에 담긴 Vector $a$와 공개된 Vector $b$의 Inner Product(내적)가 $y$임을 증명한다. Vector를 Polynomial의 값 $f(0), \ldots, f(255)$로 보면, $f(z)$는 $z$로부터 계산한 $b$와의 Inner Product로 쓸 수 있다.
 
-EIP-6800에서의 값은 다음과 같다.
+EIP-6800 구조에서의 값은 다음과 같다.
 
-- Elliptic Curve: Bandersnatch. Basis Point 256개
-- Commitment의 크기: 32 B
-- Element 하나에 넣을 수 있는 값: [252 Bit까지](https://blog.ethereum.org/2021/12/02/verkle-tree-structure). Scalar가 가질 수 있는 값의 집합인 Scalar Field의 크기가 253 Bit 소수이기 때문이다.
+- Elliptic Curve: Bandersnatch. Basis Point 256개 (EIP-6800)
+- Commitment의 크기: 32 Bytes (Verkle Proof 형식에서 Elliptic Curve Point 하나의 크기)
+- Element 하나에 넣을 수 있는 값: [252 Bits까지](https://blog.ethereum.org/2021/12/02/verkle-tree-structure). Scalar가 가질 수 있는 값의 집합인 Scalar Field의 크기가 253 Bits인 소수이기 때문이다.
 
 | 항목 | KZG | Pedersen Commitment와 IPA |
 | --- | --- | --- |
@@ -594,14 +599,14 @@ EIP-6800에서의 값은 다음과 같다.
 | 암호학적 가정 | Bilinear Group 위의 t-Strong Diffie-Hellman(t-SDH) | Discrete Log |
 
 - IPA는 KZG보다 Opening Proof가 크고 검증 비용이 크다. 대신 Multiproof가 모든 Opening을 하나로 묶으므로, IPA의 Opening Proof는 Witness 하나에 한 개만 들어가고 한 번만 검증한다.
-- Multiproof의 크기: [Anatomy of a Verkle proof](https://ihagopian.com/posts/anatomy-of-a-verkle-proof)가 적은 Witness 형식에서 $D$ 1개, IPA의 Point 16개, Scalar 1개다. 각 32 B이므로 18 × 32 = 576 B다 (형식에서 직접 계산한 값).
-- 다른 자료는 Commitment 방식이 다를 수 있다. Vitalik Buterin의 2021년 글은 수치를 KZG(Commitment 48 B) 기준으로 든다.
+- Multiproof의 크기: [Anatomy of a Verkle proof](https://ihagopian.com/posts/anatomy-of-a-verkle-proof)가 적은 Verkle Proof 형식에서 $D$ 1개, IPA의 Point 16개, Scalar 1개다. 각 32 Bytes이므로 18 × 32 = 576 Bytes다 (형식에서 직접 계산한 값).
+- 다른 자료는 Commitment 방식이 다를 수 있다. Vitalik Buterin의 2021년 글은 수치를 KZG(Commitment 48 Bytes) 기준으로 든다.
 
 #### Key: Stem and Suffix
 
-EIP-6800은 Account, Storage, Code를 모두 하나의 Tree에 넣는다. Key와 Value는 모두 32 Byte다. Key는 앞 31 Byte인 Stem과 마지막 1 Byte인 Suffix로 나뉜다.
+EIP-6800은 Account, Storage, Code를 모두 하나의 Tree에 넣는다. Key와 Value는 모두 32 Bytes다. Key는 앞 31 Bytes인 Stem과 마지막 1 Byte인 Suffix로 나뉜다.
 
-- Stem: Tree 안에서의 Path를 정한다. Address와 Tree Index를 이어 붙여 Pedersen Hash에 넣은 결과의 앞 31 Byte다.
+- Stem: Tree 안에서의 Path를 정한다. Address와 Tree Index를 이어 붙여 Pedersen Hash에 넣은 결과의 앞 31 Bytes다.
     - Tree Index: 한 Account의 Value를 256개씩 묶은 그룹의 번호
     - Pedersen Hash: Pedersen Commitment를 Hash Function처럼 쓴 것
 - Suffix: 같은 Stem 아래에 있는 Value 256개 중 하나를 고른다.
@@ -618,7 +623,7 @@ Account의 첫 번째 Stem(Tree Index 0)에는 자주 함께 읽는 Value가 모
 | 128~255 | Code의 Chunk 0~127 | CODE_OFFSET = 128 |
 
 - 나머지 Storage Slot과 Chunk는 다른 Tree Index의 Stem으로 간다.
-- Code는 31 Byte씩 나뉘고, 앞에 1 Byte를 붙인 32 Byte Chunk로 Tree에 들어간다. 앞 1 Byte는 그 조각의 첫머리에서 PUSH 명령의 Data인 Byte의 수다. PUSH는 뒤따르는 Byte를 Data로 읽는 명령이다.
+- Code는 31 Bytes씩 나뉘고, 앞에 1 Byte를 붙인 32 Bytes Chunk로 Tree에 들어간다. 앞 1 Byte는 그 조각의 첫머리에서 PUSH 명령의 Data인 Byte의 수다. PUSH는 뒤따르는 Byte를 Data로 읽는 명령이다.
 - MPT와 달리 Code의 일부 Chunk만 증명할 수 있다.
 - 같은 Stem에 속한 Value는 Path를 공유한다. Nonce와 Balance, 앞쪽 Storage Slot을 함께 읽어도 Path 위의 Commitment는 Witness에 한 번만 들어간다.
 
@@ -636,14 +641,14 @@ Inner Node → ... → Extension Node  Commit(1, Stem, C1, C2)
 ```
 
 - Extension Node의 첫 Element 1은 이 Node가 Extension Node임을 나타내는 표시다.
-- Extension Node는 MPT의 Extension Node와 이름만 같다. MPT에서는 갈라지지 않는 Path 구간을 잇는 Node이고, 여기서는 Stem 하나에 속한 Value 256개를 담는 Node다. Stem도 남은 부분이 아니라 31 Byte 전체를 가진다.
+- Extension Node는 MPT의 Extension Node와 이름만 같다. MPT에서는 갈라지지 않는 Path 구간을 잇는 Node이고, 여기서는 Stem 하나에 속한 Value 256개를 담는 Node다. Stem도 남은 부분이 아니라 31 Bytes 전체를 가진다.
 - 앞의 단순화한 구조에서 Leaf Node라고 부른 것이 실제 구조에서는 Extension Node와 C1, C2에 해당한다.
 - Parent가 Child의 Commitment를 담을 때는 Scalar로 변환해 Element에 넣는다. Commitment는 Elliptic Curve Point이고 Element는 Scalar이기 때문이다.
 
 C1과 C2 두 개로 나누는 이유는 다음과 같다.
 
-- Element 하나에는 252 Bit까지만 들어가는데 Value는 32 Byte(256 Bit)다.
-- 그래서 Value 하나를 16 Byte 두 조각으로 나눠 Element 두 개에 넣는다.
+- Element 하나에는 252 Bits까지만 들어가는데 Value는 32 Bytes(256 Bits)다.
+- 그래서 Value 하나를 16 Bytes씩 두 조각으로 나눠 Element 두 개에 넣는다.
 - Value 128개가 Element 256개를 채우므로 Commitment가 두 개 필요하다. C1은 Suffix 0~127, C2는 Suffix 128~255를 담는다.
 - 아래쪽 조각에는 $2^{128}$을 더한다. Value가 0인 경우와 Value가 없는 경우를 구분하기 위해서다. Value가 없는 자리의 Element는 0이다.
 
@@ -720,4 +725,4 @@ Path를 따라 올라가는 순서는 다음과 같다.
 - 검증: [Value $m$개를 증명할 때 크기 $m$의 Multiexponentiation 1회와 약 $4m$회의 Field 연산이 대부분이다](https://vitalik.eth.limo/general/2021/06/18/verkle.html). Multiexponentiation은 여러 Elliptic Curve Point에 각각 Scalar를 곱해 모두 더하는 연산이고, Multiproof의 $E$를 계산하는 데 쓴다. 같은 글은 Value 수천 개의 검증이 100 ms 안에 끝난다고 적는다. 2021년의 추정이고 측정 환경은 적혀 있지 않다.
 - 생성: Multiproof는 [Polynomial 전체를 가지고 있을 때에만 효율적으로 만들 수 있다](https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html). Path 위 각 Node의 Element 256개가 모두 필요하다는 뜻이다. 그래서 State 전체를 가진 Node가 Witness를 만든다.
 
-**⇒ Verkle Tree는 Parent를 Vector Commitment로 만들어 Sibling 없이 증명한다. Sibling이 없으므로 Width를 256으로 키워 Tree Depth를 줄일 수 있다. 그 결과 Key 하나의 Path 크기는 3,840 B에서 128 B로 줄어든다. 여러 Opening Proof는 Multiproof 하나로 묶인다. Opening Proof를 저장하지 않고 Commitment를 덧셈으로 갱신하므로 갱신 비용은 Width에 비례하지 않는다.**
+**⇒ Verkle Tree는 Parent를 Vector Commitment로 만들어 Sibling 없이 증명한다. Sibling이 없으므로 Width를 256으로 키워 Tree Depth를 줄일 수 있다. 그 결과 Key 하나의 Path 크기는 3,840 Bytes에서 128 Bytes로 줄어든다. 여러 Opening Proof는 Multiproof 하나로 묶인다. Opening Proof를 저장하지 않고 Commitment를 덧셈으로 갱신하므로 갱신 비용은 Width에 비례하지 않는다.**
