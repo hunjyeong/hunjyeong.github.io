@@ -290,7 +290,7 @@ MPT의 Proof에는 Path 위 Branch Node마다 Sibling의 Hash가 최대 15개 �
 
 - Account 하나: [EIP-6800](https://eips.ethereum.org/EIPS/eip-6800)에 따르면 Account 접근 하나의 Witness는 평균 3 kB에 가깝고, 최악의 경우 그 세 배다.
 
-- Block 하나, EIP-6800의 추정 (Gas 15,000,000, Code 제외): 최악의 경우 접근 6,000번(접근당 2,500 Gas)에 접근당 평균 3 kB를 곱해 약 18 MB다. 이 크기는 12초 Slot 안에 전파하기에 너무 크다.
+- Block 하나, EIP-6800의 추정 (Gas 15,000,000): 최악의 경우 접근 6,000번(접근당 2,500 Gas)에 접근당 평균 3 kB를 곱해 약 18 MB다. 이 크기는 12초 Slot 안에 전파하기에 너무 크다.
 
 - Block 하나, [The Verge](https://vitalik.eth.limo/general/2024/10/23/futures4.html)의 추정 (Gas 30,000,000, Code 포함): 최악의 경우 접근당 2,400 Gas로 계산해 30,000,000 ÷ 2,400 × (5 × 480 + 24,000) = 330,000,000 Bytes, 약 330 MB다.
 
@@ -343,6 +343,7 @@ Commitment Scheme은 값을 Commitment라는 짧은 값 하나로 고정해 두�
 - Binding: 한 번 만든 Commitment를 다른 값의 Commitment인 것처럼 열 수 없다.
 
 - Hiding: Commitment만 보고는 값을 알 수 없다.
+
 Vector Commitment는 순서가 있는 값의 목록인 Vector $(v_0, \ldots, v_{n-1})$ 전체를 Commitment 하나로 만든다. Vector의 값 하나하나를 Element(원소)라 한다.
  
 - Opening: Commitment $C$의 Index $i$에 있는 Element가 $v_i$임을 밝히는 것
@@ -497,7 +498,7 @@ Multiproof는 모든 Opening Proof를 크기가 고정된 증명 하나로 묶�
 - Proof는 $D$와 Opening Proof 하나다. Opening 개수 $m$과 무관하다.
 - 4단계에서 Commitment끼리 더할 수 있어야 한다. KZG와 Pedersen Commitment 모두 이 성질이 있다.
 - Multiproof를 쓰면 Proof에서 Key 수에 따라 커지는 부분은 Path 위의 Commitment뿐이다.
-- 자세한 과정은 [Multiproof 글](/posts/multiproof/)에 있다.
+- 자세한 과정은 [Multiproof 글]({% post_url Cryptography/2026-11-10-Multiproof %})에 있다.
 
 ### Verkle Tree의 Proof Size
 
@@ -527,15 +528,20 @@ $n$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산이다 (직접 �
 
 - Tree Depth: MPT는 $\log_{16} 10^6 \approx 4.98$이므로 5, Verkle Tree는 $\log_{256} 10^6 \approx 2.49$이므로 3으로 놓는다.
 - MPT는 Level마다 Sibling Hash 15개(각 32 B)를 넣는다.
-- Verkle Tree는 Level마다 Commitment 1개(32 B)를 넣고, Multiproof 하나(576 B)를 더한다.
+- Verkle Tree(단순화한 구조)는 Level마다 Commitment 1개(32 B)를 넣고, Multiproof 하나(576 B)를 더한다.
+- Verkle Tree(EIP-6800)는 Path 끝에 Extension Node의 Commitment와 C1 또는 C2가 함께 들어가므로 Key당 Commitment가 하나 더 많다 (뒤의 "Verkle Tree in EIP-6800"). Root를 포함해 Inner Node가 3개면 Key당 4개다.
 
 | Tree | 계산 | 크기 |
 | --- | --- | --- |
 | MPT | 1,000 × 15 × 5 × 32 B | 2,400,000 B (2.4 MB) |
-| Verkle Tree | 1,000 × 3 × 32 B + 576 B | 96,576 B (약 97 kB) |
+| Verkle Tree (단순화한 구조) | 1,000 × 3 × 32 B + 576 B | 96,576 B (약 97 kB) |
+| Verkle Tree (EIP-6800) | 1,000 × 4 × 32 B + 576 B | 128,576 B (약 129 kB) |
 
-- 약 25배 차이다.
-- 두 값 모두 상한이다. 여러 Key가 위쪽 Level의 Node를 공유하면 같은 Hash나 Commitment는 한 번만 넣으므로 실제 크기는 더 작다. Key와 Value 자체의 크기는 넣지 않았다.
+- MPT와 비교하면 단순화한 구조는 약 25배, EIP-6800 구조는 약 19배 작다.
+- 세 값 모두 근삿값이며 상한이 아니다.
+    - Path가 가정보다 긴 Key가 있다. Key가 Random이면 MPT에서 앞 5 Nibble을 다른 Key와 공유할 확률은 $1 - e^{-10^6/16^5} \approx 0.61$이다. 따라서 약 61%의 Key가 Branch Node를 6개 이상 거친다. Verkle Tree에서 앞 3 Byte를 공유할 확률은 $1 - e^{-10^6/256^3} \approx 0.058$이다. 따라서 약 6%의 Key가 Inner Node를 4개 이상 거친다.
+    - 실제 크기를 줄이는 요인도 있다. 여러 Key가 위쪽 Level의 Node를 공유하면 같은 Hash나 Commitment는 한 번만 넣는다. MPT의 아래쪽 Branch Node는 항목 16개가 모두 차 있지 않다.
+- Key와 Value 자체의 크기는 넣지 않았다.
 
 #### 출처의 수치
 
@@ -546,7 +552,7 @@ $n$ = 1,000,000, 증명할 Value $m$ = 1,000개일 때의 계산이다 (직접 �
 - [ethereum.org](https://ethereum.org/roadmap/verkle-trees/)는 Leaf 1,000개 기준으로 MPT의 Witness 약 3.5 MB(7 Level), Verkle Tree의 Witness 약 150 kB(4 Level)를 들고 약 23배 작다고 적는다.
 - Tree Depth: Random인 Key $n$개를 Width $d$인 Tree에 넣으면 [Path 위 Inner Node의 수는 평균 약 $\log_d n + 2/3$](https://dankradfeist.de/ethereum/2021/06/18/verkle-trie-for-eth1.html)이다. 수치 실험에서 얻은 값이다. $n = 2^{30}$, $d = 2^{10}$이면 약 3.67이다.
 
-Block 하나의 최악의 경우는 앞의 Proof Size Problem에서 본 값이다. Block Gas 30,000,000 기준으로 MPT는 약 330 MB, Verkle Tree는 약 1.3~4.8 MB다.
+Block 하나의 최악의 경우는 앞의 "Problem: Proof Size"에서 본 값이다. Block Gas 30,000,000 기준으로 MPT는 약 330 MB, Verkle Tree는 약 1.3~4.8 MB다.
 
 ### Verkle Tree in EIP-6800
 
@@ -714,4 +720,4 @@ Path를 따라 올라가는 순서는 다음과 같다.
 - 검증: [Value $m$개를 증명할 때 크기 $m$의 Multiexponentiation 1회와 약 $4m$회의 Field 연산이 대부분이다](https://vitalik.eth.limo/general/2021/06/18/verkle.html). Multiexponentiation은 여러 Elliptic Curve Point에 각각 Scalar를 곱해 모두 더하는 연산이고, Multiproof의 $E$를 계산하는 데 쓴다. 같은 글은 Value 수천 개의 검증이 100 ms 안에 끝난다고 적는다. 2021년의 추정이고 측정 환경은 적혀 있지 않다.
 - 생성: Multiproof는 [Polynomial 전체를 가지고 있을 때에만 효율적으로 만들 수 있다](https://dankradfeist.de/ethereum/2021/06/18/pcs-multiproofs.html). Path 위 각 Node의 Element 256개가 모두 필요하다는 뜻이다. 그래서 State 전체를 가진 Node가 Witness를 만든다.
 
-**⇒ Verkle Tree는 Parent를 Vector Commitment로 만들어 Sibling 없이 증명한다. Sibling이 없으므로 Width를 256으로 키워 Tree Depth를 줄일 수 있고, 여러 Opening Proof는 Multiproof 하나로 묶인다. Opening Proof를 저장하지 않고 Commitment를 덧셈으로 갱신하므로 갱신 비용은 Width에 비례하지 않는다. 그 결과 Key 하나의 Path 크기는 3,840 B에서 128 B로 줄어든다.**
+**⇒ Verkle Tree는 Parent를 Vector Commitment로 만들어 Sibling 없이 증명한다. Sibling이 없으므로 Width를 256으로 키워 Tree Depth를 줄일 수 있다. 그 결과 Key 하나의 Path 크기는 3,840 B에서 128 B로 줄어든다. 여러 Opening Proof는 Multiproof 하나로 묶인다. Opening Proof를 저장하지 않고 Commitment를 덧셈으로 갱신하므로 갱신 비용은 Width에 비례하지 않는다.**
