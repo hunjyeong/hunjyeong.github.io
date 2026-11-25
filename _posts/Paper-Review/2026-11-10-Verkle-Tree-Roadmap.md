@@ -21,8 +21,6 @@ media_subpath: /assets/img/posts/verkle-tree/
 
 ---
 
-이 글은 Verkle Tree가 Ethereum Roadmap에 어떻게 들어갔고, 왜 빠졌고, 그 자리에 무엇이 들어왔는지를 적는다. 2026년 11월 24일 기준이다. 현재 상태는 Ethereum Foundation의 Roadmap 초안인 [Strawmap](https://strawmap.org/), [ethereum.org의 Roadmap](https://ethereum.org/roadmap/), Upgrade 진행 상황을 추적하는 [Forkcast](https://forkcast.org/)에서 확인했다. Verkle Tree의 구조, Stateless Client, Witness는 [1편 Verkle Tree]({% post_url Paper-Review/2026-11-10-Verkle-Tree %})에서 다뤘다.
-
 ### TL;DR
 
 - Verkle Tree는 Roadmap의 **The Verge**에서 State Tree를 바꾸는 수단이었다. 2024년 2월에는 Osaka Upgrade에 넣기로 정해졌다.
