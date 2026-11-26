@@ -1,6 +1,6 @@
 ---
 title: "Instachain: Breaking the Sharding Limits via Adjustable Quorums"
-date: 2026-11-26
+date: 2026-11-26 02:00:00 +0900
 last_modified_at: 2026-11-26
 categories: [Paper Review]
 tags: [Blockchain, Sharding, Consensus]

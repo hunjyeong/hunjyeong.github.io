@@ -1,6 +1,6 @@
 ---
 title: "Flexible Byzantine Fault Tolerance"
-date: 2026-11-26
+date: 2026-11-26 00:00:00 +0900
 categories: [Paper Review]
 tags: [Blockchain, Consensus, BFT]
 math: true
