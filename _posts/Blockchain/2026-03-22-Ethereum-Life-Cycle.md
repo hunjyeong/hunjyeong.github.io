@@ -24,7 +24,9 @@ Node는 Ethereum Client 소프트웨어를 실행하는 컴퓨터이다. 다른 
 Node는 저장하는 데이터의 범위에 따라 세 가지로 나뉜다.
 
 - Full Node: 동기화 이후 들어오는 블록을 모두 직접 실행해 검증한다. 최근 상태만 유지하고 오래된 상태는 삭제한다.
+
 - Archive Node: Full Node의 데이터에 더해 과거의 모든 상태를 보관한다.
+
 - Light Node: 블록 헤더만 저장한다. 필요한 데이터는 Full Node에 요청하고, 헤더의 루트 값으로 직접 검증한다.
 
 ### What are Clients?
@@ -32,21 +34,35 @@ Node는 저장하는 데이터의 범위에 따라 세 가지로 나뉜다.
 Client는 Ethereum 프로토콜 명세를 구현한 소프트웨어이다. 명세는 하나이지만 여러 팀이 서로 다른 언어로 구현한 Client가 존재한다. PoS(Proof-of-Stake) 전환 이후 하나의 Node는 Execution Client와 Consensus Client를 함께 실행해야 한다. 두 Client는 Engine API라는 로컬 RPC(Remote Procedure Call)로 연결되며, Consensus Client가 Execution Client에 요청을 보내는 방향으로 동작한다.
 
 - **Execution Client** (EL Client, Execution Engine. EL은 Execution Layer의 줄임말이다)
+
     - Execution Layer(실행 계층)를 구현한 프로그램이다.
+
         - 예: Geth, Nethermind, Besu, Erigon, Reth 등
+
     - P2P 네트워크에서 트랜잭션을 수신하여 Mempool(블록에 포함되기 전의 트랜잭션을 보관하는 공간)에 저장하고 다른 Node에 전파한다.
+
     - 트랜잭션을 EVM(Ethereum Virtual Machine)에서 실행하고, 계정 잔고와 스토리지 등 Ethereum의 최신 상태와 데이터베이스를 관리한다.
+
     - JSON(JavaScript Object Notation)‑RPC API를 제공해서 외부(지갑, DApp(Decentralized Application) 등)에서 상태 조회와 트랜잭션 전송이 가능하게 한다.
+
     - Consensus Client의 요청(Engine API)에 따라 Execution Payload를 생성하고 검증한다. Execution Payload는 블록에 담기는 트랜잭션 목록과 그 실행 결과이다.
 
 - **Consensus Client** (CL Client, Beacon Node. CL은 Consensus Layer의 줄임말이다)
+
     - Consensus Layer(합의 계층)와 PoS 합의 알고리즘을 구현한 프로그램이다.
+
         - 예: Lighthouse, Prysm, Teku, Nimbus, Lodestar, Grandine 등
+
     - Execution Client와는 별도의 P2P 네트워크에서 Beacon Block과 Attestation(Validator의 투표)을 수신하고 전파한다.
+
         - Validator는 ETH(Ethereum의 기본 화폐)를 예치(Stake)하고 블록 제안과 Attestation을 맡는 참여자이다. 이 역할은 Consensus Client에 연결된 별도의 Validator Client 소프트웨어가 수행한다.
+
     - Beacon State를 관리하며, 이 상태로부터 각 Slot(12초 단위의 시간 구간)의 Proposer(블록 제안자)와 Committee(투표를 맡은 Validator 집합)를 계산한다.
+
     - 수집한 Attestation으로 Fork Choice Rule(포크 선택 규칙)인 LMD-GHOST(Latest Message Driven Greediest Heaviest Observed SubTree)를 실행하여 체인의 Head(최신 블록)를 결정한다.
+
     - 블록의 실행 결과를 직접 계산하지 않고, Engine API로 Execution Client에 Execution Payload의 생성과 검증을 요청한다.
+
     - Casper FFG(Friendly Finality Gadget) 규칙에 따라 Checkpoint를 Justified(정당화) 및 Finalized(완결) 상태로 만든다.
 
 <br />
@@ -84,18 +100,31 @@ _출처: [https://ethereum.org/developers/docs/nodes-and-clients/node-architectu
 ```
  
 - **from**: 트랜잭션에 서명할 발신자 주소. 지갑이나 RPC 요청에서 서명할 계정을 지정하는 용도이며, 서명되는 트랜잭션 필드에는 포함되지 않는다. 네트워크는 서명에서 발신자 주소를 복구한다(2.1 참고).
+
 - **type**: 트랜잭션 유형([EIP-2718](https://eips.ethereum.org/EIPS/eip-2718)). 2는 EIP-1559 트랜잭션으로 현재의 표준 유형이다. 이 밖에 0(Legacy), 1([EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)), 3([EIP-4844](https://eips.ethereum.org/EIPS/eip-4844) blob 트랜잭션), 4([EIP-7702](https://eips.ethereum.org/EIPS/eip-7702))가 있다.
+
 - **chainId**: 트랜잭션이 유효한 체인의 ID(Identifier). 서명 대상에 포함되어 다른 체인에서의 재전송(Replay Attack)을 막는다.
+
 - **nonce**: 발신자 계정의 현재 nonce와 같아야 하는 값. 0부터 시작하며, 트랜잭션이 블록에 포함될 때마다 계정 nonce가 1씩 증가하므로 같은 체인에서 동일 트랜잭션이 중복 실행되는 것을 막는다. EIP-7702의 authorization(EOA가 자신의 코드를 특정 컨트랙트에 위임한다는 서명된 승인)이 처리되거나 위임된 코드가 컨트랙트를 생성(CREATE/CREATE2)할 때도 증가하므로, 보낸 트랜잭션 수와 다를 수 있다.
+
 - **to**: 수신자 주소. 수신자가 EOA든 컨트랙트든 value가 전송되며, 수신자에 코드가 있으면(컨트랙트, 또는 EIP-7702로 코드를 위임한 EOA) 그 코드가 실행된다. 코드 실행이 revert되면 value 전송도 취소된다. 컨트랙트를 배포하는 트랜잭션은 to를 비워 두고 data에 init code(실행 결과로 컨트랙트의 런타임 코드를 반환하는 생성 코드)를 넣는다. type 3과 type 4 트랜잭션은 to를 비울 수 없어 배포에 쓸 수 없다.
+
 - **value**: 전송할 ETH의 양 (wei 단위. wei는 ETH의 최소 단위이며 1 ETH = 10^18 wei, 1 gwei = 10^9 wei)
+
 - **data**: 임의의 데이터를 담는 선택 필드. 컨트랙트를 호출할 때는 앞 4bytes에 호출할 함수의 selector를, 그 뒤에 ABI(Application Binary Interface) 규칙으로 인코딩한 인자를 넣는다.
+
 - **gasLimit**: 이 트랜잭션이 소모할 수 있는 가스의 최대 한도. 코드가 없는 주소로 ETH만 보내는 단순 송금은 21,000이 필요하다(Glamsterdam의 [EIP-2780](https://eips.ethereum.org/EIPS/eip-2780) 적용 후에는 존재하지 않는 주소로 value를 보내면 새 계정 생성 비용이 추가되고, value가 0이면 15,000으로 줄어든다. EIP-2780은 2026년 11월 기준 Last Call 상태이며 메인넷에 적용되지 않았다). 사용하지 않은 가스에 대한 요금은 청구되지 않는다.
+
 - **maxFeePerGas** (EIP-1559): 가스당 지불할 의사가 있는 총 요금의 상한. Base Fee와 Priority Fee를 모두 포함한 값이다.
+
     - 포함 조건: maxFeePerGas ≥ Base Fee, maxFeePerGas ≥ maxPriorityFeePerGas, 발신자 잔고 ≥ gasLimit × maxFeePerGas + value (실제 차감액이 아니라 상한을 기준으로 잔고를 확인한다)
+
     - 실제 가스당 지불액 = min(maxFeePerGas, Base Fee + maxPriorityFeePerGas)
+
     - Base Fee는 소각되고, 나머지(Priority Fee)는 블록의 fee recipient(블록을 만든 쪽이 지정한 수수료 수령 주소)에게 지급된다. 상한과 실제 지불액의 차이는 청구되지 않는다.
+
 - **maxPriorityFeePerGas** (EIP-1559): fee recipient에게 팁으로 지불할 가스당 최대 요금
+
 - **accessList** ([EIP-2930](https://eips.ethereum.org/EIPS/eip-2930)): 트랜잭션이 접근할 주소와 스토리지 키 목록. 대부분 비워 둔다.
 
 ### 1.2 계정 상태 조회 및 Fee 추정 (Account State Query & Fee Estimation)
@@ -121,13 +150,17 @@ sigHash = keccak256(0x02 || RLP([chainId, nonce, maxPriorityFeePerGas, maxFeePer
 ```
 
 - **RLP**: Ethereum Execution Layer에서 사용하는 데이터 직렬화(serialization) 형식. 트랜잭션 필드와 블록 헤더(stateRoot, transactionsRoot 등)를 인코딩한다. prefix 바이트가 뒤따르는 데이터의 종류(바이트열 또는 리스트)와 길이를 나타낸다.
+
 - **Hash의 역할**: 임의 길이의 트랜잭션을 32bytes 고정 길이 값으로 요약한다. 트랜잭션 내용이 조금이라도 바뀌면 해시가 달라지므로, 같은 서명에서 원래 발신자와 다른 주소가 복구된다.
 
 그 다음으로, sigHash를 secp256k1 개인키로 ECDSA(Elliptic Curve Digital Signature Algorithm) 서명하여 (yParity, r, s)를 생성한다.
 
 - r: 서명 과정에서 만든 임시 곡선 점의 x좌표 (32bytes)
+
 - s: 서명값 (32bytes)
+
 - yParity: 복구 식별자. 임시 곡선 점의 y좌표 홀짝을 나타내며 0 또는 1이다.
+
     - Legacy(type 0) 트랜잭션에서는 이 값을 v라고 부르며, 27/28 또는 [EIP-155](https://eips.ethereum.org/EIPS/eip-155) 방식(chainId × 2 + 35 또는 36)을 사용한다. Type 2 트랜잭션은 chainId가 별도 필드이므로 v에 chainId를 넣지 않는다.
 
 서명 후 서명값을 포함해 다시 RLP 인코딩하여 Signed Raw Transaction을 만든다.
@@ -164,26 +197,39 @@ Node는 [`eth_sendRawTransaction`](https://ethereum.org/developers/docs/apis/jso
     ```
     
     - r과 s만으로는 공개키 후보가 여러 개 나오므로 yParity로 하나를 확정한다.
+
     - Node는 chainId가 현재 체인과 일치하는지, s가 곡선 위수의 절반 이하인지([EIP-2](https://eips.ethereum.org/EIPS/eip-2)) 함께 확인한다.
     
     ⇒ 별도의 "서명 검증" 단계는 없다. 복구 자체가 검증 역할을 한다. 개인키 없이 만든 서명이나 내용이 변조된 트랜잭션에서는 원래 발신자와 다른 주소가 복구되며, 그 주소에는 잔고가 없으므로 Balance 검증에서 거부된다. 이 구조에서 얻는 성질은 세 가지이다. 1) 발신자 인증: 해당 주소의 개인키 소유자만 유효한 서명을 만들 수 있다. 2) Replay Attack 방지: chainId가 서명 대상에 포함되므로 같은 트랜잭션을 다른 체인에 재전송할 수 없다. 3) 무결성: 필드가 조금이라도 바뀌면 sigHash가 달라진다. 즉, 검증은 개인키 없이 누구나 할 수 있지만 서명 생성은 개인키 소유자만 가능하다.
 
 2. **Nonce 검증:**
+
     - 트랜잭션의 nonce가 발신자 계정의 현재 nonce보다 작지 않은지 확인한다.
+
     - 현재 계정의 nonce = 5인 경우 예시
+
         - `tx.nonce < 5` → 이미 사용된 nonce ⇒ 거부
+
         - `tx.nonce = 5` → 바로 실행 가능 ⇒ Pending
+
         - `tx.nonce > 5` → 앞선 nonce가 Mempool에 모두 있으면 Pending, 중간에 빈 nonce가 있으면 Queued
 
 3. **Balance 검증:**
+
     - 발신자 잔고 ≥ value + (gasLimit × maxFeePerGas) 인지 확인한다.
+
     - Node가 보유한 최신 상태(StateDB)에서 잔고를 조회한다.
 
 4. **Fee 및 GasLimit 검증:**
+
     - maxFeePerGas ≥ maxPriorityFeePerGas
+
     - intrinsic gas ≤ gasLimit ≤ 16,777,216
+
         - intrinsic gas는 실행 전에 부과되는 기본 비용으로, 21,000에 calldata와 access list 비용 등이 더해진다. gasLimit이 이보다 작으면 거부된다. Pectra(Prague + Electra) 업그레이드의 [EIP-7623](https://eips.ethereum.org/EIPS/eip-7623) 이후에는 gasLimit이 calldata floor 비용(21,000 + 10 × calldata 토큰 수)보다 작아도 거부된다.
+
         - 16,777,216(2^24)은 Fusaka 업그레이드의 [EIP-7825](https://eips.ethereum.org/EIPS/eip-7825)가 정한 트랜잭션당 가스 상한이다. 이 값을 넘으면 거부된다. Geth는 gasLimit이 현재 블록 가스 한도를 넘는지도 함께 확인한다.
+
         - 블록 가스 한도는 고정 상수가 아니며 Validator들의 설정에 따라 블록마다 조금씩 조정된다. 2026년 11월 기준 메인넷은 약 60M(6,000만) gas이다. Fusaka에 포함된 [EIP-7935](https://eips.ethereum.org/EIPS/eip-7935)가 EL Client의 기본 설정값을 60M으로 정했다.
 
 
@@ -192,14 +238,23 @@ Node는 [`eth_sendRawTransaction`](https://ethereum.org/developers/docs/apis/jso
 1차 검증을 모두 통과한 트랜잭션은 Node의 로컬 Mempool에 다음과 같은 과정을 통해 추가된다. 
 
 1. 트랜잭션 해시 계산
+
     - `keccak256(0x02 || RLP([..., yParity, r, s]))` → 트랜잭션 해시 (0x1234...)
+
 2. Pending / Queued 분류
+
     - Pending: 계정의 현재 nonce부터 빈 번호 없이 이어지는 트랜잭션. 바로 실행 가능하다.
+
     - Queued: 앞선 nonce가 비어 있어 아직 실행할 수 없는 트랜잭션. 빈 nonce가 채워지면 Pending으로 승격된다.
+
 3. Replacement 체크
+
     - 같은 발신자, 같은 nonce의 트랜잭션이 이미 있으면 수수료를 비교한다.
+
     - Geth 기본 설정에서는 새 트랜잭션의 maxFeePerGas와 maxPriorityFeePerGas가 모두 기존 값보다 10% 이상 높아야 교체된다(`--txpool.pricebump`). 조건을 만족하지 못하면 새 트랜잭션이 거부된다.
+
 4. 블록 구성 시 정렬
+
     - 같은 계정의 트랜잭션은 nonce 순서를 유지하고, 계정 간에는 effective tip이 높은 트랜잭션이 우선한다(3.2 참고).
 
 
@@ -286,8 +341,11 @@ Execution Payload의 생성 방식은 Validator가 MEV-Boost를 사용하는지 
         EL은 다음 조건을 만족하도록 트랜잭션을 선택하고 정렬한다.
         
         - 트랜잭션 유효성 (maxFeePerGas ≥ baseFeePerGas 포함)
+
         - 같은 계정 내 nonce 순서 유지
+
         - 블록 gas limit 만족
+
         - effective priority fee 최대화
         
         → 실제 정렬 기준: effective_tip = min(maxPriorityFeePerGas, maxFeePerGas − baseFeePerGas)
@@ -301,7 +359,9 @@ Execution Payload의 생성 방식은 Validator가 MEV-Boost를 사용하는지 
         모든 실행이 완료되면 EL은 실행 결과를 요약하는 값을 계산한다.
         
         - stateRoot, transactionsRoot, receiptsRoot: 각각 상태, 트랜잭션 목록, 영수증 목록에 대한 Cryptographic Commitment
+
         - logsBloom: 로그 검색용 Bloom filter
+
         - gasUsed: 블록에서 사용된 가스 합계
     
     5. EL → CL에게 Execution Payload 전달 ⇒ 즉, “결과는 다음과 같아”
@@ -313,10 +373,15 @@ Execution Payload의 생성 방식은 Validator가 MEV-Boost를 사용하는지 
     MEV-Boost 환경에서는 Execution Payload 생성 책임이 외부 Builder에게 위임된다.
     
     - 외부 Builder들은 Public Mempool, Private Orderflow, 그리고 MEV Bundle을 조합하여 수익이 최대화된 Execution Payload를 생성한다.
+
     - 생성된 블록 후보는 Relay에게 전달되며, Relay는 여러 Builder의 입찰(bid)을 수집한다.
+
     - Relay는 각 블록의 전체 내용을 공개하지 않고 블록 헤더(Execution Payload Header)와 입찰 금액만을 Proposer에게 제공한다.
+
     - Proposer는 가장 높은 입찰의 헤더를 담은 Blinded Beacon Block에 서명하여 Relay에 전달한다.
+
     - Proposer의 서명이 확인되면 Relay는 전체 Execution Payload를 공개(reveal)하고 블록이 네트워크에 전파된다.
+
     - Proposer는 서명 전에 Payload를 볼 수 없으므로 실행 유효성을 직접 검증할 수 없다. Builder가 제출한 블록의 유효성 확인은 Relay의 역할이며, 확인 방식은 Relay 구현에 따라 다르다. Relay가 Payload를 공개하지 않거나 Payload가 유효하지 않으면 해당 Slot은 missed proposal이 된다. Proposer가 같은 Slot에 다른 블록을 다시 서명하면 이중 제안으로 Slashing(규칙 위반 시 예치한 ETH의 일부를 잃고 강제 퇴출되는 처벌) 대상이 되므로 대체 블록을 제안할 수 없다.
     
     이 과정에서 Builder는 Proposer가 Relay에 등록한 fee recipient 주소로 입찰 금액을 지급해야 한다(builder-specs). 지급 방법은 사양이 규정하지 않는다. 널리 쓰이는 방식은 Builder가 Execution Payload의 feeRecipient를 자신의 주소로 설정하여 priority fee와 MEV 수익을 받고, 블록의 마지막 트랜잭션으로 Proposer의 주소에 입찰 금액을 송금하는 것이다.
@@ -358,8 +423,11 @@ Proposer는 Execution Payload를 확보한 이후 CL에서 Beacon Block을 생�
     CL Client는 EL Client로부터 Execution Payload를 전달받는다. CL은 실행 결과 자체를 재계산하지 않으며, 대신 Consensus Layer 관점에서 Execution Payload가 Beacon State와 일치하는지 확인한다. 이 검사는 블록을 수신한 모든 Node도 동일하게 수행한다.
     
     - parent_hash가 Beacon State에 기록된 직전 Execution Payload의 block_hash와 일치하는지 확인
+
     - prev_randao가 Beacon State의 현재 RANDAO mix와 일치하는지 확인
+
     - timestamp가 해당 Slot의 시작 시각과 정확히 일치하는지 확인
+
     - blob commitment 개수가 블록당 상한을 넘지 않는지 확인
     
     실행 상태 전이의 유효성 검증은 블록을 받은 각 Node의 EL이 독립적으로 수행한다.
@@ -395,6 +463,7 @@ Proposer는 Execution Payload를 확보한 이후 CL에서 Beacon Block을 생�
         ```
         
         - execution_payload: EL에서 발생한 상태 전이 결과를 CL 블록에 연결하는 역할을 수행한다.
+
         - state_root: Beacon State 전이 결과에 대한 cryptographic commitment이다.
 
 3. Beacon Block 서명
@@ -402,6 +471,7 @@ Proposer는 Execution Payload를 확보한 이후 CL에서 Beacon Block을 생�
     Proposer는 생성된 Beacon Block에 대해 BLS 서명(BLS12-381 곡선)을 수행한다. 이 서명은 해당 Slot의 정당한 Proposer가 블록을 생성했음을 증명한다.
     
     - 서명 대상: `compute_signing_root(block, domain)`. 블록의 `hash_tree_root`와 도메인(DOMAIN_BEACON_PROPOSER, 포크 버전, genesis validators root로 계산)을 묶어 해시한 값이다. 도메인이 포함되므로 같은 서명을 다른 용도나 다른 체인에서 재사용할 수 없다.
+
     - 서명 결과: `SignedBeaconBlock { message: BeaconBlock, signature: BLSSignature }`
 
 4. P2P 네트워크 전파 (Block Gossip)
@@ -411,7 +481,9 @@ Proposer는 Execution Payload를 확보한 이후 CL에서 Beacon Block을 생�
     블록을 수신한 다른 Node들은 다음 과정을 수행한다.
     
     1. Consensus Layer 규칙 검증
+
     2. Execution Layer에서 Execution Payload 재실행 및 검증
+
     3. 해당 Slot의 Committee에 배정된 Validator는 Attestation 생성 및 전파
     
     이 과정은 네트워크 전체가 동일한 블록 상태에 합의하도록 만드는 첫 단계가 된다.
@@ -425,6 +497,7 @@ _출처: [https://ethereum.org/developers/docs/networking-layer/#when-consensus-
 여기서 Execution Layer와 Consensus Layer의 역할이 명확히 분리되어 있음을 확인할 수 있다.
  
 - **Execution Layer (EL)**: 상태 전이와 트랜잭션 실행을 담당하며, Execution Payload를 생성하고 블록에 포함된 트랜잭션 실행 결과의 유효성을 검증한다.
+
 - **Consensus Layer (CL)**: 블록 제안, 검증, 그리고 합의 규칙을 담당하며 Beacon Block이 합의 프로토콜 규칙을 만족하는지 검증한다.
 
 CL은 트랜잭션 실행을 직접 수행하지 않으며, Execution Payload의 내부 상태 전이 결과를 재계산하지 않는다. 대신 각 Node(Validator 포함)는 자신의 Execution Layer Client를 통해 Execution Payload를 독립적으로 재실행하고 실행 결과의 유효성을 확인한다.
@@ -485,7 +558,9 @@ EL Client는 Payload에 포함된 트랜잭션들을 EVM에서 재실행(Re-exec
 Attestation은 Fork Choice 투표와 Finality 투표를 동시에 수행하는 Stake 기반(stake-weighted) 합의 메시지이다. 각 Attestation에는 다음과 같은 핵심 정보가 포함된다.
 
 - **beacon_block_root**: Validator가 현재 Head로 판단한 Beacon Chain 블록
+
 - **Source Checkpoint**: Validator의 관점에서 가장 최근에 Justified 된 Checkpoint
+
 - **Target Checkpoint**: Attestation이 속한 현재 Epoch의 Checkpoint
 
 `beacon_block_root`는 [LMD-GHOST](https://arxiv.org/pdf/2003.03052) Fork Choice Rule에 사용된다. 각 Validator의 최신 Attestation은 Stake 가중치로 집계되며, 가장 많은 Stake의 지지를 받은 체인이 Canonical Head로 선택된다. 새로운 유효 블록이 기존 Head를 확장하는 경우, 해당 블록은 자연스럽게 새로운 Head 후보가 된다.
@@ -519,8 +594,11 @@ Aggregator는 동일 Committee 내 Validator들이 생성하여 전파한 Attest
 집계된 Attestation에는 다음 정보가 포함된다.
  
 - 공통 Attestation 데이터(Attestation data)
+
 - aggregation bits (참여 Validator 비트필드)
+
 - Committee bits (어느 Committee의 투표인지 표시, Electra 이후)
+
 - 집계된 단일 BLS 서명
 
 Electra([EIP-7549](https://eips.ethereum.org/EIPS/eip-7549)) 이후에는 AttestationData에서 Committee 번호가 빠졌으므로, 같은 Slot의 서로 다른 Committee 투표도 Attestation Data가 같으면 블록에 넣을 때 하나로 합칠 수 있다.
@@ -586,6 +664,7 @@ Ethereum PoS는 Casper FFG를 통해 블록에 대한 Finality를 제공한다.
 Beacon Chain의 시간 구조는 다음과 같다.
  
 - Slot: 12초
+
 - Epoch: 32 Slot (6.4분)
 
 각 Epoch의 첫 번째 Slot에 해당하는 블록은 [Checkpoint](https://ethereum.org/glossary/#checkpoint)로 간주되며, Finality 투표는 Checkpoint 단위로 수행된다. 첫 번째 Slot에 블록이 없으면 그 이전의 가장 최근 블록이 해당 Epoch의 Checkpoint가 된다.
@@ -601,6 +680,7 @@ Epoch 3: Slot 96 ← checkpoint
 Validator의 Attestation에는 Head 투표뿐 아니라 Checkpoint 간 관계를 나타내는 다음 정보가 포함된다.
 
 - **Source Checkpoint**: Validator의 관점에서 가장 최근에 Justified 된 Checkpoint
+
 - **Target Checkpoint**: Attestation이 속한 현재 Epoch의 Checkpoint
 
 Validator는 source Checkpoint에서 target Checkpoint까지 이어지는 체인을 지지한다는 의미의 투표를 수행한다. 전체 활성 Stake의 2/3 이상(supermajority)이 동일한 source → target 투표를 수행하면 해당 target Checkpoint는 Justified 상태가 된다. 이 집계는 Epoch이 끝날 때 수행되는 Epoch 처리 과정에서 Beacon State에 반영된다.
@@ -659,6 +739,7 @@ LMD-GHOST는 네트워크에서 발생하는 포크 상황에서 어떤 체인�
 결과적으로 Gasper는 다음과 같은 역할 분리를 통해 안전성(safety)과 진행성(liveness)을 동시에 확보한다.
 
 - LMD-GHOST → 빠른 fork 선택 및 체인 진행 (liveness 중심)
+
 - Casper FFG → 경제적 확정성 제공 (safety 중심)
 
 이와 같은 설계는 네트워크 지연, Validator 일부 오프라인 상황, 혹은 공격 시나리오에서도 체인이 멈추지 않으면서도 장기적으로는 되돌릴 수 없는 합의를 형성하도록 만든다. 즉, Ethereum PoS 합의는 하나의 알고리즘으로 모든 문제를 해결하기보다, 진행성과 안전성을 계층적으로 분리하여 결합한 하이브리드 합의 구조라고 볼 수 있다.

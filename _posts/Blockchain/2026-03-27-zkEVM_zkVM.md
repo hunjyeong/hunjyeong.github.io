@@ -54,8 +54,11 @@ Ethereum은 단순한 거래 원장이 아니라 트랜잭션 기반의 **Distri
 $\Upsilon$은 트랜잭션 하나를 상태에 적용한다. $\Upsilon$이 곧 EVM 실행은 아니다. EVM의 코드 실행은 Yellow Paper에서 $\Xi$로 따로 정의되며, $\Upsilon$은 $\Xi$를 포함한 트랜잭션 처리 전체를 담당한다. 처리 순서는 다음과 같다.
 
     1. 유효성 검사: 서명, Nonce, 잔액, Gas Limit을 확인한다.
+
     2. 선차감: 발신자 잔액에서 Upfront Gas 비용(`gasLimit × effectiveGasPrice`, 실행 전에 미리 차감하는 수수료)을 차감하고, Nonce를 1 증가시킨다.
+
     3. 실행: Value를 이체하고, 수신자에 코드가 있으면 EVM이 그 코드를 실행한다($\Xi$).
+
     4. 정산: 사용하지 않은 Gas를 환급한다. Priority Fee(블록 생성자에게 주는 추가 수수료)는 Fee Recipient(수수료 수령 주소)에 지급하고, Base Fee(EIP-1559에 따라 블록마다 정해지는 기본 수수료)는 소각한다.
 
 2단계의 선차감과 Nonce 증가는 실행이 실패해도 되돌려지지 않는다. 따라서 블록에 포함된 트랜잭션은 코드 실행이 실패하더라도 Nonce와 잔액을 바꾼다. 즉 **블록에 포함된 모든 트랜잭션은 상태 변화를 일으킨다.**
@@ -78,7 +81,9 @@ $\Pi$는 블록 전체를 상태에 적용한다. 블록 $B$는 블록 헤더 �
 - **블록 시작 처리:** Protocol은 트랜잭션을 실행하기 전에 System Call(시스템 호출)로 특정 시스템 컨트랙트를 직접 호출해 블록 정보를 기록한다. System Call은 트랜잭션이 아니므로 서명과 수수료가 없다. Cancun 이후 EIP-4788은 부모 Beacon Block Root(Consensus Layer 블록의 Root Hash)를 기록하고, Prague 이후 EIP-2935는 부모 블록 Hash를 기록한다. 컨트랙트는 이 값을 읽어 Consensus Layer 정보나 과거 블록 Hash를 확인할 수 있다.
 
 - **블록 종료 처리:** 모든 트랜잭션을 실행한 뒤에는 두 방향의 처리가 일어난다.
+
     - **Consensus Layer에서 Execution Layer로:** Shanghai 이후 Withdrawal을 처리한다. Validator의 잔액(보상 또는 Stake한 Ether)을 Execution Layer의 대상 주소로 보내는 처리로, 대상 주소의 잔액을 늘린다. EVM을 실행하지 않으며 Gas도 쓰지 않는다.
+
     - **Execution Layer에서 Consensus Layer로:** Prague 이후 Requests(요청)를 모아 Consensus Layer에 전달한다. 예치 요청(EIP-6110)은 Deposit Contract의 Log에서 모으고, 출금 요청(EIP-7002)과 통합 요청(EIP-7251)은 System Call로 모은다.
 
 The Merge 이후 Execution Layer에는 블록 보상이 없다. Validator 보상은 Consensus Layer에서 처리된다. Priority Fee 지급과 Base Fee 소각은 블록 단위가 아니라 각 트랜잭션의 $\Upsilon$ 안에서 일어난다.
@@ -179,8 +184,11 @@ Receipt는 트랜잭션 하나의 실행 결과 기록으로, 성공 여부, 누
     **Mempool 검증은 블록 유효성의 일부가 아니다.** 블록에서 실행할 때는 위 항목을 모두 다시 확인하며, 다음 조건이 추가된다. 아래에서 이 조건을 **블록 포함 규칙**이라고 부른다.
 
     - Nonce가 계정의 현재 Nonce와 **정확히** 일치해야 한다.
+
     - `maxFeePerGas ≥` 해당 블록의 `baseFee`여야 한다.
+
     - `gasLimit`이 블록의 남은 Gas 이하여야 한다.
+
     - 발신자 계정에 Code가 없어야 한다(EIP-3607). Pectra 이후 Delegation Indicator를 가진 EOA는 예외다.
 
 2. **Block Execution by the Block Producer**
@@ -194,21 +202,37 @@ Receipt는 트랜잭션 하나의 실행 결과 기록으로, 성공 여부, 누
     2. **트랜잭션별 실행($\Upsilon$):**
 
         1. 블록 포함 규칙을 확인한다. 실패하면 그 트랜잭션은 블록에 포함될 수 없다.
+
         2. 발신자 잔액에서 `gasLimit × effectiveGasPrice`를 선차감하고 Nonce를 1 증가시킨다. **이 두 변경은 실행이 실패해도 되돌려지지 않는다.**
+
             - `effectiveGasPrice = min(maxFeePerGas, baseFee + maxPriorityFeePerGas)`
+
         3. Checkpoint(되돌림 기준점)를 만든다.
+
         4. Intrinsic Gas를 차감한다.
+
         5. `value`를 이체한다.
+
         6. 실행 대상에 따라 처리한다.
+
             - 수신자에 Code가 있으면 EVM이 실행한다.
+
             - Code가 없으면 이체만 일어난다.
+
             - 수신자 주소가 비어 있으면 Init Code를 실행해 새 컨트랙트를 만든다.
+
         7. 최상위 Call Frame이 예외나 `REVERT`로 끝나면 Checkpoint로 되돌린다. 이체와 Storage 변경은 사라지고, 선차감과 Nonce 증가는 남는다.
+
         8. Gas를 정산한다.
+
             - 환급액은 `min(환급 카운터, gasUsed / 5)`다(EIP-3529, London 이후).
+
             - Pectra 이후 최종 `gasUsed = max(gasUsed − 환급액, Calldata Floor 비용)`이다(EIP-7623).
+
             - 발신자는 `(gasLimit − 최종 gasUsed) × effectiveGasPrice`를 돌려받는다.
+
             - Fee Recipient는 `(effectiveGasPrice − baseFee) × gasUsed`를 받고, `baseFee × gasUsed`는 소각된다.
+
         9. Receipt를 생성한다.
 
     3. **블록 종료 처리:** Withdrawal(Shanghai 이후)을 처리하고, Requests(Prague 이후)를 모은다.
@@ -220,9 +244,13 @@ Receipt는 트랜잭션 하나의 실행 결과 기록으로, 성공 여부, 누
     검증 노드의 Consensus Client는 블록을 받으면 Engine API의 `engine_newPayload`로 Execution Payload를 Execution Client에 전달한다. **Execution Client는 블록 생성자가 제공한 결과를 신뢰하지 않는다.** 다음 순서로 직접 확인한다.
 
     1. **헤더 사전 검사:** 실행 전에 헤더 값을 확인한다.
+
         - 부모 Hash와 블록 번호가 올바른지, Timestamp가 부모 블록보다 큰지 확인한다.
+
         - Gas Limit 변화가 부모 대비 1/1024 미만인지 확인한다.
+
         - Base Fee가 부모 블록으로부터 계산한 값과 같은지 확인한다.
+
         - Fusaka 이후에는 EIP-7934의 블록 크기 제한도 확인한다.
 
     2. **입력 요약 확인:** Execution Payload의 트랜잭션 목록과 Withdrawal 목록으로 Transactions Root와 Withdrawals Root를 계산해 헤더를 재구성하고, 그 Hash가 블록 Hash와 같은지 확인한다.
@@ -242,6 +270,7 @@ Receipt는 트랜잭션 하나의 실행 결과 기록으로, 성공 여부, 누
     각 Validator는 Epoch(32 Slot, 약 6.4분)마다 배정된 Slot 하나에서 Attestation(투표)을 보낸다. Attestation에는 두 가지 투표가 함께 들어 있다.
 
     - **Head 투표:** 자신이 보는 체인의 최신 블록에 대한 투표로, LMD-GHOST가 사용한다.
+
     - **Checkpoint 투표:** Source Checkpoint와 Target Checkpoint에 대한 투표로, Casper FFG가 사용한다.
     
     Validator는 Execution Client가 유효하다고 판단한 블록이 포함된 체인에만 투표한다.
@@ -249,7 +278,9 @@ Receipt는 트랜잭션 하나의 실행 결과 기록으로, 성공 여부, 누
     Finality는 블록 하나가 아니라 **Checkpoint 단위**로 결정된다. Checkpoint는 각 Epoch 첫 Slot의 블록이며, 그 Slot이 비어 있으면 그 이전의 가장 최근 블록이다.
 
     1. 전체 Stake의 2/3 이상이 투표한 Checkpoint는 **Justified(정당화)** 상태가 된다.
+
     2. Justified Checkpoint를 Source로 삼아 바로 다음 Epoch의 Checkpoint가 Justified되면, 앞의 Checkpoint는 **Finalized(최종 확정)** 상태가 된다.
+
     3. Finalized Checkpoint와 그 이전 블록은 모두 확정된다.
 
     정상적인 경우 Checkpoint 블록은 약 2 Epoch(12.8분) 뒤에 Finalized된다. Epoch 중간에 있는 블록은 다음 Epoch의 Checkpoint가 Finalized될 때 함께 확정되므로, 블록 위치에 따라 최대 약 3 Epoch(19.2분)가 걸린다.
@@ -388,7 +419,9 @@ Prover는 실제 실행 과정을 기록한 Execution Trace(실행 기록)를 �
     증명이 보장하는 내용은 다음과 같다.
 
     - 모든 $t \in [0, N-2]$에 대해 $\mathrm{trace}[t] \to \mathrm{trace}[t+1]$ 전이가 EVM 규칙을 따른다.
+
     - $\mathrm{trace}[0]$의 상태가 Pre-State Root와 일치한다.
+
     - $\mathrm{trace}[N-1]$의 상태가 Post-State Root와 일치한다.
 
     즉 **전체 실행이 올바른 State Transition이었음이 하나의 증명으로 요약된다.**
@@ -398,14 +431,19 @@ Prover는 실제 실행 과정을 기록한 Execution Trace(실행 기록)를 �
     증명과 상태 정보가 L1의 Verifier 컨트랙트에 제출된다. 일반적으로 제출되는 데이터는 다음과 같다.
 
     - Pre-State Root
+
     - Post-State Root
+
     - 배치 Commitment (L1에 게시한 트랜잭션 데이터와 연결되는 값)
+
     - ZK Proof $\pi$
 
     Verifier 컨트랙트는 다음을 확인한다.
 
     1. Pre-State Root가 현재 승인된 State Root와 같은지 확인한다.
+
     2. 배치 Commitment가 L1에 게시된 데이터와 일치하는지 확인한다.
+
     3. 트랜잭션을 다시 실행하지 않고 $\pi$의 수학적 타당성만 검증한다.
 
     검증이 성공하면 해당 배치의 State Transition은 EVM 규칙을 만족한 것으로 간주되고, 새 State Root가 On-chain에 기록된다. 이 상태가 되돌릴 수 없게 확정되는 시점은 검증 트랜잭션이 포함된 L1 블록이 Finalized되는 시점이다.
@@ -463,6 +501,7 @@ EIP-8025는 2026년 5월 14일 ACDC(All Core Devs Consensus) #178에서 Glamster
 
 단일 증명 시스템이나 단일 신뢰 기반에 의존할 때의 위험은 L2에서 실제로 드러났다.
 - **Scroll:** OpenVM 전환 직후 OpenVM v1.0.0의 `auipc` Opcode Circuit에서 Soundness(건전성) 버그가 발견되어, 2025년 4월 25일 긴급 업그레이드를 했다. 당시 Sequencer와 Prover를 모두 Scroll이 운영하고 있어 제3자가 악용할 수는 없었다.
+
 - **Taiko:** SGX Enclave 서명 개인키가 공개 GitHub 저장소에 올라가 있었다. 공격자는 이 키로 DEBUG 모드 Enclave에 서명한 뒤 위조 증명을 만들었고, 2026년 6월 21~22일 Bridge에서 약 170만 달러를 탈취했다. 이 사고는 zkVM이 아니라 TEE 증명 쪽에서 일어났다. 증명 종류가 여러 개여도 모든 SGX 증명이 같은 서명 키에 의존하면 다양성이 없다는 사례다. Taiko는 2026년 8월 6일 Unzen 업그레이드로 모든 블록에 ZK 증명(SP1 또는 RISC Zero) 하나 이상을 필수로 바꿨다.
 
 **L1에서의 추가 위험**
@@ -482,6 +521,7 @@ zkVM은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, IS
 **zkEVM이 "무엇을 증명하는가(EVM 실행)"를 가리키는 말이라면, zkVM은 "어떤 방식으로 증명하는가(범용 ISA의 실행 증명)"를 가리키는 말이다.**
 
 - **zkEVM:** "EVM이라는 특정 State Machine이 올바르게 실행되었는가"를 증명한다.
+
 - **zkVM:** "일반 프로그램이 정의된 ISA 규칙에 따라 올바르게 실행되었는가"를 증명한다.
 
 두 개념은 배타적이지 않다. zkVM 위에서 EVM 실행 프로그램(예: Execution Client의 블록 실행 로직)을 돌리면 그 자체로 zkEVM이 된다. 다만 **증명은 프로그램이 ISA 규칙대로 실행되었음만 보장한다.** 그 프로그램이 Ethereum 규칙을 정확히 구현했는지는 별도로 검증해야 한다.
@@ -493,6 +533,7 @@ zkVM은 특정 로직을 위한 전용 Circuit을 직접 설계하는 대신, IS
 zkVM의 증명 구조는 zkEVM과 같다. 차이는 제약식으로 바꿔 두는 대상이다.
 
 - **zkEVM:** EVM Opcode 규칙을 제약식으로 바꿔 둔다.
+
 - **zkVM:** ISA 명령어(Instruction) 규칙을 제약식으로 바꿔 둔다(Arithmetization).
 
 Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 실행 단계가 ISA 규칙을 만족함을 증명한다. Verifier는 프로그램을 다시 실행하지 않고 증명만 검증해 실행 결과를 신뢰할 수 있다.
@@ -502,6 +543,7 @@ Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 
 **zkVM의 장점은 유연성이다.**
 
 - 개발자는 Circuit 설계 지식 없이 일반 프로그램으로 증명할 로직을 구현할 수 있다.
+
 - 로직이 바뀌면 프로그램을 수정하고 다시 컴파일하면 된다.
 
 **대신 성능 비용이 크다.** zkVM은 명령어 단위로 실행을 증명한다. 고급 언어의 코드 한 줄도 여러 명령어로 컴파일되므로, 같은 계산이라도 전용 Circuit보다 Trace가 훨씬 길어진다. 그만큼 증명 생성 시간과 비용이 늘어난다.
@@ -517,7 +559,9 @@ Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 
     Prover는 증명할 프로그램을 zkVM 안에서 실행한다. 예를 들어 블록 검증 프로그램이라면 다음을 수행한다.
 
     - 입력 데이터를 검증한다.
+
     - State Transition 규칙을 적용한다.
+
     - 새 State Root를 계산한다.
 
     zkVM은 실행 과정을 명령어 단위로 기록한다. Execution Trace에는 PC, 레지스터 상태 변화, Memory 읽기와 쓰기 기록 등이 포함된다. **Trace 길이는 실행된 명령어 수에 비례해 늘어난다.**
@@ -529,7 +573,9 @@ Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 
     Trace가 ISA 규칙을 지켰음을 증명하는 단계다.
 
     - **STARK 증명:** 각 Segment에 대해 STARK 기반 증명을 생성한다. STARK는 Trusted Setup이 필요 없고 대형 Trace 처리에 유리하다.
+
     - **Recursion:** Segment별 증명을 Recursion으로 결합해 하나의 증명으로 합친다.
+
     - **Wrapping:** L2 Rollup처럼 L1 Verifier 컨트랙트에서 검증할 때는 On-chain 검증 비용을 줄이기 위해, 크기가 작고 고정된 SNARK 증명(예: Groth16)으로 감싼다. EF의 L1 zkEVM 기준은 Trusted Setup을 배제하므로 이 단계가 없고, 최종 증명 자체가 300KiB 이하여야 한다.
 
 3. **Verification**
@@ -538,7 +584,9 @@ Prover는 프로그램을 실행해 Execution Trace를 만들고, 각 명령어 
     RISC Zero를 예로 들면 증명 결과물은 Receipt라고 부르며, Journal과 Seal로 이루어진다. 이 Receipt는 Ethereum의 트랜잭션 Receipt와 이름만 같고 다른 개념이다.
 
     - **Journal:** 프로그램이 공개한 출력
+
     - **Seal:** 증명
+
     - **Image ID:** 실행한 프로그램을 식별하는 값. Receipt에 들어 있지 않고 Verifier가 외부에서 제공한다(`receipt.verify(IMAGE_ID)`). Verifier는 제공된 Image ID와 Journal의 Hash로 기대 Claim을 구성해, Seal이 증명하는 Claim과 일치하는지 대조한다.
 
     Verifier는 Seal이 "Image ID에 해당하는 프로그램을 실행해 이 Journal을 출력했다"는 사실을 증명하는지 확인한다. **입력은 기본적으로 비공개다.** 공개하려는 입력은 프로그램이 Journal에 직접 기록해야 한다.
@@ -584,7 +632,9 @@ Verifier는 $Q_i$가 다항식인지 직접 확인할 수 없다. $Q_i$의 계�
 원래 이 절차는 Verifier가 단계마다 무작위 값을 보내는 대화형 프로토콜이다. 실제로는 **Fiat-Shamir Transform**으로 Non-interactive(비대화형) 증명을 만든다. 무작위 값을 Verifier가 보내는 대신 "지금까지 나온 Commitment를 Hash한 값"으로 정하는 것이다. Prover는 Commit하기 전에는 그 Hash 값을 알 수 없으므로 무작위 값을 고를 수 없고, Verifier는 같은 Hash를 다시 계산해 이를 확인한다. 그래서 **각 무작위 값은 그 값으로 검사할 대상을 Prover가 Commit한 다음에 정해진다.** 예를 들어 $\alpha$는 Trace를 Commit한 뒤에, $z$는 $Q$까지 Commit한 뒤에 정해진다.
 
 1. **Step 1, Trace Commitment:** Prover는 각 $f_j$를 $H$보다 큰 영역 $D$($|D| = \rho^{-1} N$, $\rho^{-1}$은 Blowup Factor로 보통 2에서 8 사이)에서 평가하고, 그 값들을 Merkle Tree로 묶어 Root $R_f$만 보낸다. 다항식을 큰 영역에서 평가한 값의 목록은 Reed-Solomon Code의 Codeword이므로, 값 몇 개를 바꾸면 더 이상 낮은 차수 다항식의 평가값이 아니게 된다. 이 시점에 Trace가 고정된다.
+
 2. **Step 2, Quotient Commitment:** 무작위 값 $\alpha = \mathrm{Hash}(R_f)$를 정한다. Prover는 여러 제약식을 하나로 묶은 $C(x) = \sum_i \alpha^{i-1} C_i(x)$와 그 몫 $Q(x) = C(x) / Z(x)$를 계산하고, $Q$를 $D$에서 평가해 Merkle Root $R_Q$를 보낸다. 모든 $C_i$가 $Z$로 나누어떨어지면 $C$도 나누어떨어진다. 하나라도 나누어떨어지지 않으면, $\alpha$가 무작위이므로 나머지가 서로 상쇄되어 $C$가 나누어떨어질 확률은 무시할 수 있다. $\alpha$를 Trace Commit 뒤에 정하는 이유가 여기에 있다. Prover가 $\alpha$를 미리 알면 위반이 상쇄되도록 Trace를 꾸밀 수 있다. 위 식은 모든 $C_i$가 같은 범위(마지막 행을 뺀 모든 행)에 적용될 때의 형태다. 경계 조건처럼 적용 범위가 다른 제약식은 각자의 소멸 다항식 $Z_i$로 나눈 뒤 합친다: $Q(x) = \sum_i \alpha^{i-1} C_i(x) / Z_i(x)$.
+
 3. **Step 3, Random Evaluation:** $H$ 밖의 무작위 점 $z = \mathrm{Hash}(R_f, R_Q)$를 정한다. Prover는 $f_j(z)$, $f_j(\omega z)$, $Q(z)$를 보낸다. Verifier는 받은 값과 $\alpha$로 $C(z)$를 직접 계산한 뒤 다음을 확인한다.
 
     $$
@@ -654,10 +704,15 @@ $$
 실제 zkVM은 위 구조를 여러 겹으로 쌓는다.
 
 - **여러 개의 Table:** CPU(명령어 Fetch와 Decode), ALU(산술 연산), Memory, Range Check, 가속 Circuit(Keccak, SHA-256 등)이 각각 별도의 Table과 제약식을 가진다. Table 하나의 제약식 집합을 AIR(Algebraic Intermediate Representation)라고 부른다.
+
 - **Table 사이의 연결:** "CPU Table이 ALU에 요청한 연산이 ALU Table에 실제로 있다"처럼 Table 사이의 일관성은 인접한 두 행으로 표현할 수 없다. 이런 조건은 Lookup Argument로 확인한다. 예를 들어 LogUp 방식은 무작위 $\gamma$에 대해 $\sum_i \frac{1}{\gamma - a_i} = \sum_j \frac{m_j}{\gamma - b_j}$가 성립하는지 확인해, 집합 $\{a_i\}$의 모든 원소가 집합 $\{b_j\}$에 포함됨($m_j$는 등장 횟수)을 증명한다. Memory 일관성은 접근 기록을 주소와 시각 순으로 정렬한 Table을 두고, "같은 주소의 연속한 접근에서 읽은 값은 직전에 쓴 값과 같다"는 제약과 정렬 전후가 같은 집합이라는 Permutation Argument로 확인한다.
+
 - **프로그램 고정:** CPU Table이 읽는 명령어 열은 증명 대상 프로그램의 바이트코드와 일치해야 한다. 구현에 따라 프로그램을 고정 Table로 Commit해 Lookup으로 연결하거나(SP1), 프로그램을 초기 Memory 이미지로 고정한다(RISC Zero의 Image ID는 이 초기 Memory 이미지에서 계산한 값이다). 어느 쪽이든 증명은 특정 프로그램에 묶인다.
+
 - **Segment와 Continuation:** Trace를 Segment로 나누면 Segment마다 위 절차를 독립적으로 수행한다. 앞 Segment의 마지막 레지스터와 Memory 상태(Merkle Root)가 다음 Segment의 첫 상태와 같다는 조건을 경계 제약으로 건다.
+
 - **Recursion:** "STARK 증명을 검증하는 계산"을 다시 증명한다. 범용 RISC-V zkVM을 그대로 쓰기보다 검증에 특화된 Recursion 전용 Circuit이나 VM을 쓰는 구현이 많다(RISC Zero의 Recursion Circuit 등). 검증 비용이 $\mathrm{polylog}\,N$이므로, 이 계산의 Trace는 Segment 하나를 증명하는 것보다 짧다. Segment 증명들을 Tree 형태로 합쳐 하나의 증명으로 만든다.
+
 - **Wrapping:** 마지막 STARK 증명은 수십에서 수백 KiB다. L2 Rollup처럼 L1 Verifier 컨트랙트에서 검증하기에는 크므로, "STARK 증명을 검증한다"는 계산을 BN254 곡선 위의 Groth16이나 PLONK Circuit으로 만들어 증명한다. EF의 L1 zkEVM 기준은 Trusted Setup을 쓰는 Recursive Wrapper에 의존하지 않는 300KiB 이하 증명을 요구하므로 이 단계를 쓸 수 없고, Validator가 증명을 직접 검증한다. Groth16 증명은 곡선 점 세 개로 크기가 고정되고, 검증은 Pairing 등식 $e(A, B) = e(\alpha, \beta) \cdot e(L, \gamma) \cdot e(C, \delta)$ 하나다. 이 식의 $\alpha, \beta, \gamma, \delta$는 Trusted Setup에서 정해진 곡선 점이며, 앞 절의 무작위 값과는 관계없다. Ethereum에서는 `ecPairing` Precompile로 계산하며, 비용은 EIP-1108 이후 $45{,}000 + 34{,}000 \times k$ Gas($k$는 Pairing 쌍의 수, Groth16은 4)다.
 
 #### What the Verifier Actually Computes
@@ -665,7 +720,9 @@ $$
 종합하면 Verifier의 입력과 작업은 다음과 같다.
 
 - **입력:** Verification Key(제약식 집합과 프로그램 Commitment, 예: RISC Zero의 Image ID), Public Values(Journal, 예를 들어 Pre-State Root와 Post-State Root), 증명 $\pi$
+
 - **STARK 증명을 직접 검증할 때:** Commitment Root($R_f$, $R_Q$, FRI Folding 결과의 Root)에서 Fiat-Shamir 무작위 값($\alpha$, $z$, $\beta_r$, Query 위치)을 재계산한다. Step 3에서 받은 값으로 $C(z) = Q(z) Z(z)$를 확인하고, Query 위치의 Merkle Proof와 FRI Folding이 일관되는지 확인한다. 비용은 $\mathrm{polylog}\,N$이며, 대부분 Hash 계산이다.
+
 - **Wrapping된 증명을 검증할 때:** Pairing 등식 하나를 확인한다. 비용은 Trace 길이와 무관하게 상수다.
 
 어느 경우든 Verifier는 프로그램을 실행하지 않고, Trace를 보지도 않는다. 확인하는 것은 "Commit된 값이 낮은 차수 다항식이고, 그 다항식들이 제약식을 만족하며, 경계값이 Public Values와 일치한다"는 사실뿐이다. 이 세 조건이 함께 성립하면, 무시할 수 있는 확률(Soundness Error)을 제외하면 그 값들을 만든 Execution Trace가 존재하고 그 Trace가 ISA 규칙대로 프로그램을 실행한 기록이라는 결론이 따라온다.
@@ -677,7 +734,9 @@ $$
 L2 Rollup은 zkVM 기반으로 옮겨가고 있고, Ethereum L1 실행 증명도 zkVM 기반으로 연구되고 있다.
 
 - **Scroll:** 2025년 4월 Euclid 업그레이드에서 기존 halo2 Circuit을 폐기하고 OpenVM 기반 Prover로 전환했다.
+
 - **Taiko:** 다중 증명(Multi-proof)을 사용한다. 2026년 11월 L2BEAT 기준 SGX(Geth), SGX(Reth), SP1, RISC Zero 네 가지 증명 중 정확히 두 개가 필요하며, 그중 최소 하나는 SP1이나 RISC Zero여야 한다. 이 규칙은 2026년 8월 6일 Unzen 업그레이드에서 활성화된 ZkRequiredVerifier의 것이다. Taiko 공식 문서의 조합표(SGX(Geth)+SGX(Reth) 허용, SP1+RISC Zero 없음)는 Unzen 이전 MainnetVerifier 규칙이다. SGX는 Intel SGX(Software Guard Extensions)를 쓰는 TEE(Trusted Execution Environment, 신뢰 실행 환경) 증명으로, 암호학적 증명이 아니라 하드웨어 신뢰에 기반한다.
+
 - **Ethereum L1:** EIP-8025(Optional Execution Proofs) 설계에서는 Execution Client의 블록 실행 프로그램을 zkVM으로 증명한다. 이 제안은 2026년 10월 Hegotá 포함 대상에서 DFI로 결정되었다(zkEVM 장의 Adoption Status on Ethereum L1 참고).
 
 ### Dedicated Circuit vs zkVM
@@ -695,4 +754,5 @@ zkEVM은 두 방식 모두로 구현할 수 있다. 따라서 비교 대상은 z
 Verifier가 확인하는 내용도 다르다.
 
 - **zkEVM:** Verifier는 "블록의 트랜잭션들이 EVM 규칙대로 상태를 바꿨다"는 것을 확인한다.
+
 - **zkVM:** Verifier는 "어떤 프로그램(Image ID)이 주어진 입력으로 실행되어 이 출력을 냈다"는 것을 확인한다. 그 프로그램이 Ethereum 블록 실행 로직이면 zkEVM으로 동작하는 것이고, 게임 엔진이면 게임 결과의 무결성을 증명하는 것이 된다.

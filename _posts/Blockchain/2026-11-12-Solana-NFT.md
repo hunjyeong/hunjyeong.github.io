@@ -111,15 +111,22 @@ Token Metadata Program은 Mint Account의 주소에서 유도한 Program Derived
 
 **장점**
 - 2021년부터 쓰인 표준이라 대부분의 Wallet, Marketplace, 도구가 지원한다.
+
 - NFT가 SPL Token이므로 SPL Token을 다루는 Wallet과 Program에서 그대로 다룰 수 있다.
+
 - 하나의 Program으로 NFT뿐 아니라 Fungible Token, Semi-Fungible Token(Fungible Asset), Print Edition에도 같은 방식으로 Metadata를 붙일 수 있다.
 
 **단점**
 - NFT 하나에 Mint, Token, Metadata, Master Edition Account가 필요해 구조가 복잡하고, Mint 비용이 약 0.022 SOL로 Core(약 0.003 SOL)보다 크다.
+
 - 받는 Wallet에 해당 Mint의 Token Account가 없으면 Transfer할 때 새로 만들어야 하고, 그 최소 Balance(약 0.002 SOL)가 든다.
+
 - 누구나 SPL Token Program으로 직접 Transfer할 수 있어 일반 NFT는 Royalty를 강제할 수 없다. 이를 보완한 pNFT는 Token Record Account와 Rule Set이 더해져 구조가 더 복잡하다.
+
 - Collection도 NFT와 같은 Account 구조로 표현되어, Royalty 같은 설정을 Collection 단위로 한 번에 바꿀 수 없고 NFT마다 수정해야 한다.
+
 - On-Chain Attribute를 지원하지 않는다.
+
 - Metaplex는 Token Metadata를 Legacy Program으로 분류하고, 새 프로젝트에는 Core를 권장한다.
 
 ### Token Metadata의 On-Chain 구성 요소
@@ -131,6 +138,7 @@ Token Metadata Program은 Mint Account의 주소에서 유도한 Program Derived
 누가 NFT를 가졌는지를 기록한다. 소유와 Transfer는 SPL Token의 구조를 그대로 쓰므로, Transfer도 SPL Token Program이 처리한다.
 
 - Owner: NFT를 가진 Wallet 주소
+
 - Amount = 1: 보유 수량. NFT는 하나뿐이므로 1이다
 
 **2. Mint Account**
@@ -138,8 +146,11 @@ Token Metadata Program은 Mint Account의 주소에서 유도한 Program Derived
 Mint Account의 주소가 NFT의 고유 식별자다. Solana의 NFT는 다음과 같은 특성을 가진 Mint Account이다.
 
 - Supply = 1: 유통되는 Token이 하나뿐이다.
+
 - Decimals = 0: 0.5개 같은 단위가 없다.
+
 - Mint Authority 없음: 누구도 추가로 Mint할 수 없다. 
+
     - Token Metadata는 이 조건을 Mint Authority를 없애는 대신 Master Edition Account로 넘기는 방식으로 구현한다(아래 4번). 그래서 그림에는 "Mint Authority = Edition"으로 적혀 있다.
 
 Mint Account는 Supply 같은 몇 가지 값만 가지고 있어서, 앱과 Marketplace(NFT를 사고파는 서비스)가 공통으로 이해할 수 있는 표준화된 데이터를 담을 수 없다. 이 부분을 Metadata Account가 채운다.
@@ -149,6 +160,7 @@ Mint Account는 Supply 같은 몇 가지 값만 가지고 있어서, 앱과 Mark
 NFT의 기본 정보(Name, Symbol, URI 등)를 담는다.
 
 - Mint Account의 주소에서 유도한 PDA다.
+
 - 이미지와 속성은 여기에 없고, URI가 가리키는 Off-Chain JSON 파일에 있다.
 
 [Metadata Account Structure](https://solana.com/docs/tokens/metaplex#metadata-account-structure)는 다음과 같다.
@@ -238,7 +250,9 @@ Alice가 Bob에게 NFT를 Transfer하면 두 사람의 Token Account에서 Amoun
 Alice가 Token Metadata NFT 하나를 가지고 있고, 이 NFT를 Bob에게 보낸다. Bob은 이 NFT를 처음 받는다. 일반 NFT의 Transfer는 SPL Token Program의 Transfer Instruction으로 처리되며, Token Metadata Program은 관여하지 않는다.
 
 1. Bob에게 해당 Mint의 Token Account가 없으면 먼저 만든다(보통 ATA). 생성 비용인 Rent는 Instruction에 지정한 Payer(비용을 내는 Account)가 낸다.
+
 2. Alice가 서명한 Transfer Instruction으로 Alice의 Token Account의 Amount가 1에서 0이 된다.
+
 3. Bob의 Token Account의 Amount가 0에서 1이 된다.
 
 ![solana-nft-tm-transfer-ex.png](solana-nft-tm-transfer-ex.png)
@@ -254,7 +268,9 @@ Transfer 후 Alice의 Token Account는 Amount 0인 상태로 남는다. 그래�
 Master Edition Account는 Non-Fungibility(대체 불가능성)의 증명 외에, NFT의 복제본을 Mint하는 기능도 제공한다. 원본을 Original NFT(Master Edition NFT), 복제본을 Print NFT라고 부른다([Printing Editions 절](https://www.metaplex.com/docs/smart-contracts/token-metadata#printing-editions)). Print NFT의 Token Standard는 `NonFungibleEdition`이다.
 
 - Print NFT는 자신만의 Mint Account와 Metadata Account를 가진다. Metadata의 내용은 Original NFT에서 복사된다.
+
 - Print NFT는 Master Edition Account 대신 Edition Account라는 PDA를 가진다. Edition Account는 Key(`EditionV1`), Parent(부모 Master Edition의 주소), Edition(Edition 번호)을 기록한다.
+
 - Master Edition Account와 Edition Account는 PDA의 Seed가 같다. 그래서 하나의 NFT는 둘 중 하나만 가질 수 있다.
 
 ![solana-nft-03-tm-printing-editions.png](solana-nft-03-tm-printing-editions.png)
@@ -308,15 +324,22 @@ Token Metadata의 기능이 Core에서 대응되는 방식은 다음과 같다.
  
 **장점**
 - NFT 하나가 Asset Account 하나라 구조가 단순하고, Mint 비용이 약 0.003 SOL로 Token Metadata(약 0.022 SOL)보다 80% 이상 낮다. 연산량(Compute Unit)도 약 17,000 CU로 Token Metadata(약 205,000 CU)보다 적다.
+
 - Token Account가 없어 Transfer할 때 새 Account를 만들지 않고, Transaction 수수료만 든다.
+
 - Freeze, Delegate, Royalty, Attributes 같은 기능을 Plugin으로 필요한 것만 붙인다. Royalties Plugin은 Allowlist/Denylist로 Royalty를 강제하고, Attributes Plugin으로 On-Chain Attribute를 저장할 수 있다.
+
 - Collection이 전용 Account라 Royalty 변경이나 Freeze를 Collection 단위로 한 번에 할 수 있다. 같은 Plugin을 Asset에 붙이면 Asset의 설정이 우선한다.
 
 **단점**
 - SPL Token이 아니므로 Token Account를 전제로 한 Wallet, Marketplace, Program은 Core를 따로 지원해야 쓸 수 있다.
+
 - 기존 Token Metadata NFT를 Core로 바로 바꿀 수 없다. 기존 NFT를 Burn하고 Core Asset을 새로 Mint해야 한다.
+
 - Plugin은 Metaplex가 제공하는 것만 쓸 수 있고 직접 만들 수 없다. 사용자 정의 검증은 Oracle 같은 External Plugin으로 처리해야 한다.
+
 - Plugin을 붙일수록 Account 크기가 커져 Rent가 늘어난다(대부분 Plugin당 약 0.001 SOL).
+
 - NFT용 표준이라 Fungible Token에는 쓸 수 없고, Fungible Token은 SPL Token을 써야 한다.
 
 ### Core의 On-Chain 구성 요소
@@ -359,7 +382,9 @@ pub enum UpdateAuthority {
 ```
 
 - `None`: Update Authority가 없다. `name`과 `uri`를 다시는 바꿀 수 없다.
+
 - `Address`: 지정한 Address(일반 Address 또는 PDA)가 Update Authority다. 이 Asset은 Collection에 속하지 않는다.
+
 - `Collection`: 값이 Collection Account의 Address이며, Asset이 그 Collection에 속한다는 뜻이다. 이때 Asset의 수정 권한은 Collection에 위임된다.
 
 Collection에 속한 Asset을 `fetchAssetV1`로 조회하고, `collectionAddress`로 Collection Address를 구하면 다음과 같다.
@@ -419,13 +444,17 @@ Plugin은 Create, Transfer, Burn, Plugin 추가·제거 같은 Lifecycle Event�
 **Types of Plugins**
 
 - Owner Managed Plugins: Asset Owner가 Transaction에 서명해야만 추가할 수 있는 플러그인
+
     - Transfer, Freeze, Burn Delegate
 
 - Authority Managed Plugins: Core Asset 또는 Core Collection의 Update Authority(권한자)가 언제든지 추가하고 수정할 수 있는 플러그인
+
     - Royalties, Attributes, Update Delegate
 
 - Permanent Plugins: Core Asset을 생성할 때만 추가할 수 있는 플러그인
+
     - Asset이 이미 존재하는 경우 Permanent 플러그인을 추가할 수 없음
+
     - Permanent Transfer/Freeze/Burn Delegate
 
 
@@ -461,10 +490,15 @@ Asset Account와 달리 `owner` 필드가 없어, Collection은 Asset처럼 소�
 Asset과 Collection의 관계는 다음 규칙을 따른다.
 
 - Asset은 `update_authority`를 `Collection(Collection Account Address)`로 두어 Collection을 참조한다.
+
 - 생성 이후에도 Asset의 Update Instruction으로 Asset을 Collection에 추가, 이동, 제거할 수 있다. 제거할 때는 `update_authority`를 `Address`로 바꾼다.
+
 - 소속을 바꾸려면 Collection의 Update Authority여야 하고, Collection에 속하지 않은 Asset을 추가할 때는 그 Asset의 Update Authority이기도 해야 한다. Collection 사이에서 옮길 때는 두 Collection 모두에 대한 권한이 필요하다. Collection에 등록된 Update Delegate도 Asset을 제거하거나, 자신이 권한을 가진 Asset을 추가할 수 있다.
+
 - Asset이 남아 있는 Collection은 닫을 수 없다. 모든 Asset을 먼저 제거해야 한다.
+
 - Collection에 붙인 Plugin은 소속된 모든 Asset에 적용되며, Asset이 같은 종류의 Plugin을 직접 가지고 있으면 Asset의 Plugin이 우선한다.
+
 - Collection에는 Owner가 없으므로 Authority Managed Plugin과 Permanent Plugin만 붙일 수 있다.
 
 Collection Account 하나에 Asset 두 개를 만들고, 첫 번째는 Alice가, 두 번째는 Bob이 가진 상황을 예로 들면 다음과 같다. 두 Asset의 `update_authority`는 `Collection(Collection Account Address)`이고, Collection Account의 `num_minted`와 `current_size`는 모두 2다.
@@ -488,7 +522,9 @@ Token Metadata와 Core는 NFT마다 Account를 만들어 Mint 수에 비례해 R
 cNFT는 [Merkle Tree](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2#merkle-trees-leaves-and-proofs) 안에서만 존재한다. Merkle Tree는 각 부모 Node가 두 자식 Node의 Hash인 Binary Tree(이진 트리)다.
 
 - Leaf(리프): cNFT 하나의 데이터를 Hash한 값
+
 - Root(루트): Tree 전체를 대표하는 맨 위의 Hash
+
 - Proof(증명): Leaf에서 Root까지 경로의 형제 Node Hash 목록. 특정 Leaf가 Tree에 속함을 검증하는 데 쓴다
 
 ![solana-nft-07-bubblegum-merkle-tree.png](solana-nft-07-bubblegum-merkle-tree.png)
@@ -506,8 +542,11 @@ cNFT를 Mint하려면 먼저 On-Chain Account 두 개로 이루어진 [Bubblegum
 - Merkle Tree Account: V2에서는 MPL Account Compression Program이 소유한다. Leaf를 모두 저장하지 않고 다음만 저장한다.
 
     - Header
+
     - 최근 Root와 변경 경로를 담은 ChangeLog Buffer. 같은 Block 안의 동시 변경으로 Proof가 오래되면 이 기록으로 보정한다
+
     - 가장 오른쪽 Leaf의 Proof. Mint에 Proof가 필요 없는 이유다
+
     - Canopy(상위 Node Cache). Transaction에 실을 Proof를 줄인다
 
 - TreeConfigV2 Account: Merkle Tree Address로 유도한 Bubblegum PDA다. Tree Creator와 Delegate, 최대 Mint 수, 지금까지 Mint된 수(Leaf의 Nonce로도 쓰임), Public 여부, Leaf Schema 버전을 저장한다.
@@ -537,8 +576,13 @@ V2는 새 Leaf Schema(LeafSchemaV2)와 MPL Account Compression을 쓰고, Collec
 - 장점: NFT마다 Account가 없어 개당 비용이 매우 낮고(큰 Tree에서 약 0.00001 SOL), Tree 하나에 최대 2^30개를 담을 수 있다.
 
 - 단점
+
     - 조회와 Proof 획득을 DAS API 지원 RPC에 의존한다.
+
     - 변경마다 Proof를 실어야 해 Transaction 크기를 차지한다.
+
     - Tree 파라미터를 바꿀 수 없다.
+
     - 한 Block의 변경이 Max Buffer Size를 넘으면 일부 Transaction이 실패한다.
+
     - 지원 범위가 좁다. [Ecosystem Compatibility](https://www.metaplex.com/docs/smart-contracts/bubblegum-v2#ecosystem-compatibility)(2026-06-19 갱신) 기준으로 Phantom, Solflare, Backpack은 V2 cNFT의 조회만 지원하고, Magic Eden과 Tensor는 아직 지원하지 않는다.
