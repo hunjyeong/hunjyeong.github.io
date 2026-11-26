@@ -23,9 +23,9 @@ math: true
 
 ### TL;DR
  
-기존 Sharding은 모든 Shard가 Safety와 Liveness를 둘 다 만족해야 하므로, Shard마다 Honest Node가 과반이어야 한다. 무작위로 뽑은 Shard는 작을수록 이 조건이 깨질 확률이 커진다. 그래서 RapidChain 같은 프로토콜은 Shard를 수백 Node 규모로 만들어야 하고, Sharding으로 얻는 확장성이 제한된다.
+기존 Sharding은 모든 Shard가 Safety와 Liveness를 둘 다 만족해야 하므로, Shard마다 Corrupt Node 비율이 일정 기준보다 낮아야 한다(Synchronous 설정에서는 Honest Node가 과반). 무작위로 뽑은 Shard는 작을수록 이 조건이 깨질 확률이 커진다. 그래서 RapidChain 같은 프로토콜은 Shard를 수백 Node 규모로 만들어야 하고, Sharding으로 얻는 확장성이 제한된다.
  
-Instachain은 Shard 안 Consensus의 Quorum q를 과반보다 크게 잡아 두 조건을 나눈다. Corrupt Node가 q 미만이면 Safety가, Honest Node가 q 이상이면 Liveness가 성립한다. 따라서 모든 Shard의 Safety는 유지하면서 Liveness는 일부 Shard에서만 보장한다. 진행이 멈춘 Shard는 Reference Shard가 닫고, 그 Transaction과 상태를 다른 Shard로 넘긴다. 그 결과 $N = 2000$에서 RapidChain의 200 Node Shard 10개보다 Shard 실패 확률이 낮은 50 Node Shard 40개를 만들 수 있다.
+Instachain은 Shard 안 Consensus의 Quorum q를 과반보다 크게 잡아 두 조건을 나눈다. Corrupt Node가 q 미만이면 Safety가, Honest Node가 q 이상이면 Liveness가 성립한다. 따라서 모든 Shard의 Safety는 유지하면서 Liveness는 일부 Shard에서만 보장한다. 진행이 멈춘 Shard는 Reference Shard가 닫고, 그 Transaction과 상태를 다른 Shard로 넘긴다. 그 결과 $N = 2000$, 전체 Corrupt Node 비율 1/3에서 RapidChain의 200 Node Shard 10개보다 Shard 실패 확률이 낮은 50 Node Shard 40개를 만들 수 있다.
 
 <br />
 
@@ -134,7 +134,7 @@ Sharding 프로토콜에서 공통으로 쓰는 개념은 다음과 같다.
 
 - **Elastico** (Luu et al., ACM(Association for Computing Machinery) CCS(Conference on Computer and Communications Security) 2016): 공개 Blockchain을 위한 첫 Sharded Consensus 프로토콜. Epoch마다 참여자가 직전 Blockchain 상태에서 얻은 Epoch Randomness를 바탕으로 PoW(Proof-of-Work) Puzzle을 풀고, PoW 결과의 하위 비트로 Committee(Shard와 같은 뜻)를 정함
 
-- **OmniLedger** (Kokoris-Kogias et al., IEEE S&P 2018): Epoch 시작 시점에 Node의 최대 1/4을 장악할 수 있는 Adversary를 가정함. Epoch마다(약 하루에 한 번) 전체 Reconfiguration을 수행하고, VRF(Verifiable Random Function) 기반으로 Epoch Randomness를 만듦. Partially Synchronous 설정에서 Shard당 최소 600 Node가 필요함
+- **OmniLedger** (Kokoris-Kogias et al., IEEE S&P 2018): Epoch 시작 시점에 Node의 최대 1/4을 장악할 수 있는 Adversary를 가정함. Epoch마다(약 하루에 한 번) 전체 Reconfiguration을 수행하고, 편향을 막는 난수 생성 프로토콜로 Epoch Randomness를 만듦. 이 프로토콜은 Leader 선출에 VRF(Verifiable Random Function)를 사용함. Partially Synchronous 설정에서 Shard당 최소 600 Node가 필요함
 
 - **[RapidChain](https://eprint.iacr.org/2018/460)** (Zamani et al., ACM CCS 2018): 전체 Node의 1/3까지 Corrupt인 설정. 통신, 계산, 저장을 모두 Sharding하며, 신뢰할 수 있는 주체가 공개 파라미터를 미리 만드는 Trusted Setup이 필요 없음. Synchronous 설정에서 Shard당 최소 250 Node가 필요함. Instachain이 성능 비교의 기준으로 삼는 프로토콜
 
@@ -150,7 +150,7 @@ Sharding 프로토콜에서 공통으로 쓰는 개념은 다음과 같다.
 
 - Shard가 작을수록 Corrupt Node가 그 Shard의 과반을 차지할 확률이 지수적으로 커짐
 
-전체 Node N개 중 Corrupt Node가 T개일 때, 크기 n인 Shard S의 Corrupt Node 수 $C_S$는 Hypergeometric Distribution을 따른다. Hypergeometric Distribution은 전체에서 되돌려 넣지 않고 n개를 뽑을 때, 특정 종류가 몇 개 뽑히는지에 대한 분포다. Shard의 Honest Majority가 깨질 확률은 다음과 같다.
+전체 Node N개 중 Corrupt Node가 T개일 때, 크기 n인 Shard S의 Corrupt Node 수 $C_S$는 Hypergeometric Distribution을 따른다. Hypergeometric Distribution은 전체에서 되돌려 넣지 않고 n개를 뽑을 때, 특정 종류가 몇 개 뽑히는지에 대한 분포다. Shard의 Honest Majority가 깨질 확률은 다음 식으로 위에서 제한된다. n이 짝수이면 이 식이 정확한 값이고, 홀수이면 실제보다 큰 값(상한)이다.
 
 $$
 \Pr[C_S \geq \lfloor n/2 \rfloor] = \sum_{i=\lfloor n/2 \rfloor}^{n} \frac{\binom{T}{i}\binom{N-T}{n-i}}{\binom{N}{n}}
@@ -193,17 +193,17 @@ $N = 2000$, $T = \lfloor N/3 \rfloor$일 때 Shard 크기에 따른 Shard 실패
 | | RapidChain | Instachain |
 | --- | --- | --- |
 | 모든 Shard가 보장하는 성질 | Safety, Liveness | Safety (Liveness는 일부 Shard만) |
-| Intra-shard SMR의 Quorum | 과반 | 조절 가능한 q |
+| Shard 안에서 필요한 조건 | Honest Majority | Safety: $C_S < q$, Liveness: $H_S \geq q$ |
 | Shard 실패 조건 | $C_S \geq \lfloor n/2 \rfloor$ | $C_S \geq q$ |
 | 진행이 멈춘 Shard | 허용하지 않음 (모든 Shard가 Honest Majority여야 하며, 아니면 프로토콜 실패) | 감지 후 Shard를 닫고, 그 Shard의 Transaction을 다른 Shard로 재배정 |
-| Shard 크기 ($N = 2000$ 비교) | 200 | 50 ($q = 35$) |
+| Shard 크기 ($N = 2000$, $F = 1/3$ 비교) | 200 | 50 ($q = 35$) |
 | Shard 수 | 10 | 40 |
 | Shard 실패 확률 | $1.9 \times 10^{-7}$ | $8.6 \times 10^{-8}$ |
 | Safety와 Liveness를 모두 만족하는 Shard 수 (기댓값) | 10 | 14.8 |
 
 같은 시기의 독립 연구인 Gearbox(David et al., 2021)도 일부 Shard의 Liveness를 완화한다. 논문이 밝힌 차이는 두 가지다.
 
-- Gearbox는 Partially Synchronous 설정과 Static Adversary(장악할 Node를 처음에 정하면 바꾸지 못함)를 가정하지만, Instachain은 Synchronous 설정과 Adaptive Adversary(실행 도중 장악할 Node를 바꿀 수 있음)를 가정함
+- Gearbox는 Partially Synchronous 설정과 Static Adversary(장악할 Node를 처음에 정하면 바꾸지 못함)를 가정하지만, Instachain은 Synchronous 설정과 Adaptive Adversary(Epoch 사이에 장악할 Node를 바꿀 수 있음, 아래 Threat Model 참고)를 가정함
 
 - Gearbox는 Safety만 만족하는 Shard를 처리할 때 Network 전체가 통신해야 해서 Network가 커질수록 병목이 될 수 있는 반면, Instachain은 일반 Shard보다 조금 큰 Reference Shard 하나로 처리함
 
@@ -340,7 +340,7 @@ q를 키우면 다음과 같이 바뀐다.
 
 - Safety: $C_S \leq 34$일 때 (Corrupt 비율 70% 미만)
 
-- 과반 Quorum을 쓰는 RapidChain은 두 성질 모두 Corrupt 비율 50% 미만일 때 보장됨
+- Honest Majority가 필요한 RapidChain은 Corrupt 비율 50% 미만이면 두 성질을 모두 보장하고, 그 이상이면 Shard 실패로 봄
 
 $N = 2000$, $T = \lfloor N/3 \rfloor$, $n = 50$에서 q에 따른 확률은 다음과 같다. Safe 열은 $1 - \text{Active} - \text{Corrupt}$로 계산한 값이다.
 
@@ -500,7 +500,9 @@ Node r은 메시지 m을 보낼 때 m의 Hash를 자신의 비밀키 Share로 �
 | --- | --- | --- |
 | Quorum | $f + 1$ ($n = 2f + 1$) | 조절 가능한 q |
 | Commit 조건 | Vote 후 2Δ 동안 Equivocation이 없으면 각 Node가 Commit | 2Δ 후 BC가 있으면 Precommit, BC를 담은 Precommit이 q개 모이면 Commit |
-| Commit의 증거 | 각 Node의 Timer로 결정 | q개 Precommit으로 된 $CC(B_k)$ |
+| Commit 판단 근거 | 각 Node가 자기 Timer가 끝날 때까지 Equivocation을 보지 못했는지 | BC를 담은 Precommit q개, 즉 $CC(B_k)$ |
+
+$CC(B_k)$는 Block Header와 함께 보관되며, 다른 Shard에 Commit을 증명하는 Commit Proof로 쓰인다.
 
 Safe Shard에서는 다음과 같이 동작한다.
 
@@ -574,11 +576,13 @@ Reference Shard의 현재 Leader $L_R$이 Shard $S_i$에서 close 요청을 $n -
 
 4. **Shard 닫기와 상태 전달**: $S_i$의 Node는 제안을 검증한 뒤 Intra-shard SMR 참여를 멈춘다. $S_j$의 Node는 $S_i$의 Node에게 최신 상태를 요청하고, $S_i$의 Node는 최신 Block Header로 응답한다. $S_j$는 $S_i$의 상태를 받은 뒤, 기존 SMR Instance와 별도로 독립된 SMR Instance를 실행해 $S_i$에 배정되었던 Transaction을 처리한다.
 
-Safe Shard Detector가 보장하는 성질은 다음과 같다.
+논문은 Safe Shard Detector가 다음 성질을 보장한다고 증명한다.
 
 - Active Shard의 Honest Node는 close 요청을 보내지 않으므로, Active Shard는 닫히지 않음
 
 - Safe Shard는 결국 Transaction을 처리하거나 결국 닫힘. 닫히지 않으려면 Active Shard처럼 Block을 만들거나 View-change를 계속해야 하는데, View-change 횟수는 $n - q + 1$번으로 제한되기 때문
+
+(검토: 위 감지 규칙을 그대로 적용하면 감지되지 않는 경우가 있다. Safe Shard의 Corrupt Leader가 Block 제안을 멈추고 다른 Corrupt Node도 Blame을 보내지 않으면, Honest Node의 Blame은 q개에 못 미쳐 $VC(v)$가 만들어지지 않고 View-change도 일어나지 않는다. 직전 Block들이 모두 BC와 CC를 얻었다면 Vote Inactivity와 Precommit Inactivity는 걸리지 않는다. Blame Inactivity는 Equivocation 증거를 보낸 경우에만 시작하고, View-change Inactivity는 View를 떠난 뒤 유효한 Block 제안을 한 번 받으면 만족된다. Epoch의 첫 View에서 Leader가 처음부터 침묵하는 경우도 같다. 논문의 두 번째 성질 증명은 Block을 만들거나 View-change를 계속하는 두 경우만 다룬다.)
 
 **→ 문제: 닫힌 Shard의 상태를 효율적이고 검증 가능하게 넘겨야 함**
 
@@ -590,11 +594,11 @@ Safe Shard Detector가 보장하는 성질은 다음과 같다.
 
 **⇒ 해결: Shard 상태를 Accumulator로 압축하고, 상태 전달은 최신 Block Header 전달로 대신함**
 
-- Block Header에 $A^{\text{UTXO}}_S$가 들어 있고, Node는 Commit 후 최신 Header와 $CC(B_k)$만 보관함
+- Block Header에 $A^{\text{UTXO}}_S$가 들어 있고, Node는 Commit 후 최신 Header와 그 Header의 $CC(B_k)$만 보관함
 
-- 상태 전달 = $S_i$의 Honest Node가 최신 Block Header를 $S_j$에 보내는 것
+- 상태 전달 = $S_i$의 Node가 최신 Block Header를 $S_j$에 보내는 것
 
-- Header에는 Commit Certificate가 함께 있으므로 $S_j$는 이 Header가 $S_i$에서 Commit된 것인지 검증할 수 있음
+- 논문은 이 상태 전달이 $S_i$의 Honest Node를 통해 효율적이고 증명 가능한 방식으로 이루어진다고 설명함
 
 - Client는 명시적 상태를 직접 유지하고, Transaction의 Input마다 $A^{\text{UTXO}}_S$ 기준 Membership Proof를 붙임
 
@@ -602,7 +606,7 @@ Why 이 구조로 Step 4의 문제가 해결되는가?
 
 - 상태가 Accumulator 하나로 압축되므로 전달량이 작음 (RSA Accumulator는 그룹 원소 하나)
 
-- Safe Shard에서도 $C_S < q$이므로 Corrupt Node끼리 CC를 만들 수 없음 → 가짜 Header를 Commit된 것처럼 보이게 할 수 없음
+- Safe Shard에서도 $C_S < q$이므로 Corrupt Node끼리 CC를 만들 수 없음 → Commit되지 않은 Header에 CC를 붙일 수 없음
 
 - 상태가 작으므로 Epoch 사이 Reconfiguration도 효율적이 됨
 
@@ -766,7 +770,7 @@ Why 이 구조로 Replay Attack이 막히는가?
 
 - $S_3$가 DKG에서 등록되려면 서명 Share 35개가 필요하므로, $S_3$의 Corrupt Node는 DKG에는 참여했다고 하자. $S_3$는 이후 얼마 동안 정상적으로 Block을 Commit해 상태(UTXO)를 가지고 있다.
 
-- Client A는 $S_1$에 $O_1$(0.5 BTC), $S_2$에 $O_2$(0.3 BTC)를 가지고 있고, B에게 0.8 BTC를 보내려 한다. $T = (\langle I_1, I_2 \rangle, O_3)$, $O_3 = (pk_B, 0.8)$이며 T의 Hash Prefix에 따라 T는 $S_3$에 배정된다.
+- Client A는 $S_1$에 Value 0.5인 $O_1$, $S_2$에 Value 0.3인 $O_2$를 가지고 있고, B에게 0.8을 보내려 한다. $T = (\langle I_1, I_2 \rangle, O_3)$, $O_3 = (pk_B, 0.8)$이며 T의 Hash Prefix에 따라 T는 $S_3$에 배정된다.
 
 1. **입력 Shard 처리**
 
@@ -786,7 +790,7 @@ Why 이 구조로 Replay Attack이 막히는가?
 
 5. **Closing과 상태 전달**
 
-    Reference Shard는 $S_3$의 구성원을 ⊥로 배정하고, Tree를 재구성해 $S_3$의 Prefix를 $S_2$에 넘긴 Table을 Commit하고 Broadcast한다. $S_2$의 Node는 $S_3$의 Honest Node에게서 최신 Block Header($A^{\text{UTXO}}_{S_3}$, $A^{\text{POI}}_{S_3}$, CC 포함)를 받고, $S_3$의 Transaction을 처리할 독립 SMR Instance를 시작한다.
+    Reference Shard는 $S_3$의 구성원을 ⊥로 배정하고, Tree를 재구성해 $S_3$의 Prefix를 $S_2$에 넘긴 Table을 Commit하고 Broadcast한다. $S_2$의 Node는 $S_3$의 Honest Node에게서 최신 Block Header($A^{\text{UTXO}}_{S_3}$, $A^{\text{POI}}_{S_3}$ 포함)를 받고, $S_3$의 Transaction을 처리할 독립 SMR Instance를 시작한다.
 
 6. **$T_{com}$ 처리**
 
@@ -808,11 +812,11 @@ Why 이 구조로 Replay Attack이 막히는가?
 
 | 성질 | 내용 | 근거 |
 | --- | --- | --- |
-| Intra-shard Safety | Safe Shard와 Active Shard에서 Honest Node들은 같은 높이에 같은 Block을 Commit함 | $C_S < q$이므로 모든 Certificate에 Honest Node가 포함되고, 같은 높이에서 BC를 얻는 Block은 하나뿐임 |
+| Intra-shard Safety | Safe Shard와 Active Shard에서 Honest Node들은 같은 높이에 같은 Block을 Commit함 | $C_S < q$이므로 모든 Certificate에 Honest Node가 포함됨. 이를 이용해 Honest Node가 Precommit한 Block이 있으면 같은 높이의 다른 Block은 BC를 얻을 수 없음을 보임 |
 | Intra-shard Liveness | Active Shard에 배정된 유효한 Transaction은 결국 Commit됨 | Honest Node끼리 Quorum을 만들 수 있으므로 Sync HotStuff의 Liveness를 따름 |
 | Provable Commits | Commit된 모든 Block에는 Commit Proof가 있음 | CC 또는 CC가 있는 Block에서 이어지는 Hash Chain |
 | Inter-shard Safety | 한 Shard가 T를 Commit하면, T와 같은 Output을 쓰는 T'를 어떤 Shard도 Commit할 수 없음 (Double Spending 불가) | 아래 두 보조 정리 |
-| Inter-shard Liveness | 유효한 T는 배정된 Shard가 Commit하거나, 그 Shard가 닫히고 다른 Shard가 Commit함 | Safe Shard는 결국 처리하거나 닫히고, 높은 확률로 Active Shard가 적어도 하나 있으므로 T는 결국 Active Shard에 도달함 |
+| Inter-shard Liveness | 유효한 T는 배정된 Shard가 Commit하거나, 그 Shard가 닫히고 다른 Shard가 Commit함 | Safe Shard는 결국 처리하거나 닫히고, 높은 확률로 Active Shard가 적어도 하나 있으므로 T는 결국 Active Shard에 도달함 (Safe Shard 감지의 빈틈은 Step 4의 검토 참고) |
 
 Inter-shard Safety의 두 보조 정리는 다음과 같다.
 
@@ -887,7 +891,7 @@ $$
 | Instachain | 4,000 | 33% | 100 | 60% | 2,407년 | 37.5 |
 | Instachain | 8,000 | 33% | 100 | 60% | 972년 | 74.8 |
 
-- 모든 N에서 Instachain이 TTF가 더 길고 Active Shard 수도 약 2배임
+- 모든 N에서 Instachain이 TTF가 더 길고 Active Shard 수도 약 1.9배임
 
 - 예: $n = 100$, $q = 60$에서 Shard가 Active일 확률은 약 0.94 → $N = 2000$이면 $20 \times 0.94 = 18.8$
 
@@ -911,6 +915,8 @@ $$
 
 - **자세히 나오지 않는 부분**: Epoch 사이 Reconfiguration에서 Shard 상태(Accumulator)를 새 Shard로 옮기는 구체적 절차
 
+- **Safe Shard 감지의 빈틈 (검토)**: Leader가 Block 제안을 멈추고 Corrupt Node가 Blame을 보내지 않는 경우를 잡는 감지 규칙이 없음 (Step 4의 검토 참고)
+
 ### 결론
 
-Instachain은 Sharding에서 Shard 크기를 결정하던 조건, 즉 "모든 Shard가 Safety와 Liveness를 모두 만족해야 한다"는 조건을 완화했다. Sync HotStuff에서는 하나의 Quorum이 Safety 조건("Corrupt Node 수 < q")과 Liveness 조건("Honest Node 수 ≥ q")을 모두 Honest Majority로 묶었지만, Instachain은 q를 키워 Safety는 더 많은 Corrupt Node를 견디게 하고 Liveness는 일부 Shard에서만 보장한다. 그 결과 Shard 크기를 키우지 않고도 Shard 실패 확률을 낮출 수 있다. 대가로 생기는 Safe Shard는 Reference Shard, Safe Shard Detector, Stateless 모델 기반 상태 전달로 처리하고, 늘어나는 Cross-shard Transaction은 Client가 주도하는 Lock-free 방식과 PoI Accumulator로 처리한다. 논문은 이 구성이 Safety와 Liveness를 보장함을 증명하고, 확률 분석으로 RapidChain보다 작은 Shard에서 더 많은 Active Shard와 더 긴 TTF를 얻을 수 있음을 보였다. 다만 실제 처리량과 지연 시간 같은 구현 수준의 검증은 남아 있다.
+Instachain은 Sharding에서 Shard 크기를 결정하던 조건, 즉 "모든 Shard가 Safety와 Liveness를 모두 만족해야 한다"는 조건을 완화했다. Sync HotStuff에서는 하나의 Quorum이 Safety 조건("Corrupt Node 수 < q")과 Liveness 조건("Honest Node 수 ≥ q")을 모두 Honest Majority로 묶었지만, Instachain은 q를 키워 Safety는 더 많은 Corrupt Node를 견디게 하고 Liveness는 일부 Shard에서만 보장한다. 그 결과 Shard 크기를 키우지 않고도 Shard 실패 확률을 낮출 수 있다. 대가로 생기는 Safe Shard는 Reference Shard, Safe Shard Detector, Stateless 모델 기반 상태 전달로 처리하고, 늘어나는 Cross-shard Transaction은 Client가 주도하는 Lock-free 방식과 PoI Accumulator로 처리한다. 논문은 이 구성이 Safety와 Liveness를 보장한다는 증명을 제시하고(Safe Shard 감지 규칙에는 앞에서 짚은 빈틈이 있다), 확률 분석으로 RapidChain보다 작은 Shard에서 더 많은 Active Shard와 더 긴 TTF를 얻을 수 있음을 보였다. 다만 실제 처리량과 지연 시간 같은 구현 수준의 검증은 남아 있다.

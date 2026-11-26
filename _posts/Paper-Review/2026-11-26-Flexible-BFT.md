@@ -75,7 +75,7 @@ Resilience는 프로토콜이 Safety와 Liveness를 유지하면서 견딜 수 �
 
 - **Synchrony**: Byzantine Replica가 1/2 미만 (예: Dfinity, Sync HotStuff)
 
-Byzantine Replica가 이 한계를 넘거나, Synchrony 모델에서 $\Delta$가 지켜지지 않으면 Safety와 Liveness를 모두 잃는다.
+Byzantine Replica가 이 한계를 넘거나, Synchrony 모델에서 $\Delta$가 지켜지지 않으면 Safety와 Liveness를 보장하지 못한다.
 
 ### Byzantine Quorum
 
@@ -151,7 +151,7 @@ Synchrony 모델에서는 Byzantine Replica가 1/2 미만이면 합의할 수 �
 
 기존 BFT 설계에서는 설계자나 서비스 관리자가 먼저 가정(Byzantine 장애 비율, 타이밍 가정)을 정하고, 그 가정에 맞는 프로토콜을 설계하거나 고른다. 이 가정은 모든 Replica와 모든 Client에게 똑같이 적용된다.
 
-- 설계 가정과 다른 환경에서는 프로토콜이 무너진다. Partial Synchrony 프로토콜은 Byzantine Replica가 1/3을 넘으면, Synchrony 프로토콜은 1/2을 넘거나 $\Delta$가 지켜지지 않으면 Safety와 Liveness를 잃는다.
+- 설계 가정과 다른 환경에서는 프로토콜이 무너진다. Partial Synchrony 프로토콜은 Byzantine Replica가 1/3을 넘으면, Synchrony 프로토콜은 1/2을 넘거나 $\Delta$가 지켜지지 않으면 Safety와 Liveness를 보장하지 못한다.
 
 - 그러나 실제 Client의 가정은 서로 다를 수 있다.
 
@@ -210,7 +210,7 @@ Byzantine Fault 모델은 장애 Replica가 Safety와 Liveness를 모두 공격�
 | Resilience (Synchrony) | Byzantine < 1/2 | 전체 장애 < $q_r$, Byzantine ≤ $1 - q_r$ |
 | Replica의 $\Delta$ 사용 | Synchrony 프로토콜의 Replica는 $\Delta$를 사용 | Replica는 $\Delta$를 사용하지 않음 |
 
-($q_r$, $q_c$는 아래 Step 2, Step 3에서 정의한다.)
+($q_r$은 위 PBFT 설명에서 정의했고, $q_c$는 아래 Step 3에서 정의한다.)
 
 ### Flexible BFT Model
 
@@ -476,7 +476,7 @@ $$
 
 **Byzantine만 있을 때**
 
-- 최선의 선택은 $q_c = q_r \geq 2/3$이고, Byzantine 1/3 미만을 견딤
+- 최선의 선택은 $q_c = q_r = 2/3$(정확히는 $3f+1$개 중 $2f+1$개)이고, Byzantine 1/3 미만을 견딤. $q_c = q_r$을 2/3보다 크게 하면 $B \leq 1 - q_r$이 1/3보다 작아짐
 
 - 이때 Flexible Byzantine Quorum은 기존 Byzantine Quorum과 같아짐
 
@@ -664,23 +664,23 @@ $$
 
 - CR2($\Delta$): $\Delta$가 실제 최대 메시지 지연의 상한이고, 전체 장애 비율 < $q_r$
 
-**Lemma 1**: Client가 올바른 Commit Rule로 View v에서 $B_l$을 Direct Commit했다면, $C^{q_r}_v(B_l)$보다 순위가 낮지 않은 모든 Certified Block은 $B_l$과 같거나 $B_l$을 확장한다.
+**Lemma (Direct Commit 이후의 Certified Block)**: Client가 올바른 Commit Rule로 View v에서 $B_l$을 Direct Commit했다면, $C^{q_r}_v(B_l)$보다 순위가 낮지 않은 모든 Certified Block은 $B_l$과 같거나 $B_l$을 확장한다.
 
 - 순위가 낮지 않음: 같은 View v에서 Height가 l 이상이거나, 더 높은 View에서 Certified됨
 
 - View에 대한 귀납법으로 증명함. 출발점은 View v 안에서 충돌 Block이 Certified될 수 없다는 점이고, 귀납 단계는 Lock과 S를 통해 이 성질이 다음 View로 이어진다는 점이다 (위 CR1, CR2의 안전성 설명)
 
-**Theorem 2 (Safety)**: 올바른 Commit Rule을 가진 두 Client는 모든 Height에서 같은 Block을 Commit한다.
+**Theorem (Safety)**: 올바른 Commit Rule을 가진 두 Client는 모든 Height에서 같은 Block을 Commit한다.
 
 - Height k에서 서로 다른 Block $B_k$와 $B'_k$가 Commit되었다고 가정
 
 - 각각 View v의 $B_l$, View v′의 $B'_{l'}$이 Direct Commit된 결과라고 하고, 일반성을 잃지 않고 $v \leq v'$로 둠 (같은 View면 $l \leq l'$)
 
-- Lemma 1에 의해 $B'_{l'}$은 $B_l$과 같거나 $B_l$을 확장 → Height k의 Block도 같음 → 모순
+- 위 Lemma에 의해 $B'_{l'}$은 $B_l$과 같거나 $B_l$을 확장 → Height k의 Block도 같음 → 모순
 
 - 두 Client가 서로 다른 Commit Rule(예: 하나는 CR1, 하나는 CR2)을 써도 성립함
 
-**Theorem 3 (Liveness)**: 모든 Client의 Commit Rule이 올바르면, 모든 Client가 새 Block을 계속 Commit한다.
+**Theorem (Liveness)**: 모든 Client의 Commit Rule이 올바르면, 모든 Client가 새 Block을 계속 Commit한다.
 
 - Safety가 증명되었으므로 a-b-c Replica를 Honest처럼 취급할 수 있음
 
@@ -737,9 +737,9 @@ $$
     | A ($q_c = 0.7$) | $B_1$ Commit | 같은 View에서 85 ≥ 70, 83 ≥ 70 |
     | B ($q_c = 0.8$) | $B_1$ Commit | 같은 View에서 85 ≥ 80, 83 ≥ 80 |
     | C ($q_c = 0.9$) | 아직 Commit하지 않음 | 85 < 90 |
-    | D ($\Delta$ = 1초) | $\text{t-lock}_{1,v}$로부터 2초 뒤 $B_1$ Commit | 70개 이상 Replica가 2초 동안 Equivocation과 View Change가 없었다고 진술 |
+    | D ($\Delta$ = 1초) | 2초 경과 진술이 70개 모이면 $B_1$ Commit | 70개 이상 Replica가 각자 기록한 $\text{t-lock}_{1,v}$ 이후 2초 동안 Equivocation과 View Change가 없었다고 진술 |
 
-    - $\Delta$ = 3초를 믿는 Client라면 같은 기록을 보고 6초 뒤에 Commit한다.
+    - $\Delta$ = 3초를 믿는 Client라면 같은 기록을 보고, 70개 이상 Replica가 각자의 $\text{t-lock}_{1,v}$ 이후 6초 동안 문제가 없었다고 진술할 때 Commit한다.
 
     - C는 같은 View에서 연속된 두 Block이 각각 90개 이상의 투표를 받을 때까지 기다린다. 15개 Replica가 계속 투표하지 않으면 C는 Commit하지 못한다.
 
@@ -758,7 +758,7 @@ $$
 
     - B가 안전한 이유: 80표 집합과 70표 집합의 교집합은 최소 50개다. 장애 Replica는 45개이므로 교집합에 Honest Replica가 반드시 있다.
 
-    - B와 D는 가정이 다르지만 둘 다 맞으므로, 같은 Height에서 같은 Block을 Commit한다 (Theorem 2).
+    - B와 D는 가정이 다르지만 둘 다 맞으므로, 같은 Height에서 같은 Block을 Commit한다 (Safety Theorem).
 
     - 논문의 Liveness 증명은 모든 Client의 가정이 맞다는 전제에서 이루어진다. A처럼 가정이 틀린 Client가 있을 때 a-b-c Replica가 계속 Liveness를 돕는지는 이 논문이 다루지 않는다 (아래 한계 참고).
 
@@ -792,7 +792,7 @@ Client가 견디려는 Byzantine 비율을 B, 전체 장애 비율을 T(= B + P)
 
 - **CR1이 가능한 경우**: $B + T < q_r$이고 $B \leq 1 - q_r$
 
-    - $q_c$는 $T + 1 - q_r < q_c \leq 1 - B$ 범위에서 고름
+    - $q_c$는 $q_c \geq q_r$이면서 $T + 1 - q_r < q_c \leq 1 - B$인 범위에서 고름
 
     - 예: $q_r = 0.7$에서 (B, T) = (0.2, 0.49)이면 $0.79 < q_c \leq 0.8$ → $q_c = 0.8$
 
