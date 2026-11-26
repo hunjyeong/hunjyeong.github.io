@@ -294,8 +294,11 @@ Opening 두 개가 $(D,\pi)$ 하나로 확인됐다.
 EIP-6800의 트리는 Why Multiproof?에서 본 단순한 트리와 Leaf 쪽 구조가 다르다([Verkle tree structure](https://blog.ethereum.org/2021/12/02/verkle-tree-structure)).
 
 - Key는 32 Byte다. 앞 31 Byte를 Stem, 마지막 1 Byte를 Suffix라고 한다.
+
 - 같은 Stem을 가진 값 256개는 Extension Node 하나에 모인다. Extension Node의 Commitment는 $(1, \text{Stem}, C_1, C_2)$ 네 값에 대한 Commitment이고, 값들은 $C_1$과 $C_2$에 들어간다.
+
 - 체의 크기가 253 Bit라서 32 Byte 값은 원소 하나에 들어가지 않는다. 그래서 값은 16 Byte 두 조각으로 나뉘어 들어간다. 아래쪽 조각에는 $2^{128}$을 더해 값이 0인 경우와 비어 있는 경우를 구분한다.
+
 - 자식 Commitment는 군 원소이므로 `group_to_scalar_field` 함수로 체의 원소로 바꾼 뒤 부모의 평가값으로 쓴다.
 
 따라서 Key 하나에 필요한 Opening 수는 경로의 깊이보다 많다. 구현체 [go-verkle](https://github.com/ethereum/go-verkle/blob/master/tree.go) 기준으로 Key 하나는 경로 위 Inner Node마다 Opening 1개, Extension Node에서 3개(위치 0, 위치 1, 그리고 위치 2 또는 3), $C_1$ 또는 $C_2$에서 2개를 만든다. 같은 Commitment를 같은 위치에서 여는 Opening은 한 번만 센다.
@@ -303,9 +306,13 @@ EIP-6800의 트리는 Why Multiproof?에서 본 단순한 트리와 Leaf 쪽 구
 Block 하나를 검증할 때 보내는 데이터를 Witness라고 한다. 구현체 [go-verkle](https://github.com/ethereum/go-verkle/blob/master/proof_ipa.go) 기준으로 Witness는 다음으로 이루어진다.
 
 - **State Diff:** Stem별로 묶은 Suffix, 현재 값, 새 값
+
 - **CommitmentsByPath:** Root부터 각 Leaf까지의 연결을 확인하는 데 필요한 경로 위의 Commitment. 경로가 겹치면 한 번만
+
 - **DepthExtensionPresent:** 각 Stem의 깊이와 Extension Status를 담은 Byte
+
 - **OtherStems:** 어떤 Stem이 트리에 없음을 증명할 때 쓰는 다른 Stem
+
 - **Multiproof:** $D$와 마지막 Opening Proof
 
 Root Commitment는 부모 Block에 이미 있는 값이므로 보내지 않는다. 평가점 $z_i$는 Key에서, 평가값 $y_i$는 자식 Commitment나 Leaf 값에서 Verifier가 직접 계산하므로 이것도 보내지 않는다.
@@ -331,8 +338,11 @@ go-ipa의 Fiat-Shamir 입력 순서는 원문과 다르다. 원문은 $C_i$ 전�
 ## Summary
 
 1. "$f(z)=y$다"는 "몫 $\frac{f(X)-y}{X-z}$가 다항식이다"와 같다. KZG에서는 이 몫의 Commitment가 Opening Proof다.
+
 2. Opening이 $m$개면 몫도 $m$개다. 무작위 가중치 $r^i$를 곱해 더한 $g(X)$의 Commitment $D$를 보낸다.
+
 3. $D$가 고정된 뒤 무작위 점 $t$를 뽑는다. Verifier는 $C_i$들을 결합해 $E$를, 공개 값으로 $y$를 계산한다.
+
 4. $E-D$를 $t$에서 열면 $y$가 나오는지 Opening Proof $\pi$ 하나로 확인한다.
 
 증명 $(D,\pi)$의 크기는 Opening 개수와 무관하다. 이 기법은 Zero-Knowledge(영지식)를 제공하지 않는다. $z_i$와 $y_i$는 공개된다.
