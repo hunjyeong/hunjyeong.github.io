@@ -25,33 +25,36 @@ math: true
 
 ### What is BFT SMR?
 
-**SMR(State-Machine Replication, 상태 머신 복제)**은 여러 Node가 같은 Transaction 순서에 합의하여 같은 상태를 유지하는 방법이다. **BFT(Byzantine Fault Tolerant, 비잔틴 장애 허용) SMR**은 일부 Node가 프로토콜을 임의로 어기더라도(Byzantine, 비잔틴) 제3자 없이 합의를 유지한다.
+**SMR(State-Machine Replication)**은 여러 Node가 같은 Transaction 순서에 합의하여 같은 상태를 유지하는 방법이다. **BFT(Byzantine Fault Tolerant) SMR**은 일부 Node가 프로토콜을 임의로 어기는 Byzantine Fault가 있어도, 제3자 없이 Consensus를 유지한다.
 
-- **Honest Node(정직한 노드)**: 프로토콜을 그대로 따르는 Node
-- **Corrupt Node(악의적 노드)**: 공격자가 장악한 Node. 메시지를 보내지 않거나, 잘못된 메시지나 서로 다른 메시지를 보내는 등 임의로 행동함
+- **Honest Node**: 프로토콜을 그대로 따르는 Node
+- **Corrupt Node**: Adversary가 장악한 Node. 메시지를 보내지 않거나, 잘못된 메시지나 서로 다른 메시지를 보내는 등 임의로 행동함
+- **Commit**: Node가 Block을 확정하는 것. Commit한 Block은 되돌리지 않음
 
 BFT SMR의 정확성은 두 성질로 평가한다.
 
-- **Safety(안전성)**: 모든 Honest Node가 같은 Transaction 순서를 처리하여 같은 상태를 유지함
-- **Liveness(활성)**: 유효한 Transaction은 결국 처리됨
+- **Safety**: 모든 Honest Node가 같은 Transaction 순서를 처리하여 같은 상태를 유지함
+- **Liveness**: 유효한 Transaction은 결국 처리됨
 
-허용할 수 있는 Corrupt Node의 비율은 Network에 대한 가정에 따라 다르다.
+허용할 수 있는 Corrupt Node의 비율은 Network Synchrony, 즉 메시지가 언제까지 도착하는지에 대한 가정에 따라 다르다.
 
-| Network 가정 | 의미 | 두 성질을 모두 만족하기 위한 조건 |
+| Synchrony 가정 | 의미 | 두 성질을 모두 만족하기 위한 조건 |
 | --- | --- | --- |
-| Synchronous(동기) | 메시지가 알려진 고정 시간 Δ 안에 항상 도착함 | Corrupt Node 비율 1/2 미만 (Honest Majority) |
-| Partially Synchronous(부분 동기) | 메시지가 알려지지 않은 고정 시간 안에 도착함 | Corrupt Node 비율 1/3 미만 |
+| Synchronous | 메시지가 알려진 고정 시간 Δ 안에 항상 도착함 | Corrupt Node 비율 1/2 미만 (Honest Majority) |
+| Partially Synchronous | 메시지가 알려지지 않은 고정 시간 안에 도착함 | Corrupt Node 비율 1/3 미만 |
 
-- **Quorum(정족수)**: 어떤 결정을 내리는 데 필요한 최소 서명(투표) 수
-- **Quorum Certificate(정족수 인증서)**: 같은 메시지에 대해 Quorum 크기만큼 모은 서명. 그 메시지에 충분한 수의 Node가 동의했다는 증거
+- **Quorum**: 어떤 결정을 내리는 데 필요한 최소 서명(투표) 수
+- **Quorum Certificate**: 같은 메시지에 대해 Quorum 크기만큼 모은 서명. 그 메시지에 충분한 수의 Node가 동의했다는 증거
 
 ### Sync HotStuff
 
-Instachain의 Shard 내부 합의는 [Sync HotStuff](https://doi.org/10.1109/SP40000.2020.00044)(Abraham et al., IEEE(Institute of Electrical and Electronics Engineers) S&P(Symposium on Security and Privacy) 2020)를 확장한 것이다. Sync HotStuff는 Synchronous 가정에서 동작하는 BFT SMR 프로토콜이다.
+Instachain의 Intra-shard SMR, 즉 각 Shard 안에서 실행하는 SMR은 [Sync HotStuff](https://doi.org/10.1109/SP40000.2020.00044)(Abraham et al., IEEE(Institute of Electrical and Electronics Engineers) S&P(Symposium on Security and Privacy) 2020)를 확장한 것이다. Sync HotStuff는 Synchronous 가정에서 동작하는 BFT SMR 프로토콜이다.
 
 - **모델**: Node n개 중 Corrupt Node f개, $f < n/2$ ($n = 2f + 1$). 메시지 지연의 상한 Δ를 알고 있다고 가정하며, 모든 메시지에 서명함
-- **Leader(리더) 기반**: View(뷰)마다 Leader가 정해지고, Leader가 Block을 제안함
-- **두 단계**: Steady-state(정상 상태)와 View-change(뷰 변경)
+- **View**: 한 Leader가 맡는 기간. View마다 Leader가 정해지고, Leader가 Block을 제안함. Leader를 바꾸면 View 번호가 1 증가함
+- **두 단계**
+    - Steady-state: Leader가 Block을 제안하고 Node가 Vote하는 평상시 단계
+    - View-change: 문제가 있는 Leader를 교체하는 단계
 - **Quorum**: $f + 1$. 한 Block에 대한 $f + 1$개의 Vote가 그 Block의 Certificate가 됨
 
 **Steady-state**
@@ -60,7 +63,7 @@ Instachain의 Shard 내부 합의는 [Sync HotStuff](https://doi.org/10.1109/SP4
 2. **Vote**: Node는 Leader에게서 처음 받은 유효한 Block에 Vote를 Broadcast하고, 받은 제안을 다른 Node에게도 전달한다. 이때 2Δ짜리 Commit-timer를 시작한다.
 3. **Commit**: Vote 후 2Δ 동안 같은 높이의 충돌하는 Block을 받지 못하면, 그 Block과 모든 조상 Block을 Commit한다.
 
-Leader가 같은 높이에 서로 다른 Block을 제안하는 것을 **Equivocation(이중 제안)**이라고 한다. Steady-state의 Commit 지연은 2Δ다.
+Leader가 같은 높이에 서로 다른 Block을 제안하는 것을 **Equivocation**이라고 한다. Steady-state의 Commit 지연은 2Δ다.
 
 Why 2Δ를 기다리면 충분한가? ([설명](https://decentralizedthoughts.github.io/2019-11-12-Sync-HotStuff))
 
@@ -71,7 +74,7 @@ Why 2Δ를 기다리면 충분한가? ([설명](https://decentralizedthoughts.gi
 
 **View-change**
 
-Leader가 Equivocation을 하거나 Block을 충분히 제안하지 않으면, Node는 Blame(비난) 메시지를 보낸다. $f + 1$개의 Blame이 모이면 현재 View를 끝내고 다음 View로 넘어간다. 새 View에 들어가면 Node는 자신이 가진 가장 높은 Certified Block(Certificate를 얻은 Block)을 새 Leader에게 보낸다.
+Leader가 Equivocation을 하거나 Block을 충분히 제안하지 않으면, Node는 Leader에게 문제가 있다고 알리는 Blame 메시지를 보낸다. $f + 1$개의 Blame이 모이면 현재 View를 끝내고 다음 View로 넘어간다. 새 View에 들어가면 Node는 Certificate를 얻은 Block(Certified Block) 중 가장 높은 Block을 새 Leader에게 보낸다.
 
 **Quorum $f + 1$이 하는 두 가지 역할**
 
@@ -88,23 +91,23 @@ $n = 2f + 1$에서 Quorum $q = f + 1$은 Safety 쪽 조건과 Liveness 쪽 조�
 
 ### What is Sharding?
 
-**Sharding(샤딩)**은 Network의 Node를 무작위로 나누어 여러 개의 작은 그룹, 즉 **Shard(샤드)**를 만들고, 각 Shard가 BFT SMR로 서로 겹치지 않는 Transaction 원장(Blockchain)을 병렬로 키우는 방법이다.
+**Sharding**은 Network의 Node를 무작위로 나누어 여러 개의 작은 그룹, 즉 **Shard**를 만들고, 각 Shard가 BFT SMR로 서로 겹치지 않는 Transaction Ledger, 즉 Blockchain을 병렬로 키우는 방법이다.
 
-- **동기**: SMR 프로토콜은 보통 Network 크기에 대해 Quadratic(제곱) Message Complexity(메시지 복잡도)를 가진다. 따라서 작은 Shard는 전체 Network보다 훨씬 빠르게 Transaction을 처리할 수 있다.
-- **Scalability(확장성)**: 새 Node가 들어오면 새 Shard를 만들 수 있으므로, Network 크기가 커질수록 처리량도 늘어난다.
+- **필요성**: SMR 프로토콜의 Message Complexity, 즉 주고받는 메시지 수는 보통 Network 크기의 제곱에 비례한다. 따라서 작은 Shard는 전체 Network보다 훨씬 빠르게 Transaction을 처리할 수 있다.
+- **Scalability**: 새 Node가 들어오면 새 Shard를 만들 수 있으므로, Network 크기가 커질수록 처리량도 늘어난다.
 
 Sharding 프로토콜에서 공통으로 쓰는 개념은 다음과 같다.
 
-- **Epoch(에폭)**: 프로토콜이 진행되는 고정된 기간. Epoch마다 Shard를 다시 구성함
-- **Epoch Randomness(에폭 난수)**: 모든 Node가 합의한 무작위 비트열. Node를 Shard에 무작위로 배정하는 데 사용함
-- **Reconfiguration(재구성)**: Epoch마다 Node를 Shard 사이에 섞는 과정. 공격자가 특정 Shard를 장악하지 못하게 함
-- **Cross-shard Transaction(샤드 간 트랜잭션)**: 다른 Shard에 있는 Input에 의존하는 Transaction. 원자적으로 실행하려면 다른 Shard의 상태도 바꿔야 하므로 비용이 큼. Shard 수가 많을수록 Cross-shard Transaction이 생길 가능성이 커짐
+- **Epoch**: 프로토콜이 진행되는 고정된 기간. Epoch마다 Shard를 다시 구성함
+- **Epoch Randomness**: 모든 Node가 동의한 무작위 비트열. Node를 Shard에 무작위로 배정하는 데 사용함
+- **Reconfiguration**: Epoch마다 Node를 Shard 사이에 섞는 과정. Adversary가 특정 Shard를 장악하지 못하게 함
+- **Cross-shard Transaction**: 다른 Shard에 있는 Input에 의존하는 Transaction. 원자적으로 실행하려면 다른 Shard의 상태도 바꿔야 하므로 비용이 큼. Shard 수가 많을수록 Cross-shard Transaction이 생길 가능성이 커짐
 
 ### 기존 Sharding 프로토콜
 
-- **Elastico** (Luu et al., ACM(Association for Computing Machinery) CCS(Conference on Computer and Communications Security) 2016): 공개 Blockchain을 위한 첫 Sharded Consensus 프로토콜. Epoch마다 참여자가 직전 Blockchain 상태에서 얻은 Epoch Randomness를 바탕으로 PoW(Proof-of-Work, 작업 증명) Puzzle을 풀고, PoW 결과의 하위 비트로 Committee(위원회, Shard와 같은 의미)를 정함
-- **OmniLedger** (Kokoris-Kogias et al., IEEE S&P 2018): Epoch 시작 시점에 Node의 최대 1/4을 장악할 수 있는 공격자를 가정함. Epoch마다(약 하루에 한 번) 전체 Reconfiguration을 수행하고, VRF(Verifiable Random Function, 검증 가능한 난수 함수) 기반으로 Epoch Randomness를 만듦. Partially Synchronous 설정에서 Shard당 최소 600 Node가 필요함
-- **[RapidChain](https://eprint.iacr.org/2018/460)** (Zamani et al., ACM CCS 2018): 전체 Node의 1/3까지 Corrupt인 설정. 통신, 계산, 저장을 모두 Sharding하며 Trusted Setup(신뢰 설정)이 필요 없음. Block Pipelining으로 처리량을 높인 Shard 내부 합의, 큰 Block을 위한 Gossip 프로토콜, Cuckoo Rule 기반 Reconfiguration을 사용함. Synchronous 설정에서 Shard당 최소 250 Node가 필요함. Instachain이 성능 비교의 기준으로 삼는 프로토콜
+- **Elastico** (Luu et al., ACM(Association for Computing Machinery) CCS(Conference on Computer and Communications Security) 2016): 공개 Blockchain을 위한 첫 Sharded Consensus 프로토콜. Epoch마다 참여자가 직전 Blockchain 상태에서 얻은 Epoch Randomness를 바탕으로 PoW(Proof-of-Work) Puzzle을 풀고, PoW 결과의 하위 비트로 Committee(Shard와 같은 뜻)를 정함
+- **OmniLedger** (Kokoris-Kogias et al., IEEE S&P 2018): Epoch 시작 시점에 Node의 최대 1/4을 장악할 수 있는 Adversary를 가정함. Epoch마다(약 하루에 한 번) 전체 Reconfiguration을 수행하고, VRF(Verifiable Random Function) 기반으로 Epoch Randomness를 만듦. Partially Synchronous 설정에서 Shard당 최소 600 Node가 필요함
+- **[RapidChain](https://eprint.iacr.org/2018/460)** (Zamani et al., ACM CCS 2018): 전체 Node의 1/3까지 Corrupt인 설정. 통신, 계산, 저장을 모두 Sharding하며, 신뢰할 수 있는 주체가 공개 파라미터를 미리 만드는 Trusted Setup이 필요 없음. Synchronous 설정에서 Shard당 최소 250 Node가 필요함. Instachain이 성능 비교의 기준으로 삼는 프로토콜
 
 <br />
 
@@ -117,13 +120,13 @@ Sharding 프로토콜에서 공통으로 쓰는 개념은 다음과 같다.
 - Shard는 전체 Node에서 무작위로 뽑힘 → 전체 Corrupt Node 비율이 1/3 미만이어도 특정 Shard에 Corrupt Node가 몰릴 수 있음
 - Shard가 작을수록 Corrupt Node가 그 Shard의 과반을 차지할 확률이 지수적으로 커짐
 
-전체 Node N개 중 Corrupt Node가 T개일 때, 크기 n인 Shard S의 Corrupt Node 수 $C_S$는 Hypergeometric Distribution(초기하 분포)을 따른다. Shard의 Honest Majority가 깨질 확률은 다음과 같다.
+전체 Node N개 중 Corrupt Node가 T개일 때, 크기 n인 Shard S의 Corrupt Node 수 $C_S$는 Hypergeometric Distribution을 따른다. Hypergeometric Distribution은 전체에서 되돌려 넣지 않고 n개를 뽑을 때, 특정 종류가 몇 개 뽑히는지에 대한 분포다. Shard의 Honest Majority가 깨질 확률은 다음과 같다.
 
 $$
 \Pr[C_S \geq \lfloor n/2 \rfloor] = \sum_{i=\lfloor n/2 \rfloor}^{n} \frac{\binom{T}{i}\binom{N-T}{n-i}}{\binom{N}{n}}
 $$
 
-Shard가 $N/n$개이므로, Union Bound(합집합 상한)로 계산한 Epoch 하나의 실패 확률 상한은 이 값에 $N/n$을 곱한 값이다.
+Shard가 $N/n$개이므로, Epoch 하나의 실패 확률 상한은 이 값에 $N/n$을 곱한 값이다. 이 계산 방식을 Union Bound라고 하며, 여러 사건 중 하나라도 일어날 확률을 각 사건 확률의 합으로 위에서 제한한다.
 
 $N = 2000$, $T = \lfloor N/3 \rfloor$일 때 Shard 크기에 따른 Shard 실패 확률은 다음과 같다.
 
@@ -140,18 +143,21 @@ $N = 2000$, $T = \lfloor N/3 \rfloor$일 때 Shard 크기에 따른 Shard 실패
 
 ## Solution: Instachain
 
-**Instachain**은 모든 Shard에서 Safety를 유지하되 일부 Shard에서는 Liveness를 포기하여, Shard 크기를 기존보다 훨씬 작게 만드는 Sharding 프로토콜이다(Ozdayi, Guo, Zamani, 2022). 핵심은 Shard 내부 SMR의 Quorum 크기 q를 조절하는 **Adjustable Quorum(조절 가능한 정족수)**이다. 논문은 Synchronous 설정에서 Shard 크기를 50~100 Node로 줄이면서(RapidChain은 200~250 Node), RapidChain보다 실패 확률이 낮고 병렬성(Blockchain을 키울 수 있는 Shard 수)이 높다고 주장한다.
+**Instachain**은 모든 Shard에서 Safety를 유지하되 일부 Shard에서는 Liveness를 포기하여, Shard 크기를 기존보다 훨씬 작게 만드는 Sharding 프로토콜이다(Ozdayi, Guo, Zamani, 2022). 핵심은 Intra-shard SMR의 Quorum 크기 q를 조절하는 **Adjustable Quorum**이다. 논문은 Synchronous 설정에서 Shard 크기를 50~100 Node로 줄이면서(RapidChain은 200~250 Node), RapidChain보다 실패 확률이 낮고 병렬성(Blockchain을 키울 수 있는 Shard 수)이 높다고 주장한다.
 
 논문의 기여는 세 가지다.
 
 - **Sharding with Adjustable Quorums**: Quorum 크기를 조절해 일부 Shard의 Liveness를 완화하고, 모든 Shard의 Safety는 유지함
 - **Stateless Sharded Blockchains**: Sharding에 Stateless Blockchain 모델을 처음 적용함. 주된 목적은 Safety만 만족하는 Shard에서 생기는 문제를 해결하는 것이며, Reconfiguration도 효율적으로 만듦
-- **Lock-free, Client-driven Cross-shard Transactions**: UTXO(Unspent Transaction Output) 모델에서 Client가 주도하는 Cross-shard Transaction 검증 프로토콜. 엄격한 Atomicity(원자성)를 포기해 Transaction에 Lock을 유지하는 비용을 없애고, 대신 Refund(환불)로 일관성을 유지함. Replay Attack(재전송 공격)에도 저항함
+- **Lock-free, Client-driven Cross-shard Transactions**: UTXO(Unspent Transaction Output, 아직 소비되지 않은 Output) 모델에서 Client가 주도하는 Cross-shard Transaction 검증 프로토콜
+    - 엄격한 Atomicity, 즉 여러 Shard에 걸친 처리가 모두 일어나거나 모두 일어나지 않는 성질을 포기해, Transaction에 Lock을 유지하는 비용을 없앰
+    - 대신 소비된 금액을 돌려주는 Refund로 일관성을 유지함
+    - 같은 Transaction을 반복 제출하는 Replay Attack에도 저항함
 
 | | RapidChain | Instachain |
 | --- | --- | --- |
 | 모든 Shard가 보장하는 성질 | Safety, Liveness | Safety (Liveness는 일부 Shard만) |
-| Shard 내부 Quorum | 과반 | 조절 가능한 q |
+| Intra-shard SMR의 Quorum | 과반 | 조절 가능한 q |
 | Shard 실패 조건 | $C_S \geq \lfloor n/2 \rfloor$ | $C_S \geq q$ |
 | 진행이 멈춘 Shard | 허용하지 않음 (모든 Shard가 Honest Majority여야 하며, 아니면 프로토콜 실패) | 감지 후 Shard를 닫고, 그 Shard의 Transaction을 다른 Shard로 재배정 |
 | Shard 크기 ($N = 2000$ 비교) | 200 | 50 ($q = 35$) |
@@ -159,11 +165,14 @@ $N = 2000$, $T = \lfloor N/3 \rfloor$일 때 Shard 크기에 따른 Shard 실패
 | Shard 실패 확률 | $1.9 \times 10^{-7}$ | $8.6 \times 10^{-8}$ |
 | Safety와 Liveness를 모두 만족하는 Shard 수 (기댓값) | 10 | 14.8 |
 
-같은 시기의 독립 연구인 Gearbox(David et al., 2021)도 일부 Shard의 Liveness를 완화한다. 논문이 밝힌 차이는 두 가지다. Gearbox는 Partially Synchronous 설정과 Static Adversary(정적 공격자)를 가정하지만 Instachain은 Synchronous 설정과 Adaptive Adversary(적응형 공격자)를 가정한다. 또 Gearbox는 Safety만 만족하는 Shard를 처리할 때 Network 전체가 통신해야 해서 Network가 커질수록 병목이 될 수 있는 반면, Instachain은 일반 Shard보다 조금 큰 Reference Shard 하나로 처리한다.
+같은 시기의 독립 연구인 Gearbox(David et al., 2021)도 일부 Shard의 Liveness를 완화한다. 논문이 밝힌 차이는 두 가지다.
+
+- Gearbox는 Partially Synchronous 설정과 Static Adversary(장악할 Node를 처음에 정하면 바꾸지 못함)를 가정하지만, Instachain은 Synchronous 설정과 Adaptive Adversary(실행 도중 장악할 Node를 바꿀 수 있음)를 가정함
+- Gearbox는 Safety만 만족하는 Shard를 처리할 때 Network 전체가 통신해야 해서 Network가 커질수록 병목이 될 수 있는 반면, Instachain은 일반 Shard보다 조금 큰 Reference Shard 하나로 처리함
 
 ### 핵심 아이디어: 일부 Shard의 Liveness 완화
 
-Safety와 Liveness 중 Safety는 포기할 수 없다. Safety가 깨지면 Double Spending(이중 지불)을 막을 수 없기 때문이다. 그래서 Instachain은 Liveness를 완화한다.
+Safety와 Liveness 중 Safety는 포기할 수 없다. Safety가 깨지면 같은 Output을 두 번 쓰는 Double Spending을 막을 수 없기 때문이다. 그래서 Instachain은 Liveness를 완화한다.
 
 Sharding이 아닌 설정에서는 둘 중 하나만 만족하는 것은 쉽지만 쓸모가 없다.
 
@@ -182,22 +191,23 @@ Sharding 설정에서는 다르다.
 **Network Model**
 
 - N개 Node가 P2P(Peer-to-Peer) Network로 연결됨. 각 Node는 일정 수의 다른 Node와 연결됨
-- Sybil Attack(시빌 공격)에 저항하는 Identity(신원) 생성 방식 사용: 각 Node가 계산적으로 어려운 Puzzle을 풀어 자신이 만든 공개키를 다른 Node들에게 검증받음
+- Sybil Attack, 즉 한 Adversary가 Identity를 여러 개 만들어 영향력을 키우는 공격에 저항하는 Identity 생성 방식을 사용함. Identity는 공개키와 개인키 쌍이며, 각 Node는 계산적으로 어려운 Puzzle을 풀어 자신이 만든 공개키를 다른 Node들에게 검증받음
 - 모든 참여자의 계산 자원은 같다고 가정함
 - 모든 메시지는 보낸 Node의 개인키로 서명됨
-- Synchronous Gossip 프로토콜: Honest Node가 시각 t에 보낸 메시지는 다른 Honest Node에게 $t + \Delta$까지 도착함. 단, 메시지 순서는 보장되지 않음
+- 메시지는 Synchronous Gossip 프로토콜, 즉 Node가 받은 메시지를 이웃 Node에게 퍼뜨리는 방식으로 전파됨. Honest Node가 시각 t에 보낸 메시지는 다른 Honest Node에게 $t + \Delta$까지 도착함. 단, 메시지 순서는 보장되지 않음
 
 **Threat Model**
 
-- PPT(Probabilistic Polynomial-Time, 확률적 다항 시간) Byzantine 공격자가 전체 Node의 $F < 1/3$을 장악함
+- PPT(Probabilistic Polynomial-Time) Byzantine Adversary가 전체 Node의 $F < 1/3$을 장악함
 - **Epoch Adaptive Adversary**(Slowly Adaptive Adversary라고도 함): 프로토콜 시작 시점이나 Epoch 사이에 장악할 Node를 고를 수 있지만, Epoch 안에서는 바꿀 수 없음. 즉 Node가 Shard에 배정된 뒤에 어떤 Node를 장악할지 고를 수 없음
 - Node는 장애나 Network 지연으로 연결이 끊길 수 있지만, 어느 시점에서든 Node의 2/3 초과가 온라인 상태인 Honest Node임
-- PKI(Public-Key Infrastructure, 공개키 기반 구조)나 안전한 Broadcast Channel에 의존하지 않음. CRH(Collision-Resistant Hash, 충돌 저항 해시 함수)를 위해 Random Oracle(랜덤 오라클)을 가정함
+- PKI(Public-Key Infrastructure)나 안전한 Broadcast Channel에 의존하지 않음
+- CRH(Collision-Resistant Hash)를 위해 Random Oracle, 즉 Hash 함수를 완전한 무작위 함수처럼 다룰 수 있다는 가정을 사용함
 
 **용어**
 
 - Client: 프로토콜 밖에서 Network에 Transaction을 보내는 사용자
-- 각 Shard는 Transaction을 Block으로 묶어 Shard 내부 SMR로 처리함
+- 각 Shard는 Transaction을 Block으로 묶어 Intra-shard SMR로 처리함
 - **Shard가 Block을 Commit한다**: Shard 안의 모든 Honest Node가 그 Block을 Commit함
 - **Shard가 Transaction을 Commit한다**: 그 Transaction을 담은 Block을 Shard가 Commit함
 
@@ -205,37 +215,37 @@ Sharding 설정에서는 다르다.
 
 #### Threshold Signature와 DKG
 
-- **Threshold Signature(임계 서명)**: 비밀키를 n개의 Share로 나누어 갖고, q개 Share로 만든 서명 조각을 모으면 하나의 공개키로 검증되는 서명이 되는 방식 (q-out-of-n). Instachain은 통신 복잡도를 줄이기 위해 Threshold BLS(Boneh–Lynn–Shacham) 서명 같은 방식을 사용함
-- **DKG(Distributed Key Generation, 분산 키 생성)**: Shard 구성원들이 함께 키 쌍을 만들고, 비밀키를 구성원들에게 검증 가능하게 나누어 주는 프로토콜 (예: Gennaro et al.의 방식)
+- **Threshold Signature**: 비밀키를 n개의 Share로 나누어 갖고, q개 Share로 만든 서명 조각을 모으면 하나의 공개키로 검증되는 서명이 되는 방식 (q-out-of-n). Instachain은 통신 복잡도를 줄이기 위해 Threshold BLS(Boneh–Lynn–Shacham) 서명 같은 방식을 사용함
+- **DKG(Distributed Key Generation)**: Shard 구성원들이 함께 키 쌍을 만들고, 비밀키를 구성원들에게 검증 가능하게 나누어 주는 프로토콜 (예: Gennaro et al.의 방식)
 
 Instachain에서 Quorum Certificate는 q개의 서명 Share로 만든 Threshold Signature다. 따라서 Certificate는 Shard 공개키 하나로 누구나 검증할 수 있다.
 
 #### Accumulator와 Stateless Blockchain
 
-**Accumulator(누산기)**는 집합에 대한 Binding Commitment(바인딩 약속)다. 집합을 짧은 값 하나로 나타내며, 어떤 원소가 집합에 있는지(Membership, 포함)와 경우에 따라 없는지(Non-membership, 비포함)를 증명할 수 있다. Instachain은 다음 기능을 제공하는 Accumulator를 가정한다. RSA(Rivest–Shamir–Adleman) Accumulator가 예다([Boneh et al.](https://eprint.iacr.org/2018/1188)).
+**Accumulator**는 집합에 대한 Binding Commitment, 즉 한 번 만들면 다른 집합에 대한 값으로 바꿀 수 없는 짧은 값이다. 집합을 이 값 하나로 나타내며, 어떤 원소가 집합에 있음(Membership)과 경우에 따라 없음(Non-membership)을 증명할 수 있다. Instachain은 다음 기능을 제공하는 Accumulator를 가정한다. RSA(Rivest–Shamir–Adleman) Accumulator가 예다([Boneh et al.](https://eprint.iacr.org/2018/1188)).
 
 | 기능 | 설명 |
 | --- | --- |
 | $\text{Add}(A, x)$ | Accumulator A에 원소 x 추가 |
 | $\text{Delete}(A, x)$ | A에서 원소 x 삭제 |
-| $\text{GenMemWitness}(U, x)$ | 집합 U에 있는 x의 Membership Witness(포함 증거) 생성 |
-| $\text{GenNonMemWitness}(U, x)$ | 집합 U에 없는 x의 Non-membership Witness(비포함 증거) 생성 |
+| $\text{GenMemWitness}(U, x)$ | 집합 U에 x가 있다는 증거(Membership Witness) 생성 |
+| $\text{GenNonMemWitness}(U, x)$ | 집합 U에 x가 없다는 증거(Non-membership Witness) 생성 |
 | $\text{VerMem}(A, x, w)$ | w가 x의 올바른 Membership Witness이면 1, 아니면 0 |
 | $\text{VerNonMem}(A, x, w)$ | w가 x의 올바른 Non-membership Witness이면 1, 아니면 0 |
 
-**Stateless Blockchain(무상태 블록체인)**은 Node가 Blockchain 상태를 직접 저장하지 않고 Transaction을 처리하는 설계다.
+**Stateless Blockchain**은 Node가 Blockchain 상태를 직접 저장하지 않고 Transaction을 처리하는 설계다.
 
-- Stateful(상태 저장) Blockchain: Node가 상태 전체를 저장함. 새 Node는 기존 Node에게서 최신 상태를 받아 동기화해야 하며, 상태가 커질수록 동기화가 오래 걸리고 저장 공간을 감당하지 못하는 Node가 생길 수 있음
-- Stateless Blockchain: Validator(검증자)는 UTXO 집합 대신 그 집합의 Accumulator만 유지함. RSA Accumulator는 그룹 원소 하나 크기이므로 저장 부담이 거의 없음. 새 Node는 최신 Accumulator만 받으면 참여할 수 있음
+- Stateful Blockchain: Node가 상태 전체를 저장함. 새 Node는 기존 Node에게서 최신 상태를 받아 동기화해야 하며, 상태가 커질수록 동기화가 오래 걸리고 저장 공간을 감당하지 못하는 Node가 생길 수 있음
+- Stateless Blockchain: Block을 검증하는 Node인 Validator는 UTXO 집합 대신 그 집합의 Accumulator만 유지함. RSA Accumulator는 그룹 원소 하나 크기이므로 저장 부담이 거의 없음. 새 Node는 최신 Accumulator만 받으면 참여할 수 있음
 
 UTXO 집합 U에 대한 처리 과정은 다음과 같다.
 
-1. Node는 U의 Accumulator만 가지고 있음. Client는 U를 직접 알고, Transaction에 U 기준의 Membership Proof(포함 증명)를 붙여 제출함
+1. Node는 U의 Accumulator만 가지고 있음. Client는 U를 직접 알고, Transaction의 Input이 U에 있다는 Membership Proof를 붙여 제출함
 2. Block을 제안하는 Validator P는 Transaction의 Membership Proof를 검증하고 Accumulator를 갱신함
 3. P는 Block과 갱신된 Accumulator(예: Block Header에 포함)를 Broadcast함
 4. 다른 Validator는 Block의 Transaction을 처리하며 Accumulator를 검증하고, 자신의 Accumulator를 갱신한 뒤 Block 내용은 버림
 
-대가는 Transaction 크기 증가다. Transaction은 Input마다 그 Input이 아직 소비되지 않았다는 Membership Proof를 가져야 한다. 이를 만들려면 Client가 명시적 상태를 알아야 하므로, Client는 Network를 들으며 상태를 직접 유지하거나 상태 전체를 유지해 주는 "Semi-trusted" 주체에 의존한다. 이 주체는 Availability(가용성)만 신뢰하고 Validity(유효성)는 신뢰하지 않는다. 즉 이 주체가 이미 소비된 Output에 대한 Membership Proof를 만들어 낼 수는 없다.
+대가는 Transaction 크기 증가다. Transaction은 Input마다 그 Input이 아직 소비되지 않았다는 Membership Proof를 가져야 한다. 이를 만들려면 Client가 명시적 상태를 알아야 하므로, Client는 Network를 들으며 상태를 직접 유지하거나 상태 전체를 유지해 주는 "Semi-trusted" 주체에 의존한다. 이 주체에 대해서는 상태를 언제든 제공한다는 점(Availability)만 신뢰하고, 제공한 내용이 올바르다는 점(Validity)은 신뢰하지 않는다. 즉 이 주체가 이미 소비된 Output에 대한 Membership Proof를 만들어 낼 수는 없다.
 
 ### Instachain 단계별 동작 원리
 
@@ -293,12 +303,12 @@ $N = 2000$, $T = \lfloor N/3 \rfloor$, $n = 50$에서 q에 따른 확률은 다�
 
 #### Step 2: Reference Shard와 Epoch 시작
 
-**⇒ 해결: Shard들을 관리하는 Reference Shard(참조 샤드)를 둠**
+**⇒ 해결: Shard들을 관리하는 Reference Shard를 둠**
 
 Instachain의 Shard는 두 종류다.
 
-- **Reference Shard**: Shard들을 구성하고 관리하는 특별한 Shard. 높은 확률로 Honest Majority가 되도록 일반 Shard보다 크게 만듦(성능 분석에서는 Worker Shard의 4배). 따라서 Safety와 Liveness를 모두 만족하며, 내부 합의로는 Honest Majority SMR(예: 기본 Sync HotStuff)을 사용함
-- **Worker Shard(작업 샤드)**: Client의 Transaction을 처리하는 Shard. 이 글에서 그냥 Shard라고 하면 Worker Shard를 뜻함
+- **Reference Shard**: Shard들을 구성하고 관리하는 특별한 Shard. 높은 확률로 Honest Majority가 되도록 일반 Shard보다 크게 만듦(성능 분석에서는 Worker Shard의 4배). 따라서 Safety와 Liveness를 모두 만족하며, 내부에서는 Honest Majority SMR(예: 기본 Sync HotStuff)을 사용함
+- **Worker Shard**: Client의 Transaction을 처리하는 Shard. 이 글에서 그냥 Shard라고 하면 Worker Shard를 뜻함
 
 Node는 Reference Shard와 Worker Shard 하나에 동시에 참여할 수 있지만, Worker Shard 두 개 이상에는 참여할 수 없다.
 
@@ -312,8 +322,8 @@ Reference Shard는 다음 두 Table을 관리하고 Network에 Broadcast한다.
 **Epoch 시작 과정**
 
 1. **Randomness**: 첫 Epoch의 Randomness는 일회성 Bootstrapping 프로토콜(예: RapidChain의 방식)로 만든다. 이후 Epoch의 Randomness는 Reference Shard가 현재 Epoch이 끝날 때 만든다.
-2. **배정**: 각 Node는 Randomness로 (1) Node의 Shard 배정과 (2) Shard 내부 SMR을 이끌 Leader 순서를 알게 된다.
-3. **Intra-shard Key Generation**: 각 Shard가 DKG를 실행해 Shard Identity(샤드 신원)를 만들고 Reference Shard에 등록한다.
+2. **배정**: 각 Node는 Randomness로 (1) Node의 Shard 배정과 (2) Intra-shard SMR을 이끌 Leader 순서를 알게 된다.
+3. **Intra-shard Key Generation**: 각 Shard가 DKG를 실행해 Shard Identity를 만들고 Reference Shard에 등록한다.
 4. **Transaction 배정**: Reference Shard가 등록된 Shard에 Transaction을 배정한 Tx-to-shard Table을 Commit하고 Broadcast한다.
 
 **Intra-shard Key Generation**
@@ -324,14 +334,14 @@ Reference Shard는 다음 두 Table을 관리하고 Network에 Broadcast한다.
 - Reference Shard는 q개의 Share를 모아 Threshold Signature를 만들고 $pk_S$로 검증한다. 통과하면 Tx-to-shard Table에 S를 추가한다.
 - 모든 Shard의 Share를 받을 만큼 충분히 기다린 뒤, Reference Shard는 Tx-to-shard Table을 Commit하고 Broadcast한다. Shard들은 이 Table을 받은 뒤 자신에게 배정된 Transaction을 처리하기 시작한다.
 
-이 단계를 통과한 Shard만 해당 Epoch에 Transaction을 처리할 수 있다. Safe Shard의 Corrupt Node가 침묵해 DKG를 막으면, 그 Shard는 Tx-to-shard Table에서 빠지고 구성원은 Node-to-shard Table에서 ⊥(이번 Epoch에서 닫힌 Shard를 뜻하는 특수 기호)로 배정된다. 그러면 Transaction이 그 Shard로 가지 않고 Honest Node도 Shard 내부 SMR에 참여하지 않는다. 즉 그 Shard는 이번 Epoch에서 닫힌다.
+이 단계를 통과한 Shard만 해당 Epoch에 Transaction을 처리할 수 있다. Safe Shard의 Corrupt Node가 침묵해 DKG를 막으면, 그 Shard는 Tx-to-shard Table에서 빠지고 구성원은 Node-to-shard Table에서 ⊥(이번 Epoch에서 닫힌 Shard를 뜻하는 특수 기호)로 배정된다. 그러면 Transaction이 그 Shard로 가지 않고 Honest Node도 Intra-shard SMR에 참여하지 않는다. 즉 그 Shard는 이번 Epoch에서 닫힌다.
 
 **Tx-to-shard Table 구조**
 
 Transaction을 배정할 때는 (1) 모든 Transaction이 정확히 한 Shard에 배정되어야 하고(일관성), (2) Shard 간 부하가 고르게 나뉘어야 한다.
 
-- Tx-to-shard Table은 Complete Binary Search Tree(완전 이진 탐색 트리)로 구현함
-- Leaf는 Shard Identity이고, Root에서 Leaf까지의 경로가 그 Shard가 맡는 Transaction Hash의 Prefix(접두사)임
+- Tx-to-shard Table은 Complete Binary Search Tree로 구현함
+- Leaf는 Shard Identity이고, Root에서 Leaf까지의 경로가 그 Shard가 맡는 Transaction Hash의 Prefix, 즉 Hash의 앞부분 비트임
 - 예: 경로가 00이면 S는 Hash의 처음 2비트가 00인 Transaction을 처리함
 - Shard가 새로 생기거나 닫히면 Reference Shard가 Tree를 재구성해 Broadcast함
 
@@ -341,7 +351,7 @@ Transaction을 배정할 때는 (1) 모든 Transaction이 정확히 한 Shard에
 | e+1 (Node 증가) | 5 | $S_0$: 000, $S_1$: 001, $S_2$: 01, $S_3$: 10, $S_4$: 11 |
 | e+2 (Node 감소) | 3 | $S_0$: 00, $S_1$: 01, $S_2$: 1 |
 
-**→ 문제: Shard 내부 SMR이 Quorum q로 동작하면서 Commit의 증거를 남겨야 함**
+**→ 문제: Intra-shard SMR이 Quorum q로 동작하면서 Commit의 증거를 남겨야 함**
 
 - Safe Shard에서는 Safety, Active Shard에서는 Safety와 Liveness를 보장해야 함
 - 다른 Shard가 이 Shard의 상태를 이어받거나 이 Shard의 Commit을 근거로 Transaction을 처리하려면, "이 Block이 Commit되었다"는 사실을 Shard 밖에서도 검증할 수 있어야 함
@@ -424,7 +434,7 @@ Safe Shard에서는 다음과 같이 동작한다.
 
 **⇒ 해결: Honest Node가 Liveness 부족을 감지해 Reference Shard에 알리고, Reference Shard가 그 Shard를 닫음**
 
-각 Node는 Epoch 동안 **Safe Shard Detector(안전 샤드 감지기)**를 실행한다. 감지기는 Safe Shard에서만 일어날 수 있는 사건을 추적하고, 이를 감지하면 Reference Shard에 $\langle \textbf{close}, S \rangle_r$ 요청을 보낸다.
+각 Node는 Epoch 동안 **Safe Shard Detector**를 실행한다. Safe Shard Detector는 Safe Shard에서만 일어날 수 있는 사건을 추적하고, 이를 감지하면 Reference Shard에 $\langle \textbf{close}, S \rangle_r$ 요청을 보낸다.
 
 | 규칙 | Timer 시작 시점 | Timer | Timer가 0이 될 때까지 다음 중 아무것도 받지 못하면 close |
 | --- | --- | --- | --- |
@@ -446,7 +456,7 @@ Why Active Shard에서는 이 사건들이 일어나지 않는가?
 
 Reference Shard는 한 Shard에서 close 요청을 $n - q + 1$개 받아야 그 Shard를 닫는다.
 
-- Active Shard: $C_S \leq n - q$이므로 Corrupt Node만으로는 close 요청 $n - q + 1$개를 만들 수 없음. Honest Node는 Active Shard에서 close를 보내지 않음 → 공격자는 Active Shard를 닫을 수 없음
+- Active Shard: $C_S \leq n - q$이므로 Corrupt Node만으로는 close 요청 $n - q + 1$개를 만들 수 없음. Honest Node는 Active Shard에서 close를 보내지 않음 → Adversary는 Active Shard를 닫을 수 없음
 - Safe Shard: $C_S \leq q - 1$이므로 $H_S \geq n - q + 1$ → Honest Node만으로 close 요청 수를 채울 수 있음
 
 **Shard Closing 과정**
@@ -456,9 +466,9 @@ Reference Shard의 현재 Leader $L_R$이 Shard $S_i$에서 close 요청을 $n -
 1. **Table 갱신**: Node-to-shard Table에서 $S_i$의 모든 구성원을 ⊥로 배정한다. Tx-to-shard Table에서는 $S_i$를 빼고 Tree를 재구성한다. 그 결과 $S_i$가 맡던 Transaction이 Running Shard $S_j$에 배정된다고 하자.
 2. **Table Commit**: $L_R$이 갱신한 Table을 close 요청들과 함께 Reference Shard에 제안하고, Reference Shard는 Honest Majority SMR로 이를 Commit한다.
 3. **Table Broadcast**: Commit된 Table을 Network 전체에 Broadcast한다.
-4. **Shard 닫기와 상태 전달**: $S_i$의 Node는 제안을 검증한 뒤 Shard 내부 SMR 참여를 멈춘다. $S_j$의 Node는 $S_i$의 Node에게 최신 상태를 요청하고, $S_i$의 Node는 최신 Block Header로 응답한다. $S_j$는 $S_i$의 상태를 받은 뒤, 기존 SMR Instance와 별도로 독립된 SMR Instance를 실행해 $S_i$에 배정되었던 Transaction을 처리한다.
+4. **Shard 닫기와 상태 전달**: $S_i$의 Node는 제안을 검증한 뒤 Intra-shard SMR 참여를 멈춘다. $S_j$의 Node는 $S_i$의 Node에게 최신 상태를 요청하고, $S_i$의 Node는 최신 Block Header로 응답한다. $S_j$는 $S_i$의 상태를 받은 뒤, 기존 SMR Instance와 별도로 독립된 SMR Instance를 실행해 $S_i$에 배정되었던 Transaction을 처리한다.
 
-이 감지기가 보장하는 성질은 다음과 같다.
+Safe Shard Detector가 보장하는 성질은 다음과 같다.
 
 - Active Shard의 Honest Node는 close 요청을 보내지 않으므로, Active Shard는 닫히지 않음
 - Safe Shard는 결국 Transaction을 처리하거나 결국 닫힘. 닫히지 않으려면 Active Shard처럼 Block을 만들거나 View-change를 계속해야 하는데, View-change 횟수는 $n - q + 1$번으로 제한되기 때문
@@ -523,13 +533,13 @@ $T := (\langle I_1, I_2 \rangle, O_3)$에서 $I_1$, $I_2$가 참조하는 $O_1$,
 
 1. Client가 T를 $S_1$과 $S_2$에 보낸다.
 2. $S_1$, $S_2$는 각각 $I_1$, $I_2$를 검증하고, $(T, 1)$, $(T, 2)$를 Block에 넣은 뒤, $A^{\text{UTXO}}_{S_1}$, $A^{\text{UTXO}}_{S_2}$에서 $O_1$, $O_2$를 제거한다.
-3. Client는 입력 Shard에서 **PoI(Proof-of-Inclusion, 포함 증명)**를 받는다.
+3. Client는 입력 Shard에서 **PoI(Proof-of-Inclusion)**를 받는다.
 
 $$
 \text{POI}_{\langle I_i, S_i \rangle} := (\text{MT}_{\langle (T,i), B \rangle}, B^h, \text{COM}_{\langle B, S_i \rangle})
 $$
 
-- $\text{MT}_{\langle (T,i), B \rangle}$: $(T, i)$가 Block B에 들어 있다는 Merkle Proof (i는 T의 몇 번째 Input인지)
+- $\text{MT}_{\langle (T,i), B \rangle}$: $(T, i)$가 Block B에 들어 있다는 Merkle Proof. Merkle Proof는 Leaf에서 Root까지 올라가는 경로의 형제 Hash 목록으로, 원소가 Merkle Tree에 들어 있음을 보임 (i는 T의 몇 번째 Input인지)
 - $B^h$: Block B의 Header
 - $\text{COM}_{\langle B, S_i \rangle}$: B가 $S_i$에서 Commit되었다는 Commit Proof
 - 의미: $(T, i)$가 $S_i$에서 Commit되었으므로 $O_i$가 $S_i$의 상태에서 제거되었음
@@ -557,7 +567,7 @@ Why Lock-free, Client-driven인가?
 **→ 문제: Replay Attack**
 
 - [Sonnino et al.](https://arxiv.org/abs/1901.11218)은 OmniLedger와 RapidChain의 Cross-shard 프로토콜이 Replay Attack에 취약함을 보였음. 지금까지의 Instachain 프로토콜도 마찬가지임
-- 공격: 공격자가 같은 $T_{com}$을 $S_3$에 여러 번 보냄 → 검증은 매번 통과하므로 $S_3$가 $O_3$를 여러 번 만듦
+- 공격: Adversary가 같은 $T_{com}$을 $S_3$에 여러 번 보냄 → 검증은 매번 통과하므로 $S_3$가 $O_3$를 여러 번 만듦
 
 #### Step 7: Replay Attack 방지
 
@@ -672,8 +682,11 @@ Inter-shard Safety의 두 보조 정리는 다음과 같다.
 
 **표기**
 
-- N: Network 크기, F: Network Resiliency(전체 Corrupt Node 비율), $T = \lfloor N \times F \rfloor$: Corrupt Node 수
-- n: Shard 크기, $H_S$, $C_S$: Shard S의 Honest Node 수와 Corrupt Node 수 (Random Variable)
+- N: Network 크기
+- F: Network Resiliency, 즉 전체 Node 중 Corrupt Node의 비율
+- $T = \lfloor N \times F \rfloor$: Corrupt Node 수
+- n: Shard 크기
+- $H_S$, $C_S$: Shard S의 Honest Node 수와 Corrupt Node 수 (Random Variable)
 - m: Safety와 Liveness를 모두 만족하는 Shard 수
 
 **RapidChain**
@@ -706,7 +719,7 @@ $$
 
 **프로토콜 수준 비교**
 
-- TTF(Time-to-Failure, 실패까지 걸리는 시간): Epoch 하나를 24시간으로 두고 계산
+- TTF(Time-to-Failure): 프로토콜이 실패할 때까지 걸리는 시간. Epoch 하나를 24시간으로 두고 계산
 - RapidChain: $n = 200$ (Shard Resiliency 50%)
 - Instachain: $n = 100$ (RapidChain의 절반), Reference Shard는 Worker Shard의 4배. q를 탐색해 RapidChain보다 TTF와 Active Shard 수가 모두 큰 값으로 $q = 60$을 찾음 (Shard Resiliency 60%)
 
